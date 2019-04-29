@@ -2,13 +2,7 @@
 
 ### 1. Generator Bids
 
-url: [http://nemweb.com.au/Reports/Current/Bidmove_Summary/](http://nemweb.com.au/Reports/Current/Bidmove_Summary/)
-
-regex: `PUBLIC_BIDMOVE_SUMMARY_([0-9]{8})_[0-9]{16}.zip`
-
-eg: `http://nemweb.com.au/Reports/Current/Bidmove_Summary/PUBLIC_BIDMOVE_SUMMARY_20170201_0000000280589268.zip`
-
-A single `csv` file (e.g. [PUBLIC_BIDMOVE_SUMMARY_20190428_0000000307275793.CSV](../assets/PUBLIC_BIDMOVE_SUMMARY_20190428_0000000307275793.CSV)) after decompression contains two parts:
+ contains two parts:
 
 1.  [`BIDDAYOFFER_D`](../assets/BIDDAYOFFER_D.pdf) (about 1047 rows) summarises generator bids per day
 
@@ -16,9 +10,28 @@ A single `csv` file (e.g. [PUBLIC_BIDMOVE_SUMMARY_20190428_0000000307275793.CSV]
 
 **updates** daily shortly after 4am.
 
+| Aspect  | Description                                                  |
+| ------- | :----------------------------------------------------------- |
+| URL     | [http://nemweb.com.au/Reports/Current/Bidmove_Summary/](http://nemweb.com.au/Reports/Current/Bidmove_Summary/) |
+| Regex   | `PUBLIC_BIDMOVE_SUMMARY_([0-9]{8})_[0-9]{16}.zip`            |
+| Example | [http://nemweb.com.au/Reports/Current/Bidmove_Summary/PUBLIC_BIDMOVE_SUMMARY_20170201_0000000280589268.zip](http://nemweb.com.au/Reports/Current/Bidmove_Summary/PUBLIC_BIDMOVE_SUMMARY_20170201_0000000280589268.zip) |
+| File    | A single `csv` file (e.g. [PUBLIC_BIDMOVE_SUMMARY_20190428_0000000307275793.CSV](../assets/PUBLIC_BIDMOVE_SUMMARY_20190428_0000000307275793.CSV)) after decompression |
+| Content | Two parts:<br> 1. [`BIDDAYOFFER_D`](../assets/BIDDAYOFFER_D.pdf) (about 1047 rows) summarises generator bids per day<br> 2. **[`BIDPEROFFER_D`](../assets/BIDPEROFFER_D.pdf)** summarises generator bids per period |
+| Update  | daily shortly after 4am                                      |
+
+
+
 ### 2. Regional Load (5 min prediction)
 
-
+| Aspect  | Description |
+| ------- | ----------- |
+| URL     |             |
+| Regex   |             |
+| Example |             |
+| File    |             |
+| Content |             |
+| Update  |             |
+|         |             |
 
 ### 3. Interconnector Connectivity & Limits
 
