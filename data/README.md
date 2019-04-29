@@ -34,7 +34,7 @@
 | Aspect  | Description                                                  |
 | ------- | ------------------------------------------------------------ |
 | URL     | https://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Security-and-reliability/Loss-factor-and-regional-boundaries |
-| File    | A `xlsx` file (i.e. [](../assets/2018-19 MLF Applicable from 01 July 2018 to 30 June 2019 - updated 11 July 2018.xlsx)) |
+| File    | A `xlsx` file ( [2018-19 MLF Applicable from 01 July 2018 to 30 June 2019 - updated 11 July 2018.xlsx](../assets/2018-19_MLF.xlsx)) |
 | Content | Five sheets for five regions. Each sheet contains three parts:<br>1. Loads: see below<br>2. Generators<br>3. Embedded Generators |
 | Update  | Annually by 1 April                                          |
 
