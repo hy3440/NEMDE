@@ -10,11 +10,9 @@ eg: `http://nemweb.com.au/Reports/Current/Bidmove_Summary/PUBLIC_BIDMOVE_SUMMARY
 
 A single `csv` file after decompression contains two parts:
 
-first (about 1047) rows are [`BIDDAYOFFER_D`](../assets/BIDDAYOFFER_D.pdf)
+1.  [`BIDDAYOFFER_D`](../assets/BIDDAYOFFER_D.pdf) (about 1047 rows) summarises generator bids per day
 
-second is `BIDPEROFFER_D`
-
-![](../assets/BIDPEROFFER_D.pdf)
+2. **[`BIDPEROFFER_D`](../assets/BIDPEROFFER_D.pdf)** summarises generator bids per period
 
 ### 2. Regional Load (5 min prediction)
 
