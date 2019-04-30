@@ -103,7 +103,7 @@ see [https://www.aemc.gov.au/news-centre/media-releases/aemc-publishes-schedule-
 | Aspect           | Description                                                  |
 | ---------------- | ------------------------------------------------------------ |
 | URL              | [http://nemweb.com.au/Reports/Current/Alt_Limits/altlimits.zip](http://nemweb.com.au/Reports/Current/Alt_Limits/altlimits.zip) |
-| File             | A `csv` file ([`⁨./Eterra⁩/⁨habdata98⁩/⁨LimitData/altlimits.csv⁩`](./NETWORK/Transimission%20Equipment%20Ratings/Eterra⁩/⁨habdata98⁩/⁨LimitData/altlimits.csv)) |
+| File             | A `csv` file ([`⁨./Eterra⁩/⁨habdata98⁩/⁨LimitData/altlimits.csv⁩`](./NETWORK/Transimission%20Equipment%20Ratings/Eterra/habdata98/LimitData/altlimits.csv)) |
 | Content          | See table below                                              |
 | Update           | When the network model is updated (normally every two weeks) |
 | More Information | [http://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Data/Network-Data/Transmission-Equipment-Ratings/Equipment-Identifiers](http://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Data/Network-Data/Transmission-Equipment-Ratings/Equipment-Identifiers) |
@@ -125,7 +125,7 @@ see [https://www.aemc.gov.au/news-centre/media-releases/aemc-publishes-schedule-
 | Aspect           | Description                                                  |
 | ---------------- | ------------------------------------------------------------ |
 | URL              | [http://nemweb.com.au/Reports/Current/Alt_Limits/PUBLIC_TER_DAILY.zip](http://nemweb.com.au/Reports/Current/Alt_Limits/PUBLIC_TER_DAILY.zip) |
-| File             | A `csv` file ([⁨PUBLIC_TER_DAILY.CSV](./NETWORK/⁨Transimission%20Equipment%20Ratings/PUBLIC_TER_DAILY.CSV)) |
+| File             | A `csv` file ([⁨PUBLIC_TER_DAILY.CSV](./NETWORK/Transimission%20Equipment%20Ratings/PUBLIC_TER_DAILY.CSV)) |
 | Content          | See table below                                              |
 | Update           | On change (generally every few minutes)                      |
 | More Information | [http://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Data/Network-Data/Transmission-Equipment-Ratings/Equipment-Identifiers](http://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Data/Network-Data/Transmission-Equipment-Ratings/Equipment-Identifiers) |
