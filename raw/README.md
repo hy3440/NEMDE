@@ -161,3 +161,12 @@ UNIT = Unit |
 | Content          | Nine parts:<br>1. [`DISPATCHCASESOLUTION`](./DISPATCH/DISPATCHCASESOLUTION.pdf)<br>2. [`DISPATCH_LOCAL_PRICE`](./DISPATCH/DISPATCH_LOCAL_PRICE.pdf)<br>3. [`DISPATCHPRICE`](./DISPATCH/DISPATCHPRICE.pdf)<br>4. [`DISPATCHREGIONSUM`](./DISPATCH/DISPATCHREGIONSUM.pdf) **Note: **contains `TOTALDEMAND` for each region<br>5. [`DISPATCHINTERCONNECTORRES`](./DISPATCH/DISPATCHINTERCONNECTORRES.pdf)<br>6. [`DISPATCH_MR_SCHEDULE_TRK`](./DISPATCH/DISPATCH_MR_SCHEDULE_TRK.pdf)<br>7. [`DISPATCHCONSTRAINT`](./DISPATCH/DISPATCHCONSTRAINT.pdf)<br>8. [`DISPATCHBLOCKEDCONSTRAINT`](./DISPATCH/DISPATCHBLOCKEDCONSTRAINT.pdf)<br>9. [`DISPATCH_INTERCONNECTION`](./DISPATCH/DISPATCH_INTERCONNECTION.pdf) |
 | Update           | Every 5 minutes                                              |
 | More Information | [https://www.nemweb.com.au/#dispatchis-reports](https://www.nemweb.com.au/#dispatchis-reports) |
+
+### 11. Current Registration & Exemption Lists
+
+| Aspect           | Description                                                  |
+| ---------------- | :----------------------------------------------------------- |
+| URL              | [https://www.aemo.com.au/-/media/Files/Electricity/NEM/Participant_Information/NEM-Registration-and-Exemption-List.xls](https://www.aemo.com.au/-/media/Files/Electricity/NEM/Participant_Information/NEM-Registration-and-Exemption-List.xls) |
+| File             | A `xls` file (``)                                            |
+| Content          | Two parts:  1. [`BIDDAYOFFER_D`](./BIDS/BIDDAYOFFER_D.pdf) (about 1047 rows) summarises generator bids per day  2. **BIDPEROFFER_D** summarises generator bids per period |
+| More Information | [https://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Participant-information/Current-participants/Current-registration-and-exemption-lists](https://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Participant-information/Current-participants/Current-registration-and-exemption-lists) |
