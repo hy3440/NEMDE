@@ -35,7 +35,7 @@
 | ------- | ------------------------------------------------------------ |
 | URL     | https://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Security-and-reliability/Loss-factor-and-regional-boundaries |
 | File    | A `xlsx` file ( [2018-19 MLF Applicable from 01 July 2018 to 30 June 2019 - updated 11 July 2018.xlsx](../assets/2018-19_MLF.xlsx)) |
-| Content | Five sheets for five regions. Each sheet contains three parts:<br>1. Loads: see below<br>2. Generators<br>3. Embedded Generators |
+| Content | Five sheets for five regions. Each sheet contains three parts:<br>1. Loads: see below<br>2. Generators: see below<br>3. Embedded Generators: see below |
 | Update  | Annually by 1 April                                          |
 
 1. Loads:
@@ -54,7 +54,7 @@
 | ------------------- | --------- | --------- | --------------------------------------------- |
 | Location            |           |           |                                               |
 | Voltage(kV)         |           |           |                                               |
-| DUID                |           |           |                                               |
+| DUID                |           |           | Dispatchable Unit Identifier                  |
 | Connection Point ID |           |           |                                               |
 | TNI                 |           |           | Connection point Transmission Node Identifier |
 | 2018-19 MLF         |           |           | Present Margional Loss Factor                 |
@@ -125,7 +125,7 @@ see [https://www.aemc.gov.au/news-centre/media-releases/aemc-publishes-schedule-
 | Aspect           | Description                                                  |
 | ---------------- | ------------------------------------------------------------ |
 | URL              | [http://nemweb.com.au/Reports/Current/Alt_Limits/PUBLIC_TER_DAILY.zip](http://nemweb.com.au/Reports/Current/Alt_Limits/PUBLIC_TER_DAILY.zip) |
-| File             | A `csv` file (`⁨PUBLIC_TER_DAILY.csv⁩`)                      |
+| File             | A `csv` file ([⁨PUBLIC_TER_DAILY.CSV](../assets/⁨PUBLIC_TER_DAILY.CSV)) |
 | Content          | See table below                                              |
 | Update           | On change (generally every few minutes)                      |
 | More Information | [http://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Data/Network-Data/Transmission-Equipment-Ratings/Equipment-Identifiers](http://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Data/Network-Data/Transmission-Equipment-Ratings/Equipment-Identifiers) |
@@ -149,3 +149,14 @@ UNIT = Unit |
 | EFFECTIVE FROM  | DATE        |           | The date and time the rating is active from and available as an input to constraint equations (inclusive) |
 | EFFECTIVE TO    | DATE        |           | The date and time the rating is made inactive and unavailable as an input to constraint equations (exclusive) |
 
+### 10. Dispatch Summary
+
+| Aspect           | Description                                                  |
+| ---------------- | ------------------------------------------------------------ |
+| URL              | http://nemweb.com.au/Reports/Current/DispatchIS_Reports/     |
+| Regex            | `PUBLIC_DISPATCHIS_([0-9]{12})_[0-9]{16}.zip`                |
+| Example          | [http://nemweb.com.au/Reports/Current/DispatchIS_Reports/PUBLIC_DISPATCHIS_201904301040_0000000307325261.zip](http://nemweb.com.au/Reports/Current/DispatchIS_Reports/PUBLIC_DISPATCHIS_201904301040_0000000307325261.zip) |
+| File             | A `csv` file (e.g. [PUBLIC_DISPATCHIS_201904301035_0000000307325047.CSV](../assets/PUBLIC_DISPATCHIS_201904301035_0000000307325047.CSV)) |
+| Content          |                                                              |
+| Update           |                                                              |
+| More Information |                                                              |
