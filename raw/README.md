@@ -157,6 +157,6 @@ UNIT = Unit |
 | Regex            | `PUBLIC_DISPATCHIS_([0-9]{12})_[0-9]{16}.zip`                |
 | Example          | [http://nemweb.com.au/Reports/Current/DispatchIS_Reports/PUBLIC_DISPATCHIS_201904301040_0000000307325261.zip](http://nemweb.com.au/Reports/Current/DispatchIS_Reports/PUBLIC_DISPATCHIS_201904301040_0000000307325261.zip) |
 | File             | A `csv` file (e.g. [PUBLIC_DISPATCHIS_201904301035_0000000307325047.CSV](./DISPATCH/PUBLIC_DISPATCHIS_201904301035_0000000307325047.CSV)) |
-| Content          |                                                              |
-| Update           |                                                              |
-| More Information |                                                              |
+| Content          | Nine parts:<br>1. [`DISPATCHCASESOLUTION`](./DISPATCH/DISPATCHCASESOLUTION.pdf)<br>2. [`DISPATCH_LOCAL_PRICE`](./DISPATCH/DISPATCH_LOCAL_PRICE.pdf)<br>3. [`DISPATCHPRICE`](./DISPATCH/DISPATCHPRICE.pdf)<br>4. [`DISPATCHREGIONSUM`](./DISPATCH/DISPATCHREGIONSUM.pdf)<br>5. [`DISPATCHINTERCONNECTORRES`](./DISPATCH/DISPATCHINTERCONNECTORRES.pdf)<br>6. [`DISPATCH_MR_SCHEDULE_TRK`](./DISPATCH/DISPATCH_MR_SCHEDULE_TRK.pdf)<br>7. [`DISPATCHCONSTRAINT`](./DISPATCH/DISPATCHCONSTRAINT.pdf)<br>8. [`DISPATCHBLOCKEDCONSTRAINT`](./DISPATCH/DISPATCHBLOCKEDCONSTRAINT.pdf)<br>9. [`DISPATCH_INTERCONNECTION`](./DISPATCH/DISPATCH_INTERCONNECTION.pdf) |
+| Update           | Every 5 minutes                                              |
+| More Information | [https://www.nemweb.com.au/#dispatchis-reports](https://www.nemweb.com.au/#dispatchis-reports) |
