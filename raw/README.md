@@ -7,7 +7,7 @@
 | URL     | [http://nemweb.com.au/Reports/Current/Bidmove_Summary/](http://nemweb.com.au/Reports/Current/Bidmove_Summary/) |
 | Regex   | `PUBLIC_BIDMOVE_SUMMARY_([0-9]{8})_[0-9]{16}.zip`            |
 | Example | [http://nemweb.com.au/Reports/Current/Bidmove_Summary/PUBLIC_BIDMOVE_SUMMARY_20170201_0000000280589268.zip](http://nemweb.com.au/Reports/Current/Bidmove_Summary/PUBLIC_BIDMOVE_SUMMARY_20170201_0000000280589268.zip) |
-| File    | A `csv` file after decompression (e.g. [PUBLIC_BIDMOVE_SUMMARY_20190428_0000000307275793.CSV](/BIDS/PUBLIC_BIDMOVE_SUMMARY_20190428_0000000307275793.CSV)) |
+| File    | A `csv` file after decompression (e.g. [PUBLIC_BIDMOVE_SUMMARY_20190428_0000000307275793.CSV](./BIDS/PUBLIC_BIDMOVE_SUMMARY_20190428_0000000307275793.CSV)) |
 | Content | Two parts:<br> 1. [`BIDDAYOFFER_D`](../BIDS/BIDDAYOFFER_D.pdf) (about 1047 rows) summarises generator bids per day<br> 2. **[`BIDPEROFFER_D`](../BIDS/BIDPEROFFER_D.pdf)** summarises generator bids per period |
 | Update  | Daily shortly after 4am                                      |
 
