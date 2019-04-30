@@ -80,8 +80,8 @@ see [https://www.aemc.gov.au/news-centre/media-releases/aemc-publishes-schedule-
 | URL              | [http://www.nemweb.com.au/REPORTS/CURRENT/Dispatch_SCADA/](http://www.nemweb.com.au/REPORTS/CURRENT/Dispatch_SCADA/) |
 | Regex            | `PUBLIC_DISPATCHSCADA_([0-9]{12})_[0-9]{16}.zip`             |
 | Example          | [http://www.nemweb.com.au/REPORTS/CURRENT/Dispatch_SCADA/PUBLIC_DISPATCHSCADA_201904291630_0000000307295427.zip](http://www.nemweb.com.au/REPORTS/CURRENT/Dispatch_SCADA/PUBLIC_DISPATCHSCADA_201904291630_0000000307295427.zip) |
-| File             | A `csv` file after decompression (e.g. [PUBLIC_DISPATCHSCADA_201904291630_0000000307295427.CSV](./ACTUAL_GENERATION&LOAD_DATA/PUBLIC_DISPATCHSCADA_201904291630_0000000307295427.CSV)) |
-| Content          | See [`DISPATCH_UNIT_SCADA`](./ACTUAL_GENERATION&LOAD_DATA/DISPATCH_UNIT_SCADA.pdf) |
+| File             | A `csv` file after decompression (e.g. [PUBLIC_DISPATCHSCADA_201904291630_0000000307295427.CSV](./ACTUAL_GENERATION%26LOAD_DATA/PUBLIC_DISPATCHSCADA_201904291630_0000000307295427.CSV)) |
+| Content          | See [`DISPATCH_UNIT_SCADA`](./ACTUAL_GENERATION%26LOAD_DATA/DISPATCH_UNIT_SCADA.pdf) |
 | Update           | Every five minutes.                                          |
 | More Information | [https://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Data/Market-Management-System-MMS/Generation-and-Load](https://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Data/Market-Management-System-MMS/Generation-and-Load) |
 
