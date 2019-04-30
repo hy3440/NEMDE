@@ -8,7 +8,7 @@
 | Regex   | `PUBLIC_BIDMOVE_SUMMARY_([0-9]{8})_[0-9]{16}.zip`            |
 | Example | [http://nemweb.com.au/Reports/Current/Bidmove_Summary/PUBLIC_BIDMOVE_SUMMARY_20170201_0000000280589268.zip](http://nemweb.com.au/Reports/Current/Bidmove_Summary/PUBLIC_BIDMOVE_SUMMARY_20170201_0000000280589268.zip) |
 | File    | A `csv` file after decompression (e.g. [PUBLIC_BIDMOVE_SUMMARY_20190428_0000000307275793.CSV](./BIDS/PUBLIC_BIDMOVE_SUMMARY_20190428_0000000307275793.CSV)) |
-| Content | Two parts:<br> 1. [`BIDDAYOFFER_D`](../BIDS/BIDDAYOFFER_D.pdf) (about 1047 rows) summarises generator bids per day<br> 2. **[`BIDPEROFFER_D`](../BIDS/BIDPEROFFER_D.pdf)** summarises generator bids per period |
+| Content | Two parts:<br> 1. [`BIDDAYOFFER_D`](./BIDS/BIDDAYOFFER_D.pdf) (about 1047 rows) summarises generator bids per day<br> 2. **[`BIDPEROFFER_D`](./BIDS/BIDPEROFFER_D.pdf)** summarises generator bids per period |
 | Update  | Daily shortly after 4am                                      |
 
 ### 2. Regional Load (5 min prediction)
@@ -34,7 +34,7 @@
 | Aspect  | Description                                                  |
 | ------- | ------------------------------------------------------------ |
 | URL     | https://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Security-and-reliability/Loss-factor-and-regional-boundaries |
-| File    | A `xlsx` file ( [2018-19 MLF Applicable from 01 July 2018 to 30 June 2019 - updated 11 July 2018.xlsx](../LOSS_FACTORS/2018-19%20MLF%20Applicable%20from%2001%20July%202018%20to%2030%20June%202019%20-%20updated%2011%20July%202018.xlsx)) |
+| File    | A `xlsx` file ( [2018-19 MLF Applicable from 01 July 2018 to 30 June 2019 - updated 11 July 2018.xlsx](./LOSS_FACTORS/2018-19%20MLF%20Applicable%20from%2001%20July%202018%20to%2030%20June%202019%20-%20updated%2011%20July%202018.xlsx)) |
 | Content | Five sheets for five regions. Each sheet contains three parts:<br>1. Loads: see below<br>2. Generators: see below<br>3. Embedded Generators: see below |
 | Update  | Annually by 1 April                                          |
 
@@ -80,8 +80,8 @@ see [https://www.aemc.gov.au/news-centre/media-releases/aemc-publishes-schedule-
 | URL              | [http://www.nemweb.com.au/REPORTS/CURRENT/Dispatch_SCADA/](http://www.nemweb.com.au/REPORTS/CURRENT/Dispatch_SCADA/) |
 | Regex            | `PUBLIC_DISPATCHSCADA_([0-9]{12})_[0-9]{16}.zip`             |
 | Example          | [http://www.nemweb.com.au/REPORTS/CURRENT/Dispatch_SCADA/PUBLIC_DISPATCHSCADA_201904291630_0000000307295427.zip](http://www.nemweb.com.au/REPORTS/CURRENT/Dispatch_SCADA/PUBLIC_DISPATCHSCADA_201904291630_0000000307295427.zip) |
-| File             | A `csv` file after decompression (e.g. [PUBLIC_DISPATCHSCADA_201904291630_0000000307295427.CSV](../ACTUAL_GENERATION&LOAD_DATA/PUBLIC_DISPATCHSCADA_201904291630_0000000307295427.CSV)) |
-| Content          | See [`DISPATCH_UNIT_SCADA`](../ACTUAL_GENERATION&LOAD_DATA/DISPATCH_UNIT_SCADA.pdf) |
+| File             | A `csv` file after decompression (e.g. [PUBLIC_DISPATCHSCADA_201904291630_0000000307295427.CSV](./ACTUAL_GENERATION&LOAD_DATA/PUBLIC_DISPATCHSCADA_201904291630_0000000307295427.CSV)) |
+| Content          | See [`DISPATCH_UNIT_SCADA`](./ACTUAL_GENERATION&LOAD_DATA/DISPATCH_UNIT_SCADA.pdf) |
 | Update           | Every five minutes.                                          |
 | More Information | [https://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Data/Market-Management-System-MMS/Generation-and-Load](https://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Data/Market-Management-System-MMS/Generation-and-Load) |
 
@@ -92,8 +92,8 @@ see [https://www.aemc.gov.au/news-centre/media-releases/aemc-publishes-schedule-
 | URL     | http://nemweb.com.au/Reports/Current/Network/](http://nemweb.com.au/Reports/Current/Network/) |
 | Regex   | `PUBLIC_NETWORK_([0-9]{14})_[0-9]{16}.zip`                   |
 | Example | [http://nemweb.com.au/Reports/Current/Network/PUBLIC_NETWORK_20190422133005_0000000307021827.zip](http://nemweb.com.au/Reports/Current/Network/PUBLIC_NETWORK_20190422133005_0000000307021827.zip) |
-| File    | A `csv` file after decompression (e.g. [PUBLIC_NETWORK_20190429133006_0000000307290523.CSV](../NETWORK/Network%20Outages/PUBLIC_NETWORK_20190429133006_0000000307290523.CSV)) |
-| Content | Two parts: <br>1. [`NETWORK_OUTAGECONSTRAINTSET`](../NETWORK/Network%20Outages/NETWORK_OUTAGECONSTRAINTSET.pdf) lists the Constraint Sets that are expected to be invoked for the outage once it is confirmed to proceed<br>2. [`NETWORK_OUTAGEDETAIL`](../NETWORK/Network%20Outages/NETWORK_OUTAGEDETAIL.pdf) lists asset owners planned outages for transmission equipment. |
+| File    | A `csv` file after decompression (e.g. [PUBLIC_NETWORK_20190429133006_0000000307290523.CSV](./NETWORK/Network%20Outages/PUBLIC_NETWORK_20190429133006_0000000307290523.CSV)) |
+| Content | Two parts: <br>1. [`NETWORK_OUTAGECONSTRAINTSET`](./NETWORK/Network%20Outages/NETWORK_OUTAGECONSTRAINTSET.pdf) lists the Constraint Sets that are expected to be invoked for the outage once it is confirmed to proceed<br>2. [`NETWORK_OUTAGEDETAIL`](./NETWORK/Network%20Outages/NETWORK_OUTAGEDETAIL.pdf) lists asset owners planned outages for transmission equipment. |
 | Update  | Every 30 minutes                                             |
 
 ### 9. [Transmission Equipment Ratings](https://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Data/Network-Data/Transmission-Equipment-Ratings)
@@ -103,7 +103,7 @@ see [https://www.aemc.gov.au/news-centre/media-releases/aemc-publishes-schedule-
 | Aspect           | Description                                                  |
 | ---------------- | ------------------------------------------------------------ |
 | URL              | [http://nemweb.com.au/Reports/Current/Alt_Limits/altlimits.zip](http://nemweb.com.au/Reports/Current/Alt_Limits/altlimits.zip) |
-| File             | A `csv` file ([`⁨../Eterra⁩/⁨habdata98⁩/⁨LimitData/altlimits.csv⁩`](../NETWORK/Transimission%20Equipment%20Ratings/Eterra⁩/⁨habdata98⁩/⁨LimitData/altlimits.csv)) |
+| File             | A `csv` file ([`⁨./Eterra⁩/⁨habdata98⁩/⁨LimitData/altlimits.csv⁩`](./NETWORK/Transimission%20Equipment%20Ratings/Eterra⁩/⁨habdata98⁩/⁨LimitData/altlimits.csv)) |
 | Content          | See table below                                              |
 | Update           | When the network model is updated (normally every two weeks) |
 | More Information | [http://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Data/Network-Data/Transmission-Equipment-Ratings/Equipment-Identifiers](http://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Data/Network-Data/Transmission-Equipment-Ratings/Equipment-Identifiers) |
@@ -125,7 +125,7 @@ see [https://www.aemc.gov.au/news-centre/media-releases/aemc-publishes-schedule-
 | Aspect           | Description                                                  |
 | ---------------- | ------------------------------------------------------------ |
 | URL              | [http://nemweb.com.au/Reports/Current/Alt_Limits/PUBLIC_TER_DAILY.zip](http://nemweb.com.au/Reports/Current/Alt_Limits/PUBLIC_TER_DAILY.zip) |
-| File             | A `csv` file ([⁨PUBLIC_TER_DAILY.CSV](../NETWORK/⁨Transimission%20Equipment%20Ratings/PUBLIC_TER_DAILY.CSV)) |
+| File             | A `csv` file ([⁨PUBLIC_TER_DAILY.CSV](./NETWORK/⁨Transimission%20Equipment%20Ratings/PUBLIC_TER_DAILY.CSV)) |
 | Content          | See table below                                              |
 | Update           | On change (generally every few minutes)                      |
 | More Information | [http://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Data/Network-Data/Transmission-Equipment-Ratings/Equipment-Identifiers](http://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Data/Network-Data/Transmission-Equipment-Ratings/Equipment-Identifiers) |
@@ -156,7 +156,7 @@ UNIT = Unit |
 | URL              | http://nemweb.com.au/Reports/Current/DispatchIS_Reports/     |
 | Regex            | `PUBLIC_DISPATCHIS_([0-9]{12})_[0-9]{16}.zip`                |
 | Example          | [http://nemweb.com.au/Reports/Current/DispatchIS_Reports/PUBLIC_DISPATCHIS_201904301040_0000000307325261.zip](http://nemweb.com.au/Reports/Current/DispatchIS_Reports/PUBLIC_DISPATCHIS_201904301040_0000000307325261.zip) |
-| File             | A `csv` file (e.g. [PUBLIC_DISPATCHIS_201904301035_0000000307325047.CSV](../DISPATCH/PUBLIC_DISPATCHIS_201904301035_0000000307325047.CSV)) |
+| File             | A `csv` file (e.g. [PUBLIC_DISPATCHIS_201904301035_0000000307325047.CSV](./DISPATCH/PUBLIC_DISPATCHIS_201904301035_0000000307325047.CSV)) |
 | Content          |                                                              |
 | Update           |                                                              |
 | More Information |                                                              |
