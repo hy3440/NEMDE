@@ -2,26 +2,27 @@
 
 ### 1. Generator Bids
 
-| Aspect  | Description                                                  |
-| ------- | :----------------------------------------------------------- |
-| URL     | [http://nemweb.com.au/Reports/Current/Bidmove_Summary/](http://nemweb.com.au/Reports/Current/Bidmove_Summary/) |
-| Regex   | `PUBLIC_BIDMOVE_SUMMARY_([0-9]{8})_[0-9]{16}.zip`            |
-| Example | [http://nemweb.com.au/Reports/Current/Bidmove_Summary/PUBLIC_BIDMOVE_SUMMARY_20170201_0000000280589268.zip](http://nemweb.com.au/Reports/Current/Bidmove_Summary/PUBLIC_BIDMOVE_SUMMARY_20170201_0000000280589268.zip) |
-| File    | A `csv` file after decompression (e.g. [PUBLIC_BIDMOVE_SUMMARY_20190428_0000000307275793.CSV](./BIDS/PUBLIC_BIDMOVE_SUMMARY_20190428_0000000307275793.CSV)) |
-| Content | Two parts:<br> 1. [`BIDDAYOFFER_D`](./BIDS/BIDDAYOFFER_D.pdf) (about 1047 rows) summarises generator bids per day<br> 2. **[`BIDPEROFFER_D`](./BIDS/BIDPEROFFER_D.pdf)** summarises generator bids per period |
-| Update  | Daily shortly after 4am                                      |
+| Aspect           | Description                                                  |
+| ---------------- | :----------------------------------------------------------- |
+| URL              | [http://nemweb.com.au/Reports/Current/Bidmove_Summary/](http://nemweb.com.au/Reports/Current/Bidmove_Summary/) |
+| Regex            | `PUBLIC_BIDMOVE_SUMMARY_([0-9]{8})_[0-9]{16}.zip`            |
+| Example          | [http://nemweb.com.au/Reports/Current/Bidmove_Summary/PUBLIC_BIDMOVE_SUMMARY_20170201_0000000280589268.zip](http://nemweb.com.au/Reports/Current/Bidmove_Summary/PUBLIC_BIDMOVE_SUMMARY_20170201_0000000280589268.zip) |
+| File             | A `csv` file after decompression (e.g. [PUBLIC_BIDMOVE_SUMMARY_20190428_0000000307275793.CSV](./BIDS/PUBLIC_BIDMOVE_SUMMARY_20190428_0000000307275793.CSV)) |
+| Content          | Two parts:<br> 1. [`BIDDAYOFFER_D`](./BIDS/BIDDAYOFFER_D.pdf) (about 1047 rows) summarises generator bids per day<br> 2. **[`BIDPEROFFER_D`](./BIDS/BIDPEROFFER_D.pdf)** summarises generator bids per period |
+| Update           | Daily shortly after 4am                                      |
+| More Information | [https://www.nemweb.com.au/#bidmove-summary](https://www.nemweb.com.au/#bidmove-summary) |
 
-### 2. Regional Load (5 min prediction)
+### 2. Regional Load (5 min predispatch)
 
-| Aspect           | Description |
-| ---------------- | ----------- |
-| URL              |             |
-| Regex            |             |
-| Example          |             |
-| File             |             |
-| Content          |             |
-| Update           |             |
-| More Information |             |
+| Aspect           | Description                                                  |
+| ---------------- | ------------------------------------------------------------ |
+| URL              | [http://nemweb.com.au/Reports/Current/P5_Reports/](http://nemweb.com.au/Reports/Current/P5_Reports/) |
+| Regex            | `PUBLIC_P5MIN_([0-9]{12})_[0-9]{12}.zip`                     |
+| Example          | [http://nemweb.com.au/Reports/Current/P5_Reports/PUBLIC_P5MIN_201904301445_20190430144045.zip](http://nemweb.com.au/Reports/Current/P5_Reports/PUBLIC_P5MIN_201904301445_20190430144045.zip) |
+| File             | A `csv` file after decompression (e.g. [PUBLIC_P5MIN_201904301430_20190430142545.CSV](./PRE_DISPATCH/PUBLIC_P5MIN_201904301430_20190430142545.CSV)) |
+| Content          | Six parts:<br>1. [P5MIN_CASESOLUTION](./PRE_DISPATCH/P5MIN_CASESOLUTION.PDF)<br>2. [P5MIN_LOCAL_PRICE](./PRE_DISPATCH/P5MIN_LOCAL_PRICE.PDF)<br>3. [P5MIN_REGIONSOLUTION](./PRE_DISPATCH/P5MIN_REGIONSOLUTION.PDF)<br>4. [P5MIN_INTERCONNECTORSOLN](./PRE_DISPATCH/P5MIN_INTERCONNECTORSOLN.PDF)<br>5. [P5MIN_CONSTRAINTSOLUTION](./PRE_DISPATCH/P5MIN_CONSTRAINTSOLUTION.PDF)<br>6. [P5MIN_BLOCKEDCONSTRAINT](./PRE_DISPATCH/P5MIN_BLOCKEDCONSTRAINT.PDF) |
+| Update           | Every 5 minutes                                              |
+| More Information | https://www.nemweb.com.au/#p5-reports                        |
 
 ### 3. Interconnector Connectivity & Limits
 
@@ -157,6 +158,6 @@ UNIT = Unit |
 | Regex            | `PUBLIC_DISPATCHIS_([0-9]{12})_[0-9]{16}.zip`                |
 | Example          | [http://nemweb.com.au/Reports/Current/DispatchIS_Reports/PUBLIC_DISPATCHIS_201904301040_0000000307325261.zip](http://nemweb.com.au/Reports/Current/DispatchIS_Reports/PUBLIC_DISPATCHIS_201904301040_0000000307325261.zip) |
 | File             | A `csv` file (e.g. [PUBLIC_DISPATCHIS_201904301035_0000000307325047.CSV](./DISPATCH/PUBLIC_DISPATCHIS_201904301035_0000000307325047.CSV)) |
-| Content          | Nine parts:<br>1. [`DISPATCHCASESOLUTION`](./DISPATCH/DISPATCHCASESOLUTION.pdf)<br>2. [`DISPATCH_LOCAL_PRICE`](./DISPATCH/DISPATCH_LOCAL_PRICE.pdf)<br>3. [`DISPATCHPRICE`](./DISPATCH/DISPATCHPRICE.pdf)<br>4. [`DISPATCHREGIONSUM`](./DISPATCH/DISPATCHREGIONSUM.pdf)<br>5. [`DISPATCHINTERCONNECTORRES`](./DISPATCH/DISPATCHINTERCONNECTORRES.pdf)<br>6. [`DISPATCH_MR_SCHEDULE_TRK`](./DISPATCH/DISPATCH_MR_SCHEDULE_TRK.pdf)<br>7. [`DISPATCHCONSTRAINT`](./DISPATCH/DISPATCHCONSTRAINT.pdf)<br>8. [`DISPATCHBLOCKEDCONSTRAINT`](./DISPATCH/DISPATCHBLOCKEDCONSTRAINT.pdf)<br>9. [`DISPATCH_INTERCONNECTION`](./DISPATCH/DISPATCH_INTERCONNECTION.pdf) |
+| Content          | Nine parts:<br>1. [`DISPATCHCASESOLUTION`](./DISPATCH/DISPATCHCASESOLUTION.pdf)<br>2. [`DISPATCH_LOCAL_PRICE`](./DISPATCH/DISPATCH_LOCAL_PRICE.pdf)<br>3. [`DISPATCHPRICE`](./DISPATCH/DISPATCHPRICE.pdf)<br>4. [`DISPATCHREGIONSUM`](./DISPATCH/DISPATCHREGIONSUM.pdf) **Note: **contains `TOTALDEMAND` for each region<br>5. [`DISPATCHINTERCONNECTORRES`](./DISPATCH/DISPATCHINTERCONNECTORRES.pdf)<br>6. [`DISPATCH_MR_SCHEDULE_TRK`](./DISPATCH/DISPATCH_MR_SCHEDULE_TRK.pdf)<br>7. [`DISPATCHCONSTRAINT`](./DISPATCH/DISPATCHCONSTRAINT.pdf)<br>8. [`DISPATCHBLOCKEDCONSTRAINT`](./DISPATCH/DISPATCHBLOCKEDCONSTRAINT.pdf)<br>9. [`DISPATCH_INTERCONNECTION`](./DISPATCH/DISPATCH_INTERCONNECTION.pdf) |
 | Update           | Every 5 minutes                                              |
 | More Information | [https://www.nemweb.com.au/#dispatchis-reports](https://www.nemweb.com.au/#dispatchis-reports) |
