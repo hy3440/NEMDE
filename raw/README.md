@@ -113,24 +113,5 @@ see [https://www.aemc.gov.au/news-centre/media-releases/aemc-publishes-schedule-
 | ---------------- | :----------------------------------------------------------- |
 | URL              | [https://www.aemo.com.au/-/media/Files/Electricity/NEM/Participant_Information/NEM-Registration-and-Exemption-List.xls](https://www.aemo.com.au/-/media/Files/Electricity/NEM/Participant_Information/NEM-Registration-and-Exemption-List.xls) |
 | File             | A `xls` file ([`NEM Registration and Exemption List.xls`](./GENERATORS/NEM%20Registration%20and%20Exemption%20List.xls)) |
-| Content          | 11 sheets, the `Generators and Schedule Loads ` sheet see below |
+| Content          | 11 sheets, one is [`Generators and Schedule Loads `](./GENERATORS/GENERATORS.md) |
 | More Information | [https://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Participant-information/Current-participants/Current-registration-and-exemption-lists](https://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Participant-information/Current-participants/Current-registration-and-exemption-lists) |
-
-| Name                         | Data Type | Mandatory | Comment                                     |
-| ---------------------------- | --------- | --------- | ------------------------------------------- |
-| Participant                  |           |           | Company Name                                |
-| Station Name                 |           |           | Station Name                                |
-| Region                       |           |           | Region ID                                   |
-| Dispatch Type                |           |           | Generator or Load                           |
-| Category                     |           |           | Scheduled, Semi-Scheduled, or Non-Scheduled |
-| Fuel Source - Primary        |           |           |                                             |
-| Fuel Source -Descriptor      |           |           |                                             |
-| Technology Type - Primary    |           |           |                                             |
-| Technology Type - Descriptor |           |           |                                             |
-| Physical Unit No.            |           |           |                                             |
-| Unit Size (MW)               |           |           |                                             |
-| Aggregation                  |           |           |                                             |
-| DUID                         |           |           | Dispatchable Unit Identifier                |
-| Reg Cap (MW)                 |           |           |                                             |
-| Max Cap (MW)                 |           |           |                                             |
-| Max ROC/Min                  |           |           |                                             |
