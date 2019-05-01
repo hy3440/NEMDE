@@ -4,7 +4,8 @@
 
 | Aspect           | Description                                                  |
 | ---------------- | :----------------------------------------------------------- |
-| URL              | [http://nemweb.com.au/Reports/Current/Bidmove_Summary/](http://nemweb.com.au/Reports/Current/Bidmove_Summary/) |
+| Section          | `Bidmove_Summary`                                            |
+| File Name        | `<#VISIBILITY_ID>_BIDMOVE_SUMMARY_<#CASE_DATE>_<#EVENT_QUEUE_ID>.zip` |
 | Regex            | `PUBLIC_BIDMOVE_SUMMARY_([0-9]{8})_[0-9]{16}.zip`            |
 | Example          | [http://nemweb.com.au/Reports/Current/Bidmove_Summary/PUBLIC_BIDMOVE_SUMMARY_20170201_0000000280589268.zip](http://nemweb.com.au/Reports/Current/Bidmove_Summary/PUBLIC_BIDMOVE_SUMMARY_20170201_0000000280589268.zip) |
 | File             | A `csv` file after decompression (e.g. [PUBLIC_BIDMOVE_SUMMARY_20190428_0000000307275793.CSV](./BIDS/PUBLIC_BIDMOVE_SUMMARY_20190428_0000000307275793.CSV)) |
@@ -16,11 +17,12 @@
 
 | Aspect           | Description                                                  |
 | ---------------- | ------------------------------------------------------------ |
-| URL              | [http://nemweb.com.au/Reports/Current/P5_Reports/](http://nemweb.com.au/Reports/Current/P5_Reports/) |
+| Section          | `P5_Reports`                                                 |
+| File Name        | `<#VISIBILITY_ID>_P5MIN_<#CASE_DATETIME>_<#REPORT_DATETIME>.zip` |
 | Regex            | `PUBLIC_P5MIN_([0-9]{12})_[0-9]{12}.zip`                     |
 | Example          | [http://nemweb.com.au/Reports/Current/P5_Reports/PUBLIC_P5MIN_201904301445_20190430144045.zip](http://nemweb.com.au/Reports/Current/P5_Reports/PUBLIC_P5MIN_201904301445_20190430144045.zip) |
 | File             | A `csv` file after decompression (e.g. [PUBLIC_P5MIN_201904301430_20190430142545.CSV](./PRE_DISPATCH/PUBLIC_P5MIN_201904301430_20190430142545.CSV)) |
-| Content          | Six parts:<br>1. [P5MIN_CASESOLUTION](./PRE_DISPATCH/P5MIN_CASESOLUTION.PDF)<br>2. [P5MIN_LOCAL_PRICE](./PRE_DISPATCH/P5MIN_LOCAL_PRICE.PDF)<br>3. [P5MIN_REGIONSOLUTION](./PRE_DISPATCH/P5MIN_REGIONSOLUTION.PDF)<br>4. [P5MIN_INTERCONNECTORSOLN](./PRE_DISPATCH/P5MIN_INTERCONNECTORSOLN.PDF)<br>5. [P5MIN_CONSTRAINTSOLUTION](./PRE_DISPATCH/P5MIN_CONSTRAINTSOLUTION.PDF)<br>6. [P5MIN_BLOCKEDCONSTRAINT](./PRE_DISPATCH/P5MIN_BLOCKEDCONSTRAINT.PDF) |
+| Content          | Six parts:<br>1. [`P5MIN_CASESOLUTION`](./PRE_DISPATCH/P5MIN_CASESOLUTION.PDF)<br>2. [`P5MIN_LOCAL_PRICE`](./PRE_DISPATCH/P5MIN_LOCAL_PRICE.PDF)<br>3. [`P5MIN_REGIONSOLUTION`](./PRE_DISPATCH/P5MIN_REGIONSOLUTION.PDF)<br>4. [`P5MIN_INTERCONNECTORSOLN`](./PRE_DISPATCH/P5MIN_INTERCONNECTORSOLN.PDF)<br>5. [`P5MIN_CONSTRAINTSOLUTION`](./PRE_DISPATCH/P5MIN_CONSTRAINTSOLUTION.PDF)<br>6. [`P5MIN_BLOCKEDCONSTRAINT`](./PRE_DISPATCH/P5MIN_BLOCKEDCONSTRAINT.PDF) |
 | Update           | Every 5 minutes                                              |
 | More Information | https://www.nemweb.com.au/#p5-reports                        |
 
@@ -54,7 +56,8 @@ see [https://www.aemc.gov.au/news-centre/media-releases/aemc-publishes-schedule-
 
 | Aspect           | Description                                                  |
 | ---------------- | ------------------------------------------------------------ |
-| URL              | [http://www.nemweb.com.au/REPORTS/CURRENT/Dispatch_SCADA/](http://www.nemweb.com.au/REPORTS/CURRENT/Dispatch_SCADA/) |
+| Section          | `Dispatch_SCADA`                                             |
+| File Name        | `<#VISIBILITY_ID>_DISPATCHSCADA_<#CASE_DATETIME>_<#EVENT_QUEUE_ID>.zip` |
 | Regex            | `PUBLIC_DISPATCHSCADA_([0-9]{12})_[0-9]{16}.zip`             |
 | Example          | [http://www.nemweb.com.au/REPORTS/CURRENT/Dispatch_SCADA/PUBLIC_DISPATCHSCADA_201904291630_0000000307295427.zip](http://www.nemweb.com.au/REPORTS/CURRENT/Dispatch_SCADA/PUBLIC_DISPATCHSCADA_201904291630_0000000307295427.zip) |
 | File             | A `csv` file after decompression (e.g. [PUBLIC_DISPATCHSCADA_201904291630_0000000307295427.CSV](./ACTUAL_GENERATION%26LOAD_DATA/PUBLIC_DISPATCHSCADA_201904291630_0000000307295427.CSV)) |
@@ -64,14 +67,15 @@ see [https://www.aemc.gov.au/news-centre/media-releases/aemc-publishes-schedule-
 
 ### 8. Network Outages
 
-| Aspect  | Description                                                  |
-| ------- | ------------------------------------------------------------ |
-| URL     | http://nemweb.com.au/Reports/Current/Network/](http://nemweb.com.au/Reports/Current/Network/) |
-| Regex   | `PUBLIC_NETWORK_([0-9]{14})_[0-9]{16}.zip`                   |
-| Example | [http://nemweb.com.au/Reports/Current/Network/PUBLIC_NETWORK_20190422133005_0000000307021827.zip](http://nemweb.com.au/Reports/Current/Network/PUBLIC_NETWORK_20190422133005_0000000307021827.zip) |
-| File    | A `csv` file after decompression (e.g. [PUBLIC_NETWORK_20190429133006_0000000307290523.CSV](./NETWORK/Network%20Outages/PUBLIC_NETWORK_20190429133006_0000000307290523.CSV)) |
-| Content | Two parts: <br>1. [`NETWORK_OUTAGECONSTRAINTSET`](./NETWORK/Network%20Outages/NETWORK_OUTAGECONSTRAINTSET.pdf) lists the Constraint Sets that are expected to be invoked for the outage once it is confirmed to proceed<br>2. [`NETWORK_OUTAGEDETAIL`](./NETWORK/Network%20Outages/NETWORK_OUTAGEDETAIL.pdf) lists asset owners planned outages for transmission equipment. |
-| Update  | Every 30 minutes                                             |
+| Aspect    | Description                                                  |
+| --------- | ------------------------------------------------------------ |
+| Section   | `Network`                                                    |
+| File Name | `<#VISIBILITY_ID>_NETWORK_<#REPORT_DATETIME>_<#EVENT_QUEUE_ID>.ZIP` |
+| Regex     | `PUBLIC_NETWORK_([0-9]{14})_[0-9]{16}.zip`                   |
+| Example   | [http://nemweb.com.au/Reports/Current/Network/PUBLIC_NETWORK_20190422133005_0000000307021827.zip](http://nemweb.com.au/Reports/Current/Network/PUBLIC_NETWORK_20190422133005_0000000307021827.zip) |
+| File      | A `csv` file after decompression (e.g. [PUBLIC_NETWORK_20190429133006_0000000307290523.CSV](./NETWORK/Network%20Outages/PUBLIC_NETWORK_20190429133006_0000000307290523.CSV)) |
+| Content   | Two parts: <br>1. [`NETWORK_OUTAGECONSTRAINTSET`](./NETWORK/Network%20Outages/NETWORK_OUTAGECONSTRAINTSET.pdf) lists the Constraint Sets that are expected to be invoked for the outage once it is confirmed to proceed<br>2. [`NETWORK_OUTAGEDETAIL`](./NETWORK/Network%20Outages/NETWORK_OUTAGEDETAIL.pdf) lists asset owners planned outages for transmission equipment. |
+| Update    | Every 30 minutes                                             |
 
 ### 9. Transmission Equipment Ratings
 
@@ -82,7 +86,7 @@ see [https://www.aemc.gov.au/news-centre/media-releases/aemc-publishes-schedule-
 | URL              | [http://nemweb.com.au/Reports/Current/Alt_Limits/altlimits.zip](http://nemweb.com.au/Reports/Current/Alt_Limits/altlimits.zip) |
 | File             | A `csv` file ([`⁨./Eterra⁩/⁨habdata98⁩/⁨LimitData/altlimits.csv⁩`](./NETWORK/Transimission%20Equipment%20Ratings/Eterra/habdata98/LimitData/altlimits.csv)) |
 | Content          | See [`ALTLIMITS`](./NETWORK/Transimission%20Equipment%20Ratings/ALTLIMITS.md) |
-| Update           | When the network model is updated (normally every two weeks) |
+| Update           | When the network model is updated (normally every two weeks)<br>**Note:** Historical data is unavailable. |
 | More Information | [https://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Data/Network-Data/Transmission-Equipment-Ratings](https://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Data/Network-Data/Transmission-Equipment-Ratings) |
 
 2. **`PUBLIC_TER_DAILY.zip`**: contains the ratings used in constraint equations and the ID used in the right-hand of the constraint equations
@@ -92,18 +96,19 @@ see [https://www.aemc.gov.au/news-centre/media-releases/aemc-publishes-schedule-
 | URL              | [http://nemweb.com.au/Reports/Current/Alt_Limits/PUBLIC_TER_DAILY.zip](http://nemweb.com.au/Reports/Current/Alt_Limits/PUBLIC_TER_DAILY.zip) |
 | File             | A `csv` file ([⁨PUBLIC_TER_DAILY.CSV](./NETWORK/Transimission%20Equipment%20Ratings/PUBLIC_TER_DAILY.CSV)) |
 | Content          | See [`LIM_ALTLIM`](./NETWORK/Transimission%20Equipment%20Ratings/LIM_ALTLIM.md) |
-| Update           | On change (generally every few minutes)                      |
+| Update           | On change (generally every few minutes)<br/>**Note:** Historical data is unavailable. |
 | More Information | [https://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Data/Network-Data/Transmission-Equipment-Ratings](https://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Data/Network-Data/Transmission-Equipment-Ratings) |
 
 ### 10. Dispatch Summary
 
 | Aspect           | Description                                                  |
 | ---------------- | ------------------------------------------------------------ |
-| URL              | http://nemweb.com.au/Reports/Current/DispatchIS_Reports/     |
+| Section          | `DispatchIS_Reports`                                         |
+| File Name        | `<#VISIBILITY_ID>_DISPATCHIS_<#CASE_DATETIME>_<#EVENT_QUEUE_ID>.zip` |
 | Regex            | `PUBLIC_DISPATCHIS_([0-9]{12})_[0-9]{16}.zip`                |
 | Example          | [http://nemweb.com.au/Reports/Current/DispatchIS_Reports/PUBLIC_DISPATCHIS_201904301040_0000000307325261.zip](http://nemweb.com.au/Reports/Current/DispatchIS_Reports/PUBLIC_DISPATCHIS_201904301040_0000000307325261.zip) |
 | File             | A `csv` file (e.g. [PUBLIC_DISPATCHIS_201904301035_0000000307325047.CSV](./DISPATCH/PUBLIC_DISPATCHIS_201904301035_0000000307325047.CSV)) |
-| Content          | Nine parts:<br>1. [`DISPATCHCASESOLUTION`](./DISPATCH/DISPATCHCASESOLUTION.pdf)<br>2. [`DISPATCH_LOCAL_PRICE`](./DISPATCH/DISPATCH_LOCAL_PRICE.pdf)<br>3. [`DISPATCHPRICE`](./DISPATCH/DISPATCHPRICE.pdf)<br>4. [`DISPATCHREGIONSUM`](./DISPATCH/DISPATCHREGIONSUM.pdf) **Note: **contains `TOTALDEMAND` for each region<br>5. [`DISPATCHINTERCONNECTORRES`](./DISPATCH/DISPATCHINTERCONNECTORRES.pdf)<br>6. [`DISPATCH_MR_SCHEDULE_TRK`](./DISPATCH/DISPATCH_MR_SCHEDULE_TRK.pdf)<br>7. [`DISPATCHCONSTRAINT`](./DISPATCH/DISPATCHCONSTRAINT.pdf)<br>8. [`DISPATCHBLOCKEDCONSTRAINT`](./DISPATCH/DISPATCHBLOCKEDCONSTRAINT.pdf)<br>9. [`DISPATCH_INTERCONNECTION`](./DISPATCH/DISPATCH_INTERCONNECTION.pdf) |
+| Content          | Nine parts:<br>1. [`DISPATCHCASESOLUTION`](./DISPATCH/DISPATCHCASESOLUTION.pdf)<br>2. [`DISPATCH_LOCAL_PRICE`](./DISPATCH/DISPATCH_LOCAL_PRICE.pdf)<br>3. [`DISPATCHPRICE`](./DISPATCH/DISPATCHPRICE.pdf)<br>4. [`DISPATCHREGIONSUM`](./DISPATCH/DISPATCHREGIONSUM.pdf) : contains `TOTALDEMAND` for each region<br>5. [`DISPATCHINTERCONNECTORRES`](./DISPATCH/DISPATCHINTERCONNECTORRES.pdf)<br>6. [`DISPATCH_MR_SCHEDULE_TRK`](./DISPATCH/DISPATCH_MR_SCHEDULE_TRK.pdf)<br>7. [`DISPATCHCONSTRAINT`](./DISPATCH/DISPATCHCONSTRAINT.pdf)<br>8. [`DISPATCHBLOCKEDCONSTRAINT`](./DISPATCH/DISPATCHBLOCKEDCONSTRAINT.pdf)<br>9. [`DISPATCH_INTERCONNECTION`](./DISPATCH/DISPATCH_INTERCONNECTION.pdf) |
 | Update           | Every 5 minutes                                              |
 | More Information | [https://www.nemweb.com.au/#dispatchis-reports](https://www.nemweb.com.au/#dispatchis-reports) |
 
