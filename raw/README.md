@@ -36,32 +36,8 @@
 | ------- | ------------------------------------------------------------ |
 | URL     | https://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Security-and-reliability/Loss-factor-and-regional-boundaries |
 | File    | A `xlsx` file ( [2018-19 MLF Applicable from 01 July 2018 to 30 June 2019 - updated 11 July 2018.xlsx](./LOSS_FACTORS/2018-19%20MLF%20Applicable%20from%2001%20July%202018%20to%2030%20June%202019%20-%20updated%2011%20July%202018.xlsx)) |
-| Content | Five sheets for five regions. Each sheet contains three parts:<br>1. Loads: see below<br>2. Generators: see below<br>3. Embedded Generators: see below |
+| Content | Five sheets for five regions. Each sheet contains three parts: see [`LOSS_FACTORS`](./LOSS_FACTORS/LOSS_FACTORS.MD)<br>1. Loads<br>2. Generators<br>3. Embedded Generators |
 | Update  | Annually by 1 April                                          |
-
-1. Loads:
-
-| Name        | Data Type | Mandatory | Comment                                       |
-| ----------- | --------- | --------- | --------------------------------------------- |
-| Location    |           |           |                                               |
-| Voltage(kV) |           |           |                                               |
-| TNI         |           |           | Connection point Transmission Node Identifier |
-| 2018-19 MLF |           |           | Present Margional Loss Factor                 |
-| 2017-18 MLF |           |           | Former Margional Loss Factor                  |
-
-2. Generators:
-
-| Name                | Data Type | Mandatory | Comment                                       |
-| ------------------- | --------- | --------- | --------------------------------------------- |
-| Location            |           |           |                                               |
-| Voltage(kV)         |           |           |                                               |
-| DUID                |           |           | Dispatchable Unit Identifier                  |
-| Connection Point ID |           |           |                                               |
-| TNI                 |           |           | Connection point Transmission Node Identifier |
-| 2018-19 MLF         |           |           | Present Margional Loss Factor                 |
-| 2017-18 MLF         |           |           | Former Margional Loss Factor                  |
-
-3. Embedded Generators: same as above
 
 ### 6. Market Price Cap
 
