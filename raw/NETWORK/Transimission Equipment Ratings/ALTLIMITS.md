@@ -1,5 +1,7 @@
 # ALTLIMITS
 
+More information: [http://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Data/Network-Data/Transmission-Equipment-Ratings/Equipment-Identifiers](http://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Data/Network-Data/Transmission-Equipment-Ratings/Equipment-Identifiers)
+
 | Name            | Data Type   | Mandatory | Comment                                                      |
 | --------------- | ----------- | :-------- | ------------------------------------------------------------ |
 | Site Name       |             |           | The Substation, Terminal Station, or Power Station name      |

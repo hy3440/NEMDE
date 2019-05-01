@@ -73,7 +73,7 @@ see [https://www.aemc.gov.au/news-centre/media-releases/aemc-publishes-schedule-
 | Content | Two parts: <br>1. [`NETWORK_OUTAGECONSTRAINTSET`](./NETWORK/Network%20Outages/NETWORK_OUTAGECONSTRAINTSET.pdf) lists the Constraint Sets that are expected to be invoked for the outage once it is confirmed to proceed<br>2. [`NETWORK_OUTAGEDETAIL`](./NETWORK/Network%20Outages/NETWORK_OUTAGEDETAIL.pdf) lists asset owners planned outages for transmission equipment. |
 | Update  | Every 30 minutes                                             |
 
-### 9. [Transmission Equipment Ratings](https://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Data/Network-Data/Transmission-Equipment-Ratings)
+### 9. Transmission Equipment Ratings
 
 1. **`altlimits.zip`**: complete list of ratings used in AEMO's EMS (energy management system)
 
@@ -83,7 +83,7 @@ see [https://www.aemc.gov.au/news-centre/media-releases/aemc-publishes-schedule-
 | File             | A `csv` file ([`⁨./Eterra⁩/⁨habdata98⁩/⁨LimitData/altlimits.csv⁩`](./NETWORK/Transimission%20Equipment%20Ratings/Eterra/habdata98/LimitData/altlimits.csv)) |
 | Content          | See [`ALTLIMITS`](./NETWORK/Transimission%20Equipment%20Ratings/ALTLIMITS.md) |
 | Update           | When the network model is updated (normally every two weeks) |
-| More Information | [http://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Data/Network-Data/Transmission-Equipment-Ratings/Equipment-Identifiers](http://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Data/Network-Data/Transmission-Equipment-Ratings/Equipment-Identifiers) |
+| More Information | [https://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Data/Network-Data/Transmission-Equipment-Ratings](https://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Data/Network-Data/Transmission-Equipment-Ratings) |
 
 2. **`PUBLIC_TER_DAILY.zip`**: contains the ratings used in constraint equations and the ID used in the right-hand of the constraint equations
 
@@ -93,7 +93,7 @@ see [https://www.aemc.gov.au/news-centre/media-releases/aemc-publishes-schedule-
 | File             | A `csv` file ([⁨PUBLIC_TER_DAILY.CSV](./NETWORK/Transimission%20Equipment%20Ratings/PUBLIC_TER_DAILY.CSV)) |
 | Content          | See [`LIM_ALTLIM`](./NETWORK/Transimission%20Equipment%20Ratings/LIM_ALTLIM.md) |
 | Update           | On change (generally every few minutes)                      |
-| More Information | [http://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Data/Network-Data/Transmission-Equipment-Ratings/Equipment-Identifiers](http://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Data/Network-Data/Transmission-Equipment-Ratings/Equipment-Identifiers) |
+| More Information | [https://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Data/Network-Data/Transmission-Equipment-Ratings](https://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Data/Network-Data/Transmission-Equipment-Ratings) |
 
 ### 10. Dispatch Summary
 
