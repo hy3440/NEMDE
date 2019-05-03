@@ -49,7 +49,7 @@ The *pre-dispatch* period starts at the next *trading interval* and continues to
 | Example          | [http://nemweb.com.au/Reports/Current/PredispatchIS_Reports/PUBLIC_PREDISPATCHIS_201905031130_20190503110120.zip](http://nemweb.com.au/Reports/Current/PredispatchIS_Reports/PUBLIC_PREDISPATCHIS_201905031130_20190503110120.zip) |
 | File             | A `csv` file after decompression (e.g. [PUBLIC_PREDISPATCHIS_201905031130_20190503110120.CSV](./PRE_DISPATCH/PUBLIC_PREDISPATCHIS_201905031130_20190503110120.CSV)) |
 | Content          | 7 parts: <br>1. [`PREDISPATCHCASESOLUTION`](./PRE_DISPATCH/PREDISPATCHCASESOLUTION.pdf) <br>2. [`PREDISPATCH_LOCAL_PRICE`](./PRE_DISPATCH/PREDISPATCH_LOCAL_PRICE.pdf)<br>3. [`PREDISPATCHPRICE`](./PRE_DISPATCH/PREDISPATCHPRICE.pdf)<br>4. [`PREDISPATCHREGIONSUM`](./PRE_DISPATCH/PREDISPATCHREGIONSUM.pdf)<br>5. [`PREDISPATCHINTERCONNECTORRES`](./PRE_DISPATCH/PREDISPATCHINTERCONNECTORRES.pdf)<br>6. [`PREDISPATCHCONSTRAINT`](./PRE_DISPATCH/PREDISPATCHCONSTRAINT.pdf)<br>7. [`PREDISPATCHBLOCKEDCONSTRAINT`](./PRE_DISPATCH/PREDISPATCHBLOCKEDCONSTRAINT.pdf) |
-| Update           | Every 20 minutes, 48 files per day                           |
+| Update           | Every 30 minutes, 48 files per day                           |
 | More Information | [https://www.nemweb.com.au/#predispatchis-reports](https://www.nemweb.com.au/#predispatchis-reports) |
 
 ### 5. Loss Factors
