@@ -35,9 +35,7 @@ def download(section, filename_pattern):
                 csv_name = zf.namelist()[0]
                 filenames.append(csv_name)
                 zf.extractall(data_dir)
-                # df = pd.read_csv(zf.open(csv_name))
-                # df.to_csv(os.path.join(data_dir, csv_name))
-    print("Download {0}: {1} files.".format(section, len(filenames)))
+    print("{0}: {1} file(s).".format(section, len(filenames)))
     return filenames
 
 
@@ -69,6 +67,22 @@ def download_5min_predispatch(case_date):
     section = "P5_Reports"
     visibility_id = "PUBLIC"
     file_id = "P5MIN"
+    filename_pattern = "{0}_{1}_{2}[0-9]{{4}}_[0-9]{{14}}.zip".format(visibility_id, file_id, case_date)
+    return download(section, filename_pattern)
+
+
+def download_predispatch(case_date):
+    """
+    Download predispatch summary of the given date from
+    <#BASE_URL>/<#SECTION>/<#VISIBILITY_ID>_PREDISPATCHIS_<#CASE_DATETIME>_<#REPORT_DATETIME>.zip
+    e.g. http://nemweb.com.au/Reports/Current/PredispatchIS_Reports/PUBLIC_PREDISPATCHIS_201905031130_20190503110120.zip
+
+    :param case_date: the date of downloaded data
+    :return: a list of downloaded csv filenames
+    """
+    section = "PredispatchIS_Reports"
+    visibility_id = "PUBLIC"
+    file_id = "PREDISPATCHIS"
     filename_pattern = "{0}_{1}_{2}[0-9]{{4}}_[0-9]{{14}}.zip".format(visibility_id, file_id, case_date)
     return download(section, filename_pattern)
 
@@ -123,8 +137,10 @@ def download_dispatch_scada(case_date):
 
 def main():
     case_date = "20190502"
+    print("Download data of {0}".format(case_date))
     download_bidmove_summary(case_date)
     download_5min_predispatch(case_date)
+    download_predispatch(case_date)
     download_network_outage(case_date)
     download_dispatch_summary(case_date)
     download_dispatch_scada(case_date)

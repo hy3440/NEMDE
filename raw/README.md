@@ -22,7 +22,7 @@
 | Update           | Daily shortly after 4am; 1 file per day                      |
 | More Information | [https://www.nemweb.com.au/#bidmove-summary](https://www.nemweb.com.au/#bidmove-summary) |
 
-### 3. Regional Load (5 min predispatch)
+### 3. 5-min predispatch)
 
 Every 5 minutes AEMO updates a 60-minute look ahead of DISPATCH prices.
 
@@ -37,7 +37,22 @@ Every 5 minutes AEMO updates a 60-minute look ahead of DISPATCH prices.
 | Update           | Every 5 minutes, 288 files per day                           |
 | More Information | https://www.nemweb.com.au/#p5-reports                        |
 
-### 4. Loss Factors
+### 4. Pre-dispatch
+
+The *pre-dispatch* period starts at the next *trading interval* and continues to include the next *trading day* with a half hour resolution. At the time of initial publication the *pre-dispatch* covers the remainder of the day, the next day and the first 4 hours of the following day.
+
+| Aspect           | Description                                                  |
+| ---------------- | ------------------------------------------------------------ |
+| Section          | `PredispatchIS_Reports`                                      |
+| File Name        | `<#VISIBILITY_ID>_PREDISPATCHIS_<#CASE_DATETIME>_<#REPORT_DATETIME>.zip` |
+| Regex            | `PUBLIC_PREDISPATCHIS_<#CASE_DATE>[0-9]{4}_[0-9]{14}.zip`    |
+| Example          | [http://nemweb.com.au/Reports/Current/PredispatchIS_Reports/PUBLIC_PREDISPATCHIS_201905031130_20190503110120.zip](http://nemweb.com.au/Reports/Current/PredispatchIS_Reports/PUBLIC_PREDISPATCHIS_201905031130_20190503110120.zip) |
+| File             | A `csv` file after decompression (e.g. [PUBLIC_PREDISPATCHIS_201905031130_20190503110120.CSV](./PRE_DISPATCH/PUBLIC_PREDISPATCHIS_201905031130_20190503110120.CSV)) |
+| Content          | 7 parts: <br>1. [`PREDISPATCHCASESOLUTION`](./PRE_DISPATCH/PREDISPATCHCASESOLUTION.PDF) <br>2. [`PREDISPATCH_LOCAL_PRICE`](./PRE_DISPATCH/PREDISPATCH_LOCAL_PRICE.PDF)<br>3. [`PREDISPATCHPRICE`](./PRE_DISPATCH/PREDISPATCHPRICE.PDF)<br>4. [`PREDISPATCHREGIONSUM`](./PRE_DISPATCH/PREDISPATCHREGIONSUM.PDF)<br>5. [`PREDISPATCHINTERCONNECTORRES`](./PRE_DISPATCH/PREDISPATCHINTERCONNECTORRES.PDF)<br>6. [`PREDISPATCHCONSTRAINT`](./PRE_DISPATCH/PREDISPATCHCONSTRAINT.PDF)<br>7. [`PREDISPATCHBLOCKEDCONSTRAINT`](./PRE_DISPATCH/PREDISPATCHBLOCKEDCONSTRAINT.PDF) |
+| Update           | Every 20 minutes, 48 files per day                           |
+| More Information | [https://www.nemweb.com.au/#predispatchis-reports](https://www.nemweb.com.au/#predispatchis-reports) |
+
+### 5. Loss Factors
 
 | Aspect  | Description                                                  |
 | ------- | ------------------------------------------------------------ |
@@ -46,7 +61,7 @@ Every 5 minutes AEMO updates a 60-minute look ahead of DISPATCH prices.
 | Content | Five sheets for five regions. Each sheet contains three parts: see [`LOSS_FACTORS`](./LOSS_FACTORS/LOSS_FACTORS.md)<br>1. Loads<br>2. Generators<br>3. Embedded Generators |
 | Update  | Annually by 1 April                                          |
 
-### 5. Network Outages
+### 6. Network Outages
 
 | Aspect    | Description                                                  |
 | --------- | ------------------------------------------------------------ |
@@ -58,7 +73,7 @@ Every 5 minutes AEMO updates a 60-minute look ahead of DISPATCH prices.
 | Content   | Two parts: <br>1. [`NETWORK_OUTAGECONSTRAINTSET`](./NETWORK/Network%20Outages/NETWORK_OUTAGECONSTRAINTSET.pdf) lists the Constraint Sets that are expected to be invoked for the outage once it is confirmed to proceed<br>2. [`NETWORK_OUTAGEDETAIL`](./NETWORK/Network%20Outages/NETWORK_OUTAGEDETAIL.pdf) lists asset owners planned outages for transmission equipment. |
 | Update    | Every 30 minutes; 50 files per day                           |
 
-### 6. Transmission Equipment Ratings
+### 7. Transmission Equipment Ratings
 
 1. **`altlimits.zip`**: complete list of ratings used in AEMO's EMS (energy management system)
 
@@ -80,7 +95,7 @@ Every 5 minutes AEMO updates a 60-minute look ahead of DISPATCH prices.
 | Update           | On change (generally every few minutes)<br/>**Note:** Historical data is unavailable. |
 | More Information | [https://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Data/Network-Data/Transmission-Equipment-Ratings](https://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Data/Network-Data/Transmission-Equipment-Ratings) |
 
-### 7. Market Price Cap
+### 8. Market Price Cap
 
 see [https://www.aemc.gov.au/news-centre/media-releases/aemc-publishes-schedule-reliability-settings-2018-19](https://www.aemc.gov.au/news-centre/media-releases/aemc-publishes-schedule-reliability-settings-2018-19)
 
@@ -91,11 +106,11 @@ see [https://www.aemc.gov.au/news-centre/media-releases/aemc-publishes-schedule-
 
 **updates** annually.
 
-### 8. Interconnector Connectivity & Limits
+### 9. Interconnector Connectivity & Limits
 
 [http://www.aemo.com.au/-/media/Files/Electricity/NEM/Security_and_Reliability/Congestion-Information/2017/Interconnector-Capabilities.pdf](http://www.aemo.com.au/-/media/Files/Electricity/NEM/Security_and_Reliability/Congestion-Information/2017/Interconnector-Capabilities.pdf) 
 
-### 9. Dispatch Summary
+### 10. Dispatch Summary
 
 | Aspect           | Description                                                  |
 | ---------------- | ------------------------------------------------------------ |
@@ -108,7 +123,7 @@ see [https://www.aemc.gov.au/news-centre/media-releases/aemc-publishes-schedule-
 | Update           | Every 5 minutes, 288 files per day                           |
 | More Information | [https://www.nemweb.com.au/#dispatchis-reports](https://www.nemweb.com.au/#dispatchis-reports) |
 
-### 10. Actual Generation and Load Data
+### 11. Actual Generation and Load Data
 
 | Aspect           | Description                                                  |
 | ---------------- | ------------------------------------------------------------ |
