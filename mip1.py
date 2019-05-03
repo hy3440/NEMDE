@@ -15,15 +15,15 @@ try:
     # create variables
     x = m.addVar(vtype=GRB.BINARY, name="x")
     y = m.addVar(vtype=GRB.BINARY, name="y")
-    z = m.addVar(vtype=GRB.BINARY, name="x")
+    z = m.addVar(vtype=GRB.BINARY, name="z")
 
     # set objective
     m.setObjective(x + y + 2 * z, GRB.MAXIMIZE)
 
-    # add contraint: x + 2 y + 3 z <= 4
+    # add constraint: x + 2 y + 3 z <= 4
     m.addConstr(x + 2 * y + 3 * z <= 4, "c0")
 
-    # add contraint: x + y >= 1
+    # add constraint: x + y >= 1
     m.addConstr(x + y >= 1, "c1")
 
     # optimize model
@@ -35,7 +35,7 @@ try:
     print('Obj: %g' % m.objVal)
 
 except GurobiError as e:
-    print('Error code ' + str(e.errno) + ": " +str(e))
+    print('Error code ' + str(e.errno) + ": " + str(e))
 
 except AttributeError:
     print('Encountered an attribute error')

@@ -1,9 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="7833ca11-8419-4ae6-adca-2b4ab16e8910" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/src/preprocess.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/preprocess.py" afterDir="false" />
-    </list>
+    <list default="true" id="7833ca11-8419-4ae6-adca-2b4ab16e8910" name="Default Changelist" comment="" />
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -29,7 +27,7 @@
       <file pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/src/preprocess.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="202">
+            <state relative-caret-position="473">
               <caret line="152" column="11" lean-forward="true" selection-start-line="152" selection-start-column="11" selection-end-line="152" selection-end-column="11" />
             </state>
           </provider>
@@ -164,12 +162,12 @@
       <option name="presentableId" value="Default" />
       <updated>1556068868371</updated>
       <workItem from="1556068870763" duration="110000" />
-      <workItem from="1556268955873" duration="20120000" />
+      <workItem from="1556268955873" duration="20482000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="20230000" />
+    <option name="totallyTimeSpent" value="20592000" />
   </component>
   <component name="TodoView">
     <todo-panel id="selected-file">
@@ -268,7 +266,7 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/src/preprocess.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="202">
+        <state relative-caret-position="473">
           <caret line="152" column="11" lean-forward="true" selection-start-line="152" selection-start-column="11" selection-end-line="152" selection-end-column="11" />
         </state>
       </provider>
