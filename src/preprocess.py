@@ -135,15 +135,25 @@ def download_dispatch_scada(case_date):
     return download(section, filename_pattern)
 
 
-def main():
-    case_date = "20190502"
-    print("Download data of {0}".format(case_date))
+def download_all(case_date):
+    """
+    Download files of the given date from all sections.
+
+    :param case_date: the date of downloaded data
+    :return: a list of downloaded csv filenames
+    """
     download_bidmove_summary(case_date)
     download_5min_predispatch(case_date)
     download_predispatch(case_date)
     download_network_outage(case_date)
     download_dispatch_summary(case_date)
     download_dispatch_scada(case_date)
+
+
+def main():
+    case_date = "20190502"
+    print("Download data of {0}".format(case_date))
+    download_all(case_date)
 
 
 if __name__ == '__main__':
