@@ -82,7 +82,7 @@ The *pre-dispatch* period starts at the next *trading interval* and continues to
 | URL              | [http://nemweb.com.au/Reports/Current/Alt_Limits/altlimits.zip](http://nemweb.com.au/Reports/Current/Alt_Limits/altlimits.zip) |
 | File             | A `csv` file ([`⁨./Eterra⁩/⁨habdata98⁩/⁨LimitData/altlimits.csv⁩`](./NETWORK/Transimission%20Equipment%20Ratings/Eterra/habdata98/LimitData/altlimits.csv)) |
 | Content          | See [`ALTLIMITS`](./NETWORK/Transimission%20Equipment%20Ratings/ALTLIMITS.md) |
-| Update           | When the network model is updated (normally every two weeks)<br>**Note:** Historical data is unavailable. |
+| Update           | When the network model is updated (normally every two weeks)<br>**Note:** Historical data is not available. |
 | More Information | [https://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Data/Network-Data/Transmission-Equipment-Ratings](https://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Data/Network-Data/Transmission-Equipment-Ratings) |
 
 2. **`PUBLIC_TER_DAILY.zip`**: contains the ratings used in constraint equations and the ID used in the right-hand of the constraint equations
@@ -92,7 +92,7 @@ The *pre-dispatch* period starts at the next *trading interval* and continues to
 | URL              | [http://nemweb.com.au/Reports/Current/Alt_Limits/PUBLIC_TER_DAILY.zip](http://nemweb.com.au/Reports/Current/Alt_Limits/PUBLIC_TER_DAILY.zip) |
 | File             | A `csv` file ([⁨PUBLIC_TER_DAILY.CSV](./NETWORK/Transimission%20Equipment%20Ratings/PUBLIC_TER_DAILY.CSV)) |
 | Content          | See [`LIM_ALTLIM`](./NETWORK/Transimission%20Equipment%20Ratings/LIM_ALTLIM.md) |
-| Update           | On change (generally every few minutes)<br/>**Note:** Historical data is unavailable. |
+| Update           | On change (generally every few minutes)<br>Published on 8am everyday (not sure)<br>**Note:** Historical data is not available. |
 | More Information | [https://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Data/Network-Data/Transmission-Equipment-Ratings](https://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Data/Network-Data/Transmission-Equipment-Ratings) |
 
 ### 8. Market Price Cap
