@@ -24,7 +24,7 @@ def download(url):
     result = requests.get(url)
     if result.ok:
         with zipfile.ZipFile(io.BytesIO(result.content)) as zf:
-            # zf.extractall(data_dir)
+            zf.extractall(data_dir)
             return zf.namelist()[0]
 
 
@@ -45,7 +45,7 @@ def download_files(section, filename_pattern):
     for match in regex.findall(page.text):
         csv_name = download('{0}/{1}/{2}'.format(BASE_URL, section, match[:-1]))
         filenames.append(csv_name)
-    logging.info('Downloaded %s %d file(s)', section, len(filenames))
+    logging.info('Downloaded {0} {1} file(s)'.format(section, len(filenames)))
     return filenames
 
 
@@ -185,7 +185,7 @@ def download_all(case_date):
 def main():
     logging.basicConfig(format='%(levelname)s: %(asctime)s %(message)s', level=logging.INFO)
     case_date = "20190502"
-    logging.info("Downloading data of %s", case_date)
+    logging.info("Downloading data of {}".format(case_date))
     download_all(case_date)
 
 
