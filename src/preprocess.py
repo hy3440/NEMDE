@@ -1,3 +1,4 @@
+import logging
 import io
 import os
 import pandas as pd
@@ -23,7 +24,7 @@ def download(url):
     result = requests.get(url)
     if result.ok:
         with zipfile.ZipFile(io.BytesIO(result.content)) as zf:
-            zf.extractall(data_dir)
+            # zf.extractall(data_dir)
             return zf.namelist()[0]
 
 
@@ -38,13 +39,13 @@ def download_files(section, filename_pattern):
     :param filename_pattern:
     :return: a list of downloaded csv filenames
     """
-    page = requests.get("{0}/{1}".format(BASE_URL, section))
-    regex = re.compile("{0}<".format(filename_pattern))
+    page = requests.get('{0}/{1}'.format(BASE_URL, section))
+    regex = re.compile('{0}<'.format(filename_pattern))
     filenames = []
     for match in regex.findall(page.text):
-        csv_name = download("{0}/{1}/{2}".format(BASE_URL, section, match[:-1]))
+        csv_name = download('{0}/{1}/{2}'.format(BASE_URL, section, match[:-1]))
         filenames.append(csv_name)
-    print("{0}: {1} file(s).".format(section, len(filenames)))
+    logging.info('Downloaded %s %d file(s)', section, len(filenames))
     return filenames
 
 
@@ -57,10 +58,10 @@ def download_bidmove_summary(case_date):
     :param case_date: the date of downloaded data
     :return: a list of downloaded csv filenames
     """
-    section = "Bidmove_Summary"
-    visibility_id = "PUBLIC"
-    file_id = "BIDMOVE_SUMMARY"
-    filename_pattern = "{0}_{1}_{2}_[0-9]{{16}}.zip".format(visibility_id, file_id, case_date)
+    section = 'Bidmove_Summary'
+    visibility_id = 'PUBLIC'
+    file_id = 'BIDMOVE_SUMMARY'
+    filename_pattern = '{0}_{1}_{2}_[0-9]{{16}}.zip'.format(visibility_id, file_id, case_date)
     return download_files(section, filename_pattern)
 
 
@@ -73,10 +74,10 @@ def download_5min_predispatch(case_date):
     :param case_date: the date of downloaded data
     :return: a list of downloaded csv filenames
     """
-    section = "P5_Reports"
-    visibility_id = "PUBLIC"
-    file_id = "P5MIN"
-    filename_pattern = "{0}_{1}_{2}[0-9]{{4}}_[0-9]{{14}}.zip".format(visibility_id, file_id, case_date)
+    section = 'P5_Reports'
+    visibility_id = 'PUBLIC'
+    file_id = 'P5MIN'
+    filename_pattern = '{0}_{1}_{2}[0-9]{{4}}_[0-9]{{14}}.zip'.format(visibility_id, file_id, case_date)
     return download_files(section, filename_pattern)
 
 
@@ -89,10 +90,10 @@ def download_predispatch(case_date):
     :param case_date: the date of downloaded data
     :return: a list of downloaded csv filenames
     """
-    section = "PredispatchIS_Reports"
-    visibility_id = "PUBLIC"
-    file_id = "PREDISPATCHIS"
-    filename_pattern = "{0}_{1}_{2}[0-9]{{4}}_[0-9]{{14}}.zip".format(visibility_id, file_id, case_date)
+    section = 'PredispatchIS_Reports'
+    visibility_id = 'PUBLIC'
+    file_id = 'PREDISPATCHIS'
+    filename_pattern = '{0}_{1}_{2}[0-9]{{4}}_[0-9]{{14}}.zip'.format(visibility_id, file_id, case_date)
     return download_files(section, filename_pattern)
 
 
@@ -105,10 +106,10 @@ def download_network_outage(case_date):
     :param case_date: the date of downloaded data
     :return: a list of downloaded csv filenames
     """
-    section = "Network"
-    visibility_id = "PUBLIC"
-    file_id = "NETWORK"
-    filename_pattern = "{0}_{1}_{2}[0-9]{{6}}_[0-9]{{16}}.zip".format(visibility_id, file_id, case_date)
+    section = 'Network'
+    visibility_id = 'PUBLIC'
+    file_id = 'NETWORK'
+    filename_pattern = '{0}_{1}_{2}[0-9]{{6}}_[0-9]{{16}}.zip'.format(visibility_id, file_id, case_date)
     return download_files(section, filename_pattern)
 
 
@@ -121,10 +122,10 @@ def download_dispatch_summary(case_date):
     :param case_date: the date of downloaded data
     :return: a list of downloaded csv filenames
     """
-    section = "DispatchIS_Reports"
-    visibility_id = "PUBLIC"
-    file_id = "DISPATCHIS"
-    filename_pattern = "{0}_{1}_{2}[0-9]{{4}}_[0-9]{{16}}.zip".format(visibility_id, file_id, case_date)
+    section = 'DispatchIS_Reports'
+    visibility_id = 'PUBLIC'
+    file_id = 'DISPATCHIS'
+    filename_pattern = '{0}_{1}_{2}[0-9]{{4}}_[0-9]{{16}}.zip'.format(visibility_id, file_id, case_date)
     return download_files(section, filename_pattern)
 
 
@@ -137,10 +138,10 @@ def download_dispatch_scada(case_date):
     :param case_date: the date of downloaded data
     :return: a list of downloaded csv filenames
     """
-    section = "Dispatch_SCADA"
-    visibility_id = "PUBLIC"
-    file_id = "DISPATCHSCADA"
-    filename_pattern = "{0}_{1}_{2}[0-9]{{4}}_[0-9]{{16}}.zip".format(visibility_id, file_id, case_date)
+    section = 'Dispatch_SCADA'
+    visibility_id = 'PUBLIC'
+    file_id = 'DISPATCHSCADA'
+    filename_pattern = '{0}_{1}_{2}[0-9]{{4}}_[0-9]{{16}}.zip'.format(visibility_id, file_id, case_date)
     return download_files(section, filename_pattern)
 
 
@@ -150,8 +151,8 @@ def download_altlimits():
 
     :return: path of the downloaded file
     """
-    print("Ratings in EMS: 1 file(s)")
-    return download("http://nemweb.com.au/Reports/Current/Alt_Limits/altlimits.zip")
+    logging.info('Downloading Ratings in EMS 1 file')
+    return download('http://nemweb.com.au/Reports/Current/Alt_Limits/altlimits.zip')
 
 
 def download_transmission_equipment_ratings():
@@ -160,8 +161,8 @@ def download_transmission_equipment_ratings():
 
     :return: name of the downloaded file
     """
-    print("Daily transmission equipment ratings: 1 file(s)")
-    return download("http://nemweb.com.au/Reports/Current/Alt_Limits/PUBLIC_TER_DAILY.zip")
+    logging.info('Downloading Daily transmission equipment ratings 1 file')
+    return download('http://nemweb.com.au/Reports/Current/Alt_Limits/PUBLIC_TER_DAILY.zip')
 
 
 def download_all(case_date):
@@ -182,8 +183,10 @@ def download_all(case_date):
 
 
 def main():
+    logging.basicConfig(format='%(levelname)s: %(asctime)s %(message)s', level=logging.INFO)
     case_date = "20190502"
-    print("Download data of {0}".format(case_date))
+    logging.info("Downloading data of %s", case_date)
+    download_all(case_date)
 
 
 if __name__ == '__main__':
