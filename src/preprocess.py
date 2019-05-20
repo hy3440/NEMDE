@@ -65,6 +65,22 @@ def download_bidmove_summary(case_date):
     return download_files(section, filename_pattern)
 
 
+def download_bidmove_complete(case_date):
+    """
+    Download bidmove complete of the given date from
+    <#BASE_URL>/<#SECTION>/<#VISIBILITY_ID>_BIDMOVE_COMPLETE_<#CASE_DATE>_<#EVENT_QUEUE_ID>.zip
+    e.g. http://nemweb.com.au/Reports/Current/Bidmove_Summary/PUBLIC_BIDMOVE_COMPLETE_20170201_0000000280589266.zip
+
+    :param case_date: the date of downloaded data
+    :return: a list of downloaded csv filenames
+    """
+    section = 'Bidmove_Complete'
+    visibility_id = 'PUBLIC'
+    file_id = 'BIDMOVE_COMPLETE'
+    filename_pattern = '{0}_{1}_{2}_[0-9]{{16}}.zip'.format(visibility_id, file_id, case_date)
+    return download_files(section, filename_pattern)
+
+
 def download_5min_predispatch(case_date):
     """
     Download 5-minute predispatch summary of the given date from
@@ -172,6 +188,7 @@ def download_all(case_date):
     :param case_date: the date of downloaded data
     :return: None
     """
+    download_bidmove_complete(case_date)
     download_bidmove_summary(case_date)
     download_5min_predispatch(case_date)
     download_predispatch(case_date)
@@ -184,9 +201,13 @@ def download_all(case_date):
 
 def main():
     logging.basicConfig(format='%(levelname)s: %(asctime)s %(message)s', level=logging.INFO)
-    case_date = "20190502"
+    case_date = "20190516"
     logging.info("Downloading data of {}".format(case_date))
-    download_all(case_date)
+    # download_all(case_date)
+    download_bidmove_complete(case_date)
+    download_bidmove_summary(case_date)
+    download_dispatch_summary(case_date)
+    download_5min_predispatch(case_date)
 
 
 if __name__ == '__main__':
