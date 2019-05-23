@@ -34,6 +34,10 @@ def dispatch():
             generator.generations = [model.addVar(lb=0.0, ub=avail) for avail in generator.band_avail]
             # Total dispatch value
             generator.value = sum(generator.generations)
+            # Raise constraint
+            model.addConstr(generator.value <= generator.scada_value + 5 * generator.roc_up)
+            # Lower constraint
+            model.addConstr(generator.value >= generator.scada_value - 5 * generator.roc_down)
             # Cost of a generator
             generator.cost = sum([g * p for g, p in zip(generator.generations, generator.price_band)])
             # Add cost to objective
@@ -48,6 +52,10 @@ def dispatch():
             load.loads = [model.addVar(lb=0.0, ub=avail) for avail in load.band_avail]
             # Total dispatch value
             load.value = sum(load.loads)
+            # Raise constraint
+            model.addConstr(load.value <= load.scada_value + 5 * load.roc_up)
+            # Lower constraint
+            model.addConstr(load.value >= load.scada_value - 5 * load.roc_down)
             # Cost of a load
             load.cost = sum([l * p for l, p in zip(load.loads, load.price_band)])
             # Add cost to objective
