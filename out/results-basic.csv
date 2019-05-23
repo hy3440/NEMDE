@@ -1,0 +1,24 @@
+2019/05/22 04:05:00
+Item,ID,Our Value,AEMO Value
+Objective,,-19097609.869999997,152052266.33
+Interconnector,N-Q-MNSP1,-210.0,-97.0
+Interconnector,NSW1-QLD1,-209.19999999999982,-757.70686
+Interconnector,VIC1-NSW1,1315.0100000000002,-230.23937
+Interconnector,T-V-MNSP1,-478.0,139.09417
+Interconnector,V-SA,-500.0,105.95719
+Interconnector,V-S-MNSP1,-200.0,27.0
+Net Interchange (into),NSW1,1734.21,-579.72
+Net Interchange (into),QLD1,-419.1999999999998,873.22
+Net Interchange (into),SA1,-700.0,-132.43
+Net Interchange (into),TAS1,478.0,140.56
+Net Interchange (into),VIC1,-1093.0100000000002,-229.57
+Generation,NSW1,5265.15,5899.64
+Generation,QLD1,6147.0,6111.02
+Generation,SA1,1956.45,1014.02
+Generation,TAS1,535.75,1154.31
+Generation,VIC1,5170.0,3802.42
+Load,NSW1,0,80.0
+Load,QLD1,0,0.0
+Load,SA1,0,0.0
+Load,TAS1,0,0.0
+Load,VIC1,0,10.0
