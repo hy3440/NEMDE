@@ -136,3 +136,15 @@ see [https://www.aemc.gov.au/news-centre/media-releases/aemc-publishes-schedule-
 | Update           | Every 5 minutes, 288 files per day                           |
 | More Information | [https://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Data/Market-Management-System-MMS/Generation-and-Load](https://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Data/Market-Management-System-MMS/Generation-and-Load) |
 
+### 12. Intermittent Generation Dispatch Forecasts
+
+| Aspect           | Description                                                  |
+| ---------------- | ------------------------------------------------------------ |
+| Section          | `Next_Day_Intermittent_DS`                                   |
+| File Name        | `<#VISIBILITY_ID>_NEXT_DAY_INTERMITTENT_DS_<#REPORT_DATETIME>.zip` |
+| Regex            | `PUBLIC_NEXT_DAY_INTERMITTENT_DS_<#REPORT_DATE>[0-9]{6}.zip` |
+| Example          | [http://nemweb.com.au/Reports/Current/Next_Day_Intermittent_DS/PUBLIC_NEXT_DAY_INTERMITTENT_DS_20190527041026.zip](http://nemweb.com.au/Reports/Current/Next_Day_Intermittent_DS/PUBLIC_NEXT_DAY_INTERMITTENT_DS_20190527041026.zip) |
+| File             | A `csv` file after decompression (e.g. [PUBLIC_NEXT_DAY_INTERMITTENT_DS_20190527041026.CSV](./INTERMITTENT_GENERATION_DISPATCH_FORECASTS/PUBLIC_NEXT_DAY_INTERMITTENT_DS_20190527041026.CSV)) |
+| Content          | See<br>1. [`INTERMITTENT_DS_RUN`](./INTERMITTENT_GENERATION_DISPATCH_FORECASTS/INTERMITTENT_DS_RUN.pdf)<br>2. [`INTERMITTENT_DS_PRED`](./INTERMITTENT_GENERATION_DISPATCH_FORECASTS/INTERMITTENT_DS_PRED.pdf)<br>3. [`INTERMITTENT_FORECAST_TRK`](./INTERMITTENT_GENERATION_DISPATCH_FORECASTS/INTERMITTENT_FORECAST_TRK.pdf) |
+| Update           | 1 files per day, shortly after 4 am                          |
+| More Information | 1. [https://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Planning-and-forecasting/Solar-and-wind-energy-forecasting](https://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Planning-and-forecasting/Solar-and-wind-energy-forecasting)<br>2. [Guide_to_Intermittent_Generation](./INTERMITTENT_GENERATION_DISPATCH_FORECASTS/Guide_to_Intermittent_Generation.pdf) |

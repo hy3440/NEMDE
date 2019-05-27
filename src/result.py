@@ -12,7 +12,7 @@ BASE_DIR = pathlib.Path(__file__).resolve().parent.parent
 OUT_DIR = BASE_DIR.joinpath('out')
 
 
-def generate_result_csv(interval_datetime, obj_value, obj_record, interconnectors, regions):
+def generate_result_csv(ramp_rate, interval_datetime, obj_value, obj_record, interconnectors, regions):
     """Write the dispatch results into a csv file.
 
     Args:
@@ -26,7 +26,10 @@ def generate_result_csv(interval_datetime, obj_value, obj_record, interconnector
         None
 
     """
-    result_dir = OUT_DIR.joinpath('results.csv')
+    if ramp_rate:
+        result_dir = OUT_DIR.joinpath('results-ramp-rate.csv')
+    else:
+        result_dir = OUT_DIR.joinpath('results-basic.csv')
     with result_dir.open(mode='w') as result_file:
         writer = csv.writer(result_file, delimiter=',')
 
@@ -48,3 +51,6 @@ def generate_result_csv(interval_datetime, obj_value, obj_record, interconnector
                 writer.writerow(['Load', name, 0, region.dispatchable_load_record])
             else:
                 writer.writerow(['Load', name, region.dispatchable_load.getValue(), region.dispatchable_load_record])
+
+        for name, region in regions.items():
+            writer.writerow(['Price', name, region.price, region.rrp])

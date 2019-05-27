@@ -25,6 +25,8 @@ class Region:
         total_demand (float): Total demand of the region at given interval
         dispatchable_generation_record (float): AEMO record for total generation
         dispatchable_load_record (float): AEMO record for total generation
+        rrp (float): AEMO record of regional reference price
+        price (float): Regional marginal price
 
     """
     def __init__(self, region_id):
@@ -37,6 +39,8 @@ class Region:
         self.total_demand = 0.0
         self.dispatchable_generation_record = 0.0
         self.dispatchable_load_record = 0.0
+        self.rrp = 0.0
+        self.price = 0.0
 
 
 class Interconnector:
@@ -114,6 +118,8 @@ def get_regions_and_interconnectors(case_datetime: str) -> (dict, dict, float):
                 region.dispatchable_generation_record = float(row[13])
                 region.dispatchable_load_record = float(row[14])
                 region.net_interchange_record = float(row[15])
+            elif row[0] == 'D' and row[2] == 'PRICE':
+                regions[row[6]].rrp = float(row[9])
             elif row[0] == 'D' and row[2] == 'CASE_SOLUTION':
                 obj_record = float(row[11])
             elif row[0] == 'D' and row[2] == 'INTERCONNECTORRES':

@@ -18,11 +18,15 @@ RAW_DIR = BASE_DIR.joinpath('raw')
 
 
 class Unit:
-    def __init__(self, duid, region, classification, station, reg_cap, max_cap, max_roc):
+    def __init__(self, duid, region, classification, station, reg_cap, max_cap, max_roc, source=None, source_descriptor=None, tech=None, tech_descriptor=None):
         self.duid = duid
         self.region = region
         self.classification = classification
         self.station = station
+        self.source = source
+        self.source_descriptor = source_descriptor
+        self.tech = tech
+        self.tech_descriptor = tech_descriptor
         # self.reg_cap = float(reg_cap)
         # self.max_cap = float(max_cap)
         # self.max_roc = int(max_roc)
@@ -39,7 +43,10 @@ class Unit:
 
 
 class Generator(Unit):
-    pass
+    def __init__(self, duid, region, classification, station, reg_cap, max_cap, max_roc, source=None, source_descriptor=None, tech=None, tech_descriptor=None):
+        super().__init__(duid, region, classification, station, reg_cap, max_cap, max_roc, source, source_descriptor, tech, tech_descriptor)
+        self.forecast = None
+        self.priority = 0
 
 
 class Load(Unit):
@@ -56,7 +63,7 @@ def save_generators_and_loads():
         for index, row in df.iterrows():
             if row['DUID'] != '-':
                 if row['Dispatch Type'] == 'Generator':
-                    generator = Generator(row['DUID'], row['Region'], row['Classification'], row['Station Name'], row['Reg Cap (MW)'], row['Max Cap (MW)'], row['Max ROC/Min'])
+                    generator = Generator(row['DUID'], row['Region'], row['Classification'], row['Station Name'], row['Reg Cap (MW)'], row['Max Cap (MW)'], row['Max ROC/Min'], row['Fuel Source - Primary'], row['Fuel Source - Descriptor'], row['Technology Type - Primary'], row['Technology Type - Descriptor'])
                     if generator.duid not in all_generators:
                         all_generators[generator.duid] = generator
                 else:
@@ -69,23 +76,19 @@ def save_generators_and_loads():
         pickle.dump(all_loads, f)
 
 
-def extract_generators():
-    logging.info('Extract generators.')
+def extract_generators_and_loads():
     generators_dir = DATA_DIR.joinpath('generators.pkl')
-    all_generators = pickle.load(generators_dir.open(mode='rb'))
-    return all_generators
-
-
-def extract_loads():
-    logging.info('Extract loads.')
     loads_dir = DATA_DIR.joinpath('loads.pkl')
-    all_loads = pickle.load(loads_dir.open(mode='rb'))
-    return all_loads
+    if not generators_dir.is_file() or not loads_dir.is_file():
+        save_generators_and_loads()
+    logging.info('Extract generators and loads.')
+    generators = pickle.load(generators_dir.open(mode='rb'))
+    loads = pickle.load(loads_dir.open(mode='rb'))
+    return generators, loads
 
 
 def bid_day_offer(case_date):
-    all_generators = extract_generators()
-    all_loads = extract_loads()
+    all_generators, all_loads = extract_generators_and_loads()
     logging.info('Get bid day offer.')
     generators = {}
     loads = {}
@@ -135,7 +138,27 @@ def add_scada_value(generators, loads, case_datetime):
                     loads[row[5]].scada_value = float(row[6])
 
 
-def main(case_date='20190521', interval_datatime='2019/05/21 04:05:00'):
+def add_intermittent_forecast(generators, report_date, interval_datetime, intermittent_dir=None):
+    if intermittent_dir is None:
+        intermittent_dir = preprocess.download_intermittent(report_date)
+    with intermittent_dir.open() as csvfile:
+        reader = csv.reader(csvfile)
+        logging.info('Read intermittent forecast.')
+        for row in reader:
+            if row[0] == 'D' and row[2] == 'INTERMITTENT_DS_PRED' and row[4] == interval_datetime:
+                generator = generators[row[5]]
+                priority = int(row[7])
+                if generator.priority <= priority:
+                    generator.priority = priority
+                    generator.forecast = float(row[12])
+            if row[0] == 'D' and row[2] == 'INTERMITTENT_FORECAST_TRK' and row[4] == interval_datetime:
+                priority = generators[row[5]].priority
+                if priority != int(row[7]):
+                    logging.error('{} forecast priority record is but we extract is {}'.format(row[5], row[7], priority))
+    return intermittent_dir
+
+
+def main(case_date='20190522', interval_datatime='2019/05/22 04:05:00'):
     save_generators_and_loads()
     # generators, loads, reserve_trader, bids_dir = bid_day_offer(case_date)
     # bid_per_offer(generators, loads, bids_dir, interval_datatime)

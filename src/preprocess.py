@@ -78,6 +78,26 @@ def download_files(section: str, filename_pattern: str) -> list:
     return filenames
 
 
+def download_intermittent(reporte_date: str) -> pathlib.Path:
+    """Download intermittent generation forecast of the given report date from
+    <#BASE_URL>/<#SECTION>/<#VISIBILITY_ID>_NEXT_DAY_INTERMITTENT_DS_<#REPORT_DATETIME>.zip
+
+    e.g. http://nemweb.com.au/Reports/Current/Next_Day_Intermittent_DS/PUBLIC_NEXT_DAY_INTERMITTENT_DS_20190410041023.zip
+
+    Args:
+        case_date (str): Report date of downloaded data
+
+    Returns:
+        pathlib.Path: Path to the downloaded csv file name
+
+    """
+    section = 'Next_Day_Intermittent_DS'
+    visibility_id = 'PUBLIC'
+    file_id = 'NEXT_DAY_INTERMITTENT_DS'
+    filename_pattern = '{}_{}_{}[0-9]{{6}}.zip'.format(visibility_id, file_id, reporte_date)
+    return download_file(section, filename_pattern)
+
+
 def download_bidmove_summary(case_date: str) -> pathlib.Path:
     """Download bidmove summary of the given date from
     <#BASE_URL>/<#SECTION>/<#VISIBILITY_ID>_BIDMOVE_SUMMARY_<#CASE_DATE>_<#EVENT_QUEUE_ID>.zip
@@ -258,10 +278,11 @@ def download_all(case_date):
 
 def main():
     logging.basicConfig(format='%(levelname)s: %(asctime)s %(message)s', level=logging.INFO)
-    case_date = '20190516'
+    case_date = '20190526'
     logging.info('Downloading data of {}'.format(case_date))
+    download_intermittent(case_date)
     # download_all(case_date)
-    download_bidmove_complete(case_date)
+    # download_bidmove_complete(case_date)
     # download_bidmove_summary(case_date)
     # download_dispatch_summary(case_date)
     # download_5min_predispatch(case_date)
