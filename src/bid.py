@@ -4,6 +4,7 @@ import pathlib
 import pandas as pd
 import pickle
 import preprocess
+import xlrd
 
 log = logging.getLogger(__name__)
 
@@ -18,6 +19,18 @@ RAW_DIR = BASE_DIR.joinpath('raw')
 
 
 class Unit:
+    """Unit class.
+
+    Attributes:
+        duid (str): Dispatchable unit identifier
+        region (str): Region ID the unit belongs to
+        classification (str): Scheduled, Semi-Scheduled or Non-Scheduled
+        station (str): Station name
+        connection_point_id (str): Connection point ID
+        tni (str): Transimission Node Identifier
+        mlf (float): Marginal Loss Factor
+
+    """
     def __init__(self, duid, region, classification, station, reg_cap, max_cap, max_roc, source=None, source_descriptor=None, tech=None, tech_descriptor=None):
         self.duid = duid
         self.region = region
@@ -30,6 +43,9 @@ class Unit:
         # self.reg_cap = float(reg_cap)
         # self.max_cap = float(max_cap)
         # self.max_roc = int(max_roc)
+        self.connection_point_id = None
+        self.tni = None
+        self.mlf = None
 
     def set_bid_day_offer(self, row):
         self.daily_energy_constraint = float(row[11])
@@ -53,6 +69,28 @@ class Load(Unit):
     pass
 
 
+def add_marginal_loss_factors(all_generators, all_loads):
+    mlf_file = RAW_DIR.joinpath('LOSS_FACTORS/2019-20 MLF Applicable from 01 July 2019 to 30 June 2020.xlsx')
+    with xlrd.open_workbook(mlf_file) as xlsx:
+        for sheet_index in range(xlsx.nsheets):
+            sheet = xlsx.sheet_by_index(sheet_index)
+            for row_index in range(sheet.nrows):
+                if sheet.cell_type(row_index, 6) == 2:
+                    duid = sheet.cell_value(row_index, 2)
+                    if duid in all_generators:
+                        generator = all_generators[duid]
+                        generator.connection_point_id = sheet.cell_value(row_index, 3)
+                        generator.tni = sheet.cell_value(row_index, 4)
+                        generator.mlf = sheet.cell_value(row_index, 6)
+                    elif duid in all_loads:
+                        load = all_loads[duid]
+                        load.connection_point_id = sheet.cell_value(row_index, 3)
+                        load.tni = sheet.cell_value(row_index, 4)
+                        load.mlf = sheet.cell_value(row_index, 6)
+                    # else:
+                    #     print(duid)
+
+
 def save_generators_and_loads():
     logging.info('Save generators and loads.')
     all_generators = {}
@@ -70,6 +108,7 @@ def save_generators_and_loads():
                     load = Load(row['DUID'], row['Region'], row['Classification'], row['Station Name'], row['Reg Cap (MW)'], row['Max Cap (MW)'], row['Max ROC/Min'])
                     if load.duid not in all_loads:
                         all_loads[load.duid] = load
+    add_marginal_loss_factors(all_generators, all_loads)
     with DATA_DIR.joinpath('generators.pkl').open(mode='wb') as f:
         pickle.dump(all_generators, f)
     with DATA_DIR.joinpath('loads.pkl').open(mode='wb') as f:
@@ -158,10 +197,11 @@ def add_intermittent_forecast(generators, report_date, interval_datetime, interm
     return intermittent_dir
 
 
-def main(case_date='20190522', interval_datatime='2019/05/22 04:05:00'):
+def main(case_date='20190527', interval_datatime='2019/05/27 04:05:00'):
     save_generators_and_loads()
     # generators, loads, reserve_trader, bids_dir = bid_day_offer(case_date)
     # bid_per_offer(generators, loads, bids_dir, interval_datatime)
+    # add_marginal_loss_factors()
 
 
 if __name__ == '__main__':

@@ -11,7 +11,7 @@ def dispatch(ramp_flag=False):
     try:
         five_min = datetime.timedelta(minutes=5)
         one_day = datetime.timedelta(days=1)
-        t = datetime.datetime(2019, 5, 26, 4, 5, 0)
+        t = datetime.datetime(2019, 5, 27, 4, 5, 0)
         next_t = t + one_day
         case_date = t.strftime('%Y%m%d')  # YYmmdd
         report_date = next_t.strftime('%Y%m%d')
@@ -29,9 +29,9 @@ def dispatch(ramp_flag=False):
         regions, interconnectors, obj_record = interconnect.get_regions_and_interconnectors(case_datetime)
 
         for name, interconnector in interconnectors.items():
-            interconnector.mwflow = model.addVar(lb=-interconnector.reverse_cap, ub=interconnector.forward_cap, name=name)
-            regions[interconnector.to_region].net_interchange += interconnector.mwflow
-            regions[interconnector.from_region].net_interchange -= interconnector.mwflow
+            interconnector.mw_flow = model.addVar(lb=-interconnector.reverse_cap, ub=interconnector.forward_cap, name=name)
+            regions[interconnector.to_region].net_interchange += interconnector.mw_flow
+            regions[interconnector.from_region].net_interchange -= interconnector.mw_flow
 
         for generator in generators.values():
             # Dispatch generation for each price band
@@ -48,7 +48,7 @@ def dispatch(ramp_flag=False):
                 # Lower constraint
                 model.addConstr(generator.value >= generator.scada_value - 5 * generator.roc_down)
             # Cost of a generator
-            generator.cost = sum([g * p for g, p in zip(generator.generations, generator.price_band)])
+            generator.cost = sum([g * (p / generator.mlf) for g, p in zip(generator.generations, generator.price_band)])
             # Add cost to objective
             obj += generator.cost
             # Add generator to corresponding region
@@ -67,7 +67,7 @@ def dispatch(ramp_flag=False):
                 # Lower constraint
                 model.addConstr(load.value >= load.scada_value - 5 * load.roc_down)
             # Cost of a load
-            load.cost = sum([l * p for l, p in zip(load.loads, load.price_band)])
+            load.cost = sum([l * (p / load.mlf) for l, p in zip(load.loads, load.price_band)])
             # Add cost to objective
             obj += load.cost
             # Add load to corresponding region
@@ -91,11 +91,11 @@ def dispatch(ramp_flag=False):
         # Generate result csv
         result.generate_result_csv(ramp_flag, interval_datetime, model.objVal, obj_record, interconnectors, regions)
 
-    except gurobipy.GurobiError as e:
-        print('Error code ' + str(e.errno) + ": " + str(e))
+    # except gurobipy.GurobiError as e:
+    #     print('Error code ' + str(e.errno) + ": " + str(e))
 
-    # except AttributeError:
-    #     print('Encountered an attribute error')
+    except AttributeError:
+        print('Encountered an attribute error')
 
 
 if __name__ == '__main__':
