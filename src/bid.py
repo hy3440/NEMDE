@@ -29,6 +29,12 @@ class Unit:
         connection_point_id (str): Connection point ID
         tni (str): Transimission Node Identifier
         mlf (float): Marginal Loss Factor
+        total_cleared (float): Target MW for end of period
+        total_cleared_record (float): AEMO record for total cleared
+        initial_mw (float): AEMO actual initial MW at start of period
+        scada_value (float): AEMO actual generation SCADA value
+        marginal_value (float): Marginal $ value for energy
+        marginal_value_record (float): AEMO record for marginal value
 
     """
     def __init__(self, duid, region, classification, station, reg_cap, max_cap, max_roc, source=None, source_descriptor=None, tech=None, tech_descriptor=None):
@@ -46,6 +52,12 @@ class Unit:
         self.connection_point_id = None
         self.tni = None
         self.mlf = None
+        self.total_cleared = None
+        self.total_cleared_record = None
+        self.initial_mw = None
+        self.scada_value = None
+        self.marginal_value = None
+        self.marginal_value_record = None
 
     def set_bid_day_offer(self, row):
         self.daily_energy_constraint = float(row[11])
@@ -132,7 +144,9 @@ def bid_day_offer(case_date):
     generators = {}
     loads = {}
     reserve_trader = set()
-    bids_dir = preprocess.download_bidmove_complete(case_date)
+    bids_dir = DATA_DIR.joinpath('PUBLIC_BIDMOVE_COMPLETE_{}.csv'.format(case_date))
+    if not bids_dir.is_file():
+        preprocess.download_bidmove_complete(case_date)
     with bids_dir.open() as csvfile:
         reader = csv.reader(csvfile)
         logging.info('Read bid day offer.')
@@ -148,11 +162,14 @@ def bid_day_offer(case_date):
                     loads[load.duid] = load
                 else:
                     reserve_trader.add(row[5])
-        return generators, loads, reserve_trader, bids_dir
+        return generators, loads, reserve_trader
 
 
-def bid_per_offer(generators, loads, bids_dir, interval_datatime):
+def bid_per_offer(generators, loads, case_date, interval_datatime):
     logging.info('Get bid per offer.')
+    bids_dir = DATA_DIR.joinpath('PUBLIC_BIDMOVE_COMPLETE_{}.csv'.format(case_date))
+    if not bids_dir.is_file():
+        preprocess.download_bidmove_complete(case_date)
     with bids_dir.open() as csvfile:
         reader = csv.reader(csvfile)
         logging.info('Read bid per offer.')
@@ -165,7 +182,9 @@ def bid_per_offer(generators, loads, bids_dir, interval_datatime):
 
 
 def add_scada_value(generators, loads, case_datetime):
-    scada_dir = preprocess.download_dispatch_scada(case_datetime)
+    scada_dir = DATA_DIR.joinpath('PUBLIC_DISPATCHSCADA_{}.csv'.format(case_datetime))
+    if not scada_dir.is_file():
+        preprocess.download_dispatch_scada(case_datetime)
     with scada_dir.open() as csvfile:
         reader = csv.reader(csvfile)
         logging.info('Read bid day offer.')
@@ -177,9 +196,10 @@ def add_scada_value(generators, loads, case_datetime):
                     loads[row[5]].scada_value = float(row[6])
 
 
-def add_intermittent_forecast(generators, report_date, interval_datetime, intermittent_dir=None):
-    if intermittent_dir is None:
-        intermittent_dir = preprocess.download_intermittent(report_date)
+def add_intermittent_forecast(generators, report_date, interval_datetime):
+    intermittent_dir = DATA_DIR.joinpath('PUBLIC_NEXT_DAY_INTERMITTENT_DS_{}.csv'.format(report_date))
+    if not intermittent_dir.is_file():
+        preprocess.download_intermittent(report_date)
     with intermittent_dir.open() as csvfile:
         reader = csv.reader(csvfile)
         logging.info('Read intermittent forecast.')
@@ -190,19 +210,30 @@ def add_intermittent_forecast(generators, report_date, interval_datetime, interm
                 if generator.priority <= priority:
                     generator.priority = priority
                     generator.forecast = float(row[12])
-            if row[0] == 'D' and row[2] == 'INTERMITTENT_FORECAST_TRK' and row[4] == interval_datetime:
+            elif row[0] == 'D' and row[2] == 'INTERMITTENT_FORECAST_TRK' and row[4] == interval_datetime:
                 priority = generators[row[5]].priority
                 if priority != int(row[7]):
                     logging.error('{} forecast priority record is but we extract is {}'.format(row[5], row[7], priority))
     return intermittent_dir
 
 
-def main(case_date='20190527', interval_datatime='2019/05/27 04:05:00'):
-    save_generators_and_loads()
-    # generators, loads, reserve_trader, bids_dir = bid_day_offer(case_date)
-    # bid_per_offer(generators, loads, bids_dir, interval_datatime)
-    # add_marginal_loss_factors()
-
-
-if __name__ == '__main__':
-    main()
+def add_dispatch_record(generators, loads, case_date, interval_datetime):
+    record_dir = DATA_DIR.joinpath('PUBLIC_NEXT_DAY_DISPATCH_{}.csv'.format(case_date))
+    if not record_dir.is_file():
+        preprocess.download_next_day_dispatch(case_date)
+    with record_dir.open() as csvfile:
+        reader = csv.reader(csvfile)
+        logging.info('Read next day dispatch.')
+        for row in reader:
+            if row[0] == 'D' and row[2] == 'UNIT_SOLUTION' and row[4] == interval_datetime:
+                duid = row[6]
+                if duid in generators:
+                    generator = generators[duid]
+                    generator.initial_mw = float(row[13])
+                    generator.total_cleared_record = float(row[14])
+                    # generator.marginal_value_record = float(row[28])
+                elif duid in loads:
+                    load = loads[duid]
+                    load.initial_mw = float(row[13])
+                    load.total_cleared_record = float(row[14])
+                    # load.marginal_value_record = float(row[28])

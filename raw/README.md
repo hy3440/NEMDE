@@ -148,3 +148,18 @@ see [https://www.aemc.gov.au/news-centre/media-releases/aemc-publishes-schedule-
 | Content          | See<br>1. [`INTERMITTENT_DS_RUN`](./INTERMITTENT_GENERATION_DISPATCH_FORECASTS/INTERMITTENT_DS_RUN.pdf)<br>2. [`INTERMITTENT_DS_PRED`](./INTERMITTENT_GENERATION_DISPATCH_FORECASTS/INTERMITTENT_DS_PRED.pdf)<br>3. [`INTERMITTENT_FORECAST_TRK`](./INTERMITTENT_GENERATION_DISPATCH_FORECASTS/INTERMITTENT_FORECAST_TRK.pdf) |
 | Update           | 1 files per day, shortly after 4 am                          |
 | More Information | 1. [https://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Planning-and-forecasting/Solar-and-wind-energy-forecasting](https://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Planning-and-forecasting/Solar-and-wind-energy-forecasting)<br>2. [Guide_to_Intermittent_Generation](./INTERMITTENT_GENERATION_DISPATCH_FORECASTS/Guide_to_Intermittent_Generation.pdf) |
+
+### 13. Dispatch results
+
+Dispatch data now Public from previous day. Targets for scheduled and semi-scheduled generating units.
+
+| Aspect           | Description                                                  |
+| ---------------- | ------------------------------------------------------------ |
+| Section          | `Next_Day_Dispatch`                                          |
+| File Name        | `<#VISIBILITY_ID>_NEXT_DAY_DISPATCH_<#CASE_DATE>_<#EVENT_QUEUE_ID>.zip` |
+| Regex            | `PUBLIC_NEXT_DAY_DISPATCH_<#CASE_DATE>_[0-9]{16}.zip`        |
+| Example          | [http://nemweb.com.au/Reports/Current/Next_Day_Dispatch/PUBLIC_NEXT_DAY_DISPATCH_20190527_0000000308408731.zip](http://nemweb.com.au/Reports/Current/Next_Day_Dispatch/PUBLIC_NEXT_DAY_DISPATCH_20190527_0000000308408731.zip) |
+| File             | A `csv` file after decompression (e.g. [PUBLIC_NEXT_DAY_DISPATCH_20190527_0000000308408731.CSV](./DISPATCH_PUBLIC/PUBLIC_NEXT_DAY_DISPATCH_20190527_0000000308408731.CSV)) |
+| Content          | Five parts:<br/>1. [`DISPATCHLOAD`](./DISPATCH_PUBLIC/DISPATCHLOAD.pdf)<br/>2. [`DISPATCH_LOCAL_PRICE`](./DISPATCH_PUBLIC/DISPATCH_LOCAL_PRICE.pdf)<br/>3. [`DISPATCHOFFERTRK`](./DISPATCH_PUBLIC/DISPATCHOFFERTRK.pdf)<br/> 4. [`DISPATCHCONSTRAINT`](./DISPATCH_PUBLIC/DISPATCHCONSTRAINT.pdf)<br/> 5. [`DISPATCH_MNSPBIDTRK`](./DISPATCH_PUBLIC/DISPATCH_MNSPBIDTRK.pdf) |
+| Update           | 1 files per day, shortly after 4 am                          |
+| More Information | [http://nemweb.com.au/#next-day-dispatch](http://nemweb.com.au/#next-day-dispatch) |
