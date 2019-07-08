@@ -149,7 +149,7 @@ see [https://www.aemc.gov.au/news-centre/media-releases/aemc-publishes-schedule-
 | Update           | 1 files per day, shortly after 4 am                          |
 | More Information | 1. [https://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Planning-and-forecasting/Solar-and-wind-energy-forecasting](https://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Planning-and-forecasting/Solar-and-wind-energy-forecasting)<br>2. [Guide_to_Intermittent_Generation](./INTERMITTENT_GENERATION_DISPATCH_FORECASTS/Guide_to_Intermittent_Generation.pdf) |
 
-### 13. Dispatch results
+### 13. Dispatch results for units
 
 Dispatch data now Public from previous day. Targets for scheduled and semi-scheduled generating units.
 
@@ -163,3 +163,18 @@ Dispatch data now Public from previous day. Targets for scheduled and semi-sched
 | Content          | Five parts:<br/>1. [`DISPATCHLOAD`](./DISPATCH_PUBLIC/DISPATCHLOAD.pdf)<br/>2. [`DISPATCH_LOCAL_PRICE`](./DISPATCH_PUBLIC/DISPATCH_LOCAL_PRICE.pdf)<br/>3. [`DISPATCHOFFERTRK`](./DISPATCH_PUBLIC/DISPATCHOFFERTRK.pdf)<br/> 4. [`DISPATCHCONSTRAINT`](./DISPATCH_PUBLIC/DISPATCHCONSTRAINT.pdf)<br/> 5. [`DISPATCH_MNSPBIDTRK`](./DISPATCH_PUBLIC/DISPATCH_MNSPBIDTRK.pdf) |
 | Update           | 1 files per day, shortly after 4 am                          |
 | More Information | [http://nemweb.com.au/#next-day-dispatch](http://nemweb.com.au/#next-day-dispatch) |
+
+### 14. Trading
+
+30 Minute Trading Interval Results
+
+| Aspect           | Description                                                  |
+| ---------------- | ------------------------------------------------------------ |
+| Section          | `TradingIS_Reports`                                          |
+| File Name        | `<#VISIBILITY_ID>_TRADINGIS_<#CASE_DATETIME>_<#EVENT_QUEUE_ID>.zip` |
+| Regex            | `PUBLIC_TRADINGIS_<#CASE_DATETIME>_[0-9]{16}.zip`            |
+| Example          | [http://nemweb.com.au/Reports/Current/TradingIS_Reports/PUBLIC_TRADINGIS_201907041130_0000000309915971.zip](http://nemweb.com.au/Reports/Current/TradingIS_Reports/PUBLIC_TRADINGIS_201907041130_0000000309915971.zip) |
+| File             | A `csv` file after decompression (e.g. [PUBLIC_TRADINGIS_201907041130_0000000309915971.CSV](./TRADING/PUBLIC_TRADINGIS_201907041130_0000000309915971.CSV)) |
+| Content          | Three parts: <br/>1. [TRADINGINTERCONNECT](./TRADING/TRADINGINTERCONNECT.pdf) <br/>2. [TRADINGPRICE](./TRADING/TRADINGPRICE.pdf)<br/>3. [TRADINGREGIONSUM](./TRADING/TRADINGREGIONSUM.pdf) |
+| Update           | 1 file every 30 min, 48 files per day                        |
+| More Information | [http://nemweb.com.au/#tradingis-reports](http://nemweb.com.au/#tradingis-reports) |
