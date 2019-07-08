@@ -2,17 +2,26 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="7833ca11-8419-4ae6-adca-2b4ab16e8910" name="Default Changelist" comment="">
+      <change afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/loss_calculator.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/price_taker.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/out/results-basic.csv" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/out/results-ramp-constr.csv" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/raw/BIDS/PUBLIC_BIDMOVE_COMPLETE_20190516_0000000307979321.xls" beforeDir="false" afterPath="$PROJECT_DIR$/raw/BIDS/PUBLIC_BIDMOVE_COMPLETE_20190516_0000000307979321.xls" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/raw/DISPATCH/DISPATCHINTERCONNECTORRES.pdf" beforeDir="false" afterPath="$PROJECT_DIR$/raw/DISPATCH/DISPATCHINTERCONNECTORRES.pdf" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/raw/DISPATCH/DISPATCHREGIONSUM.pdf" beforeDir="false" afterPath="$PROJECT_DIR$/raw/DISPATCH/DISPATCHREGIONSUM.pdf" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/raw/DISPATCH/DISPATCH_INTERCONNECTION.pdf" beforeDir="false" afterPath="$PROJECT_DIR$/raw/DISPATCH/DISPATCH_INTERCONNECTION.pdf" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/raw/GENERATORS/NEM Registration and Exemption List.xls" beforeDir="false" afterPath="$PROJECT_DIR$/raw/GENERATORS/NEM Registration and Exemption List.xls" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/raw/LOSS_FACTORS/Marginal Loss Factors for the 2018-19 Financial Year - updated 11 July 2018.pdf" beforeDir="false" afterPath="$PROJECT_DIR$/raw/LOSS_FACTORS/Marginal Loss Factors for the 2018-19 Financial Year - updated 11 July 2018.pdf" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/raw/LOSS_FACTORS/Marginal Loss Factors for the 2019-20 Financial year.pdf" beforeDir="false" afterPath="$PROJECT_DIR$/raw/LOSS_FACTORS/Marginal Loss Factors for the 2019-20 Financial year.pdf" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/raw/MMS Data Model Report.pdf" beforeDir="false" afterPath="$PROJECT_DIR$/raw/MMS Data Model Report.pdf" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/raw/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/raw/README.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/bid.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/bid.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/dispatch.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/dispatch.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/interconnect.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/interconnect.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/mip1.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/mip1.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/preprocess.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/preprocess.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/result.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/result.py" afterDir="false" />
     </list>
@@ -37,21 +46,12 @@
     <select />
   </component>
   <component name="FileEditorManager">
-    <leaf>
+    <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
       <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/src/preprocess.py">
+        <entry file="file://$PROJECT_DIR$/src/result.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="2520">
-              <caret line="103" column="29" selection-start-line="103" selection-start-column="29" selection-end-line="103" selection-end-column="29" />
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/src/bid.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="935">
-              <caret line="167" column="47" selection-start-line="167" selection-start-column="47" selection-end-line="167" selection-end-column="47" />
+            <state relative-caret-position="2214">
+              <caret line="82" column="100" selection-start-line="82" selection-start-column="100" selection-end-line="82" selection-end-column="100" />
               <folding>
                 <element signature="e#0#10#0" expanded="true" />
               </folding>
@@ -59,11 +59,43 @@
           </provider>
         </entry>
       </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/src/bid.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="118">
+              <caret line="60" column="23" selection-start-line="60" selection-start-column="23" selection-end-line="60" selection-end-column="23" />
+              <folding>
+                <element signature="e#0#10#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/src/price_taker.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="3483">
+              <caret line="136" column="27" selection-start-line="136" selection-start-column="27" selection-end-line="136" selection-end-column="27" />
+            </state>
+          </provider>
+        </entry>
+      </file>
       <file pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/src/battery.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state>
+              <folding>
+                <element signature="e#0#31#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/dispatch.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="90">
-              <caret line="24" column="52" lean-forward="true" selection-start-line="24" selection-start-column="52" selection-end-line="24" selection-end-column="52" />
+            <state relative-caret-position="-80">
+              <caret line="100" column="50" selection-start-line="100" selection-start-column="46" selection-end-line="100" selection-end-column="50" />
               <folding>
                 <element signature="e#0#10#0" expanded="true" />
               </folding>
@@ -74,8 +106,8 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/interconnect.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="2902">
-              <caret line="179" column="27" selection-start-line="179" selection-start-column="27" selection-end-line="179" selection-end-column="27" />
+            <state relative-caret-position="1539">
+              <caret line="57" column="35" lean-forward="true" selection-start-line="57" selection-start-column="35" selection-end-line="57" selection-end-column="35" />
               <folding>
                 <element signature="e#0#10#0" expanded="true" />
               </folding>
@@ -84,10 +116,10 @@
         </entry>
       </file>
       <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/src/test.py">
+        <entry file="file://$PROJECT_DIR$/src/preprocess.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="37">
-              <caret line="119" column="37" lean-forward="true" selection-start-line="119" selection-start-column="37" selection-end-line="119" selection-end-column="37" />
+            <state relative-caret-position="79">
+              <caret line="155" column="24" selection-start-line="155" selection-start-column="24" selection-end-line="155" selection-end-column="24" />
               <folding>
                 <element signature="e#0#10#0" expanded="true" />
               </folding>
@@ -106,28 +138,36 @@
   </component>
   <component name="FindInProjectRecents">
     <findStrings>
-      <find>'</find>
-      <find>info</find>
-      <find>%</find>
-      <find>data_dir</find>
-      <find>all_generators[row[5]]</find>
-      <find>generator</find>
-      <find>&quot;</find>
-      <find>dir</find>
-      <find>max_cap</find>
-      <find>price</find>
-      <find>download_files</find>
-      <find>list</find>
-      <find>-&gt; str</find>
-      <find>interconnect</find>
-      <find>print</find>
-      <find>mwflow</find>
-      <find>index</find>
-      <find>net_interchange</find>
-      <find>download</find>
-      <find>isfile</find>
-      <find>value</find>
+      <find>save</find>
+      <find>calculate_interconnector_losses</find>
+      <find>net</find>
+      <find>net_in</find>
+      <find>marginal</find>
+      <find>mlf</find>
+      <find>region</find>
+      <find>initial_mw</find>
+      <find>i</find>
+      <find>rrp</find>
+      <find>download_file</find>
+      <find>prepro</find>
       <find>scada</find>
+      <find>next</find>
+      <find>next_day_dis</find>
+      <find>download_files</find>
+      <find>datetime</find>
+      <find>log</find>
+      <find>preproce</find>
+      <find>obj</find>
+      <find>summary</find>
+      <find>dispatch</find>
+      <find>get</find>
+      <find>lb</find>
+      <find>flag</find>
+      <find>report</find>
+      <find>report_date</find>
+      <find>FIVE</find>
+      <find>load</find>
+      <find>loss</find>
     </findStrings>
     <replaceStrings>
       <replace>generator</replace>
@@ -150,12 +190,16 @@
         <option value="$PROJECT_DIR$/update_environment.sh" />
         <option value="$PROJECT_DIR$/src/read_file.py" />
         <option value="$PROJECT_DIR$/mip1.py" />
-        <option value="$PROJECT_DIR$/src/result.py" />
+        <option value="$PROJECT_DIR$/src/bid.py" />
+        <option value="$PROJECT_DIR$/src/price-taker.py" />
+        <option value="$PROJECT_DIR$/src/test.py" />
+        <option value="$PROJECT_DIR$/src/price_taker.py" />
+        <option value="$PROJECT_DIR$/src/mip1.py" />
+        <option value="$PROJECT_DIR$/src/temp.py" />
+        <option value="$PROJECT_DIR$/src/dispatch.py" />
         <option value="$PROJECT_DIR$/src/preprocess.py" />
         <option value="$PROJECT_DIR$/src/interconnect.py" />
-        <option value="$PROJECT_DIR$/src/bid.py" />
-        <option value="$PROJECT_DIR$/src/test.py" />
-        <option value="$PROJECT_DIR$/src/dispatch.py" />
+        <option value="$PROJECT_DIR$/src/result.py" />
       </list>
     </option>
   </component>
@@ -170,6 +214,7 @@
       <foldersAlwaysOnTop value="true" />
     </navigator>
     <panes>
+      <pane id="Scope" />
       <pane id="ProjectPane">
         <subPane>
           <expand>
@@ -186,7 +231,6 @@
           <select />
         </subPane>
       </pane>
-      <pane id="Scope" />
     </panes>
   </component>
   <component name="PropertiesComponent">
@@ -199,7 +243,7 @@
     <property name="node.js.detected.package.eslint" value="true" />
     <property name="node.js.path.for.package.eslint" value="project" />
     <property name="node.js.selected.package.eslint" value="(autodetect)" />
-    <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyIntegratedToolsModulesConfigurable" />
+    <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
   </component>
   <component name="RunDashboard">
     <option name="ruleStates">
@@ -313,6 +357,28 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
+    <configuration name="loss_calculator" type="PythonConfigurationType" factoryName="Python" nameIsGenerated="true">
+      <module name="nemde" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/loss_calculator.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="true" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
     <configuration name="mip1" type="PythonConfigurationType" factoryName="Python" nameIsGenerated="true">
       <module name="nemde" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -321,12 +387,12 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/mip1.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/mip1.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="true" />
@@ -349,6 +415,28 @@
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
       <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/preprocess.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="true" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="price_taker" type="PythonConfigurationType" factoryName="Python" nameIsGenerated="true">
+      <module name="nemde" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/price_taker.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="true" />
@@ -385,6 +473,8 @@
       <item itemvalue="Python.dispatch" />
       <item itemvalue="Python.preprocess" />
       <item itemvalue="Python.test" />
+      <item itemvalue="Python.price_taker" />
+      <item itemvalue="Python.loss_calculator" />
       <item itemvalue="Python.interconnect" />
       <item itemvalue="Python.bid" />
     </list>
@@ -411,7 +501,12 @@
       <workItem from="1558316657238" duration="68564000" />
       <workItem from="1558931422587" duration="9832000" />
       <workItem from="1559001850949" duration="214000" />
-      <workItem from="1559011203507" duration="19545000" />
+      <workItem from="1559011203507" duration="35981000" />
+      <workItem from="1559194995022" duration="5831000" />
+      <workItem from="1560470027249" duration="2989000" />
+      <workItem from="1561942592608" duration="1790000" />
+      <workItem from="1562026323567" duration="27088000" />
+      <workItem from="1562551949210" duration="7236000" />
     </task>
     <task id="LOCAL-00001" summary="change to new string formatter in preprocess.py">
       <created>1557123041192</created>
@@ -424,7 +519,7 @@
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="154896000" />
+    <option name="totallyTimeSpent" value="216266000" />
   </component>
   <component name="TodoView">
     <todo-panel id="selected-file">
@@ -439,12 +534,40 @@
     <frame x="0" y="23" width="1440" height="877" extended-state="6" />
     <editor active="true" />
     <layout>
+      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.15808298" />
+      <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
+      <window_info id="Favorites" order="2" side_tool="true" />
+      <window_info anchor="bottom" id="Docker" order="0" show_stripe_button="false" />
+      <window_info anchor="bottom" id="Message" order="1" />
+      <window_info anchor="bottom" id="Find" order="2" weight="0.32724902" />
+      <window_info anchor="bottom" id="Run" order="3" sideWeight="0.49713877" weight="0.41199479" />
+      <window_info anchor="bottom" id="Debug" order="4" weight="0.39895698" />
+      <window_info anchor="bottom" id="Cvs" order="5" weight="0.25" />
+      <window_info anchor="bottom" id="Inspection" order="6" weight="0.4" />
+      <window_info anchor="bottom" id="TODO" order="7" weight="0.32837838" />
+      <window_info anchor="bottom" id="Database Changes" order="8" />
+      <window_info anchor="bottom" id="Version Control" order="9" sideWeight="0.49928468" weight="0.3391892" />
+      <window_info anchor="bottom" id="Event Log" order="10" sideWeight="0.5028612" side_tool="true" weight="0.3846154" />
+      <window_info anchor="bottom" id="Python Console" order="11" sideWeight="0.49852508" weight="0.3220339" />
+      <window_info anchor="bottom" id="Terminal" order="12" weight="0.32464147" />
+      <window_info anchor="bottom" id="Tail" order="13" />
+      <window_info anchor="bottom" id="SonarLint" order="14" weight="0.32867134" />
+      <window_info anchor="right" id="Commander" order="0" weight="0.4" />
+      <window_info anchor="right" id="Ant Build" order="1" weight="0.25" />
+      <window_info anchor="right" content_ui="combo" id="Hierarchy" order="2" weight="0.25" />
+      <window_info anchor="right" id="SciView" order="3" weight="0.44778255" />
+      <window_info anchor="right" id="Database" order="4" weight="0.3297568" />
+      <window_info anchor="right" x="0" y="0" width="310" height="677" id="Documentation" order="5" side_tool="true" weight="0.30114448" />
+      <window_info anchor="right" id="Key Promoter X" order="6" weight="0.3297568" />
+      <window_info anchor="right" id="make" order="7" />
+    </layout>
+    <layout-to-restore>
       <window_info content_ui="combo" id="Project" order="0" weight="0.15522175" />
       <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
       <window_info id="Favorites" order="2" side_tool="true" />
       <window_info anchor="bottom" id="Docker" order="0" show_stripe_button="false" />
       <window_info anchor="bottom" id="Message" order="1" />
-      <window_info anchor="bottom" id="Find" order="2" weight="0.32749325" />
+      <window_info anchor="bottom" id="Find" order="2" weight="0.32724902" />
       <window_info active="true" anchor="bottom" id="Run" order="3" sideWeight="0.49713877" visible="true" weight="0.42633638" />
       <window_info anchor="bottom" id="Debug" order="4" weight="0.39895698" />
       <window_info anchor="bottom" id="Cvs" order="5" weight="0.25" />
@@ -454,34 +577,6 @@
       <window_info anchor="bottom" id="Version Control" order="9" sideWeight="0.49928468" weight="0.3391892" />
       <window_info anchor="bottom" id="Event Log" order="10" sideWeight="0.5028612" side_tool="true" weight="0.3846154" />
       <window_info anchor="bottom" id="Python Console" order="11" sideWeight="0.49852508" weight="0.32333767" />
-      <window_info anchor="bottom" id="Terminal" order="12" weight="0.32464147" />
-      <window_info anchor="bottom" id="Tail" order="13" />
-      <window_info anchor="bottom" id="SonarLint" order="14" weight="0.32867134" />
-      <window_info anchor="right" id="Commander" order="0" weight="0.4" />
-      <window_info anchor="right" id="Ant Build" order="1" weight="0.25" />
-      <window_info anchor="right" content_ui="combo" id="Hierarchy" order="2" weight="0.25" />
-      <window_info anchor="right" id="SciView" order="3" weight="0.3297568" />
-      <window_info anchor="right" id="Database" order="4" weight="0.3297568" />
-      <window_info anchor="right" x="0" y="0" width="310" height="677" id="Documentation" order="5" side_tool="true" weight="0.30114448" />
-      <window_info anchor="right" id="Key Promoter X" order="6" weight="0.3297568" />
-      <window_info anchor="right" id="make" order="7" />
-    </layout>
-    <layout-to-restore>
-      <window_info content_ui="combo" id="Project" order="0" weight="0.04506438" />
-      <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
-      <window_info id="Favorites" order="2" side_tool="true" />
-      <window_info anchor="bottom" id="Docker" order="0" show_stripe_button="false" />
-      <window_info anchor="bottom" id="Message" order="1" />
-      <window_info anchor="bottom" id="Find" order="2" weight="0.3285528" />
-      <window_info anchor="bottom" id="Run" order="3" sideWeight="0.49713877" visible="true" weight="0.41199479" />
-      <window_info anchor="bottom" id="Debug" order="4" weight="0.39895698" />
-      <window_info anchor="bottom" id="Cvs" order="5" weight="0.25" />
-      <window_info anchor="bottom" id="Inspection" order="6" weight="0.4" />
-      <window_info anchor="bottom" id="TODO" order="7" weight="0.32837838" />
-      <window_info anchor="bottom" id="Database Changes" order="8" />
-      <window_info anchor="bottom" id="Version Control" order="9" sideWeight="0.49928468" weight="0.3391892" />
-      <window_info anchor="bottom" id="Event Log" order="10" sideWeight="0.5028612" side_tool="true" weight="0.3846154" />
-      <window_info anchor="bottom" id="Python Console" order="11" sideWeight="0.49852508" weight="0.32345015" />
       <window_info anchor="bottom" id="Terminal" order="12" weight="0.32464147" />
       <window_info anchor="bottom" id="Tail" order="13" />
       <window_info anchor="bottom" id="SonarLint" order="14" weight="0.32867134" />
@@ -542,29 +637,15 @@
     <MESSAGE value="change to new string formatter in preprocess.py" />
     <option name="LAST_COMMIT_MESSAGE" value="change to new string formatter in preprocess.py" />
   </component>
-  <component name="XDebuggerManager">
-    <breakpoint-manager>
-      <breakpoints>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/src/result.py</url>
-          <line>33</line>
-          <option name="timeStamp" value="1" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/src/test.py</url>
-          <line>95</line>
-          <option name="timeStamp" value="2" />
-        </line-breakpoint>
-      </breakpoints>
-    </breakpoint-manager>
-  </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/nemde$mip1.coverage" NAME="mip1 Coverage Results" MODIFIED="1558568609141" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/nemde$bid.coverage" NAME="bid Coverage Results" MODIFIED="1559048256470" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src" />
+    <SUITE FILE_PATH="coverage/nemde$mip1.coverage" NAME="mip1 Coverage Results" MODIFIED="1562311487797" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src" />
     <SUITE FILE_PATH="coverage/nemde$read_file.coverage" NAME="read_file Coverage Results" MODIFIED="1557883434732" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src" />
-    <SUITE FILE_PATH="coverage/nemde$dispatch.coverage" NAME="dispatch Coverage Results" MODIFIED="1559100197332" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src" />
-    <SUITE FILE_PATH="coverage/nemde$test.coverage" NAME="test Coverage Results" MODIFIED="1559100085306" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src" />
+    <SUITE FILE_PATH="coverage/nemde$dispatch.coverage" NAME="dispatch Coverage Results" MODIFIED="1562564691815" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src" />
+    <SUITE FILE_PATH="coverage/nemde$test.coverage" NAME="test Coverage Results" MODIFIED="1562287903136" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src" />
+    <SUITE FILE_PATH="coverage/nemde$temp.coverage" NAME="temp Coverage Results" MODIFIED="1562561163463" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src" />
     <SUITE FILE_PATH="coverage/nemde$preprocess.coverage" NAME="preprocess Coverage Results" MODIFIED="1559090211986" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src" />
+    <SUITE FILE_PATH="coverage/nemde$price_taker.coverage" NAME="price-taker Coverage Results" MODIFIED="1562219371735" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src" />
   </component>
   <component name="editorHistoryManager">
     <entry file="file://$PROJECT_DIR$/src/preprocess-yi-Latitude-E7470.py" />
@@ -587,37 +668,10 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/src/result.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="188">
-          <caret line="43" selection-start-line="43" selection-end-line="43" />
-          <folding>
-            <element signature="e#0#10#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/interconnect.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="2902">
-          <caret line="179" column="27" selection-start-line="179" selection-start-column="27" selection-end-line="179" selection-end-column="27" />
-          <folding>
-            <element signature="e#0#10#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/src/preprocess.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="2520">
-          <caret line="103" column="29" selection-start-line="103" selection-start-column="29" selection-end-line="103" selection-end-column="29" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/test.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="37">
-          <caret line="119" column="37" lean-forward="true" selection-start-line="119" selection-start-column="37" selection-end-line="119" selection-end-column="37" />
+        <state relative-caret-position="79">
+          <caret line="155" column="24" selection-start-line="155" selection-start-column="24" selection-end-line="155" selection-end-column="24" />
           <folding>
             <element signature="e#0#10#0" expanded="true" />
           </folding>
@@ -626,8 +680,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/src/bid.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="935">
-          <caret line="167" column="47" selection-start-line="167" selection-start-column="47" selection-end-line="167" selection-end-column="47" />
+        <state relative-caret-position="118">
+          <caret line="60" column="23" selection-start-line="60" selection-start-column="23" selection-end-line="60" selection-end-column="23" />
           <folding>
             <element signature="e#0#10#0" expanded="true" />
           </folding>
@@ -636,10 +690,73 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/src/dispatch.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="90">
-          <caret line="24" column="52" lean-forward="true" selection-start-line="24" selection-start-column="52" selection-end-line="24" selection-end-column="52" />
+        <state relative-caret-position="-80">
+          <caret line="100" column="50" selection-start-line="100" selection-start-column="46" selection-end-line="100" selection-end-column="50" />
           <folding>
             <element signature="e#0#10#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/result.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="2214">
+          <caret line="82" column="100" selection-start-line="82" selection-start-column="100" selection-end-line="82" selection-end-column="100" />
+          <folding>
+            <element signature="e#0#10#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/loss_calculator.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-49">
+          <caret line="16" column="32" selection-start-line="16" selection-start-column="32" selection-end-line="16" selection-end-column="32" />
+          <folding>
+            <element signature="e#0#15#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/mip1.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="309">
+          <caret line="32" column="19" selection-start-line="32" selection-start-column="19" selection-end-line="32" selection-end-column="19" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/test.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="540">
+          <caret line="20" column="18" selection-start-line="20" selection-start-column="18" selection-end-line="20" selection-end-column="18" />
+          <folding>
+            <element signature="e#0#10#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/interconnect.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="1539">
+          <caret line="57" column="35" lean-forward="true" selection-start-line="57" selection-start-column="35" selection-end-line="57" selection-end-column="35" />
+          <folding>
+            <element signature="e#0#10#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/price_taker.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="3483">
+          <caret line="136" column="27" selection-start-line="136" selection-start-column="27" selection-end-line="136" selection-end-column="27" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/battery.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state>
+          <folding>
+            <element signature="e#0#31#0" expanded="true" />
           </folding>
         </state>
       </provider>

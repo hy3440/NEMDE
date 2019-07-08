@@ -1,7 +1,10 @@
 import csv
-import gurobipy
+# import gurobipy
 import logging
+# import matplotlib.pyplot as plt
+# import pandas as pd
 import pathlib
+import preprocess
 
 log = logging.getLogger(__name__)
 
@@ -12,13 +15,15 @@ BASE_DIR = pathlib.Path(__file__).resolve().parent.parent
 OUT_DIR = BASE_DIR.joinpath('out')
 
 
-def generate_result_csv(ramp_rate, interval_datetime, obj_value, obj_record, interconnectors, regions):
+def generate_result_csv(ramp_flag, loss_flag, t, obj_value, obj_record, interconnectors, regions, generators):
     """Write the dispatch results into a csv file.
 
     Args:
-        interval_datetime (str): Interval datetime
-        obj_value (float): Objective value
-        obj_record (float: AEMO objective value
+        ramp_flag (bool): Flag for whether using ramp rate
+        loss_flag (bool): Flag for whether calculating inter-regional losses
+        interval_datetime (datetime): Interval datetime
+        obj_value (float): Objective total_cleared
+        obj_record (float: AEMO objective total_cleared
         interconnectors (dict): Interconnector dictionary
         regions (dict): Region dictionary
 
@@ -26,22 +31,30 @@ def generate_result_csv(ramp_rate, interval_datetime, obj_value, obj_record, int
         None
 
     """
-    if ramp_rate:
+    if loss_flag:
+        result_dir = OUT_DIR.joinpath('results-fixed-interconnector.csv')
+    elif ramp_flag:
         result_dir = OUT_DIR.joinpath('results-ramp-rate.csv')
     else:
         result_dir = OUT_DIR.joinpath('results-basic.csv')
     with result_dir.open(mode='w') as result_file:
         writer = csv.writer(result_file, delimiter=',')
 
-        writer.writerow([interval_datetime])
+        writer.writerow([preprocess.get_interval_datetime(t)])
         writer.writerow(['Item', 'ID', 'Our Value', 'AEMO Value'])
         writer.writerow(['Objective', '', obj_value, obj_record])
 
         for name, interconnector in interconnectors.items():
-            writer.writerow(['Interconnector', name, interconnector.mwflow.x, interconnector.mwflow_record])
+            if loss_flag:
+                writer.writerow(['Interconnector', name, interconnector.mw_flow, interconnector.mw_flow_record])
+            else:
+                writer.writerow(['Interconnector', name, interconnector.mw_flow.x, interconnector.mw_flow_record])
 
         for name, region in regions.items():
-            writer.writerow(['Net Interchange (into)', name, region.net_interchange.getValue(), region.net_interchange_record])
+            if loss_flag:
+                writer.writerow(['Net Interchange (into)', name, region.net_mw_flow, region.net_mw_flow_record])
+            else:
+                writer.writerow(['Net Interchange (into)', name, region.net_mw_flow.getValue(), region.net_mw_flow_record])
 
         for name, region in regions.items():
             writer.writerow(['Generation', name, region.dispatchable_generation.getValue(), region.dispatchable_generation_record])
@@ -54,3 +67,17 @@ def generate_result_csv(ramp_rate, interval_datetime, obj_value, obj_record, int
 
         for name, region in regions.items():
             writer.writerow(['Price', name, region.price, region.rrp])
+
+    regions_dir = OUT_DIR.joinpath('generator_dispatch.csv')
+    with regions_dir.open(mode='w') as regions_file:
+        writer = csv.writer(regions_file, delimiter=',')
+        writer.writerow(['DUID', 'Region', 'Fuel Source', 'Our Value', 'AEMO Value', 'Our Value minus AEMO Value'])
+        for name, region in regions.items():
+            for duid in region.generators:
+                genrator = generators[duid]
+                writer.writerow([duid,
+                                 name,
+                                 genrator.source,
+                                 genrator.total_cleared.getValue(),
+                                 genrator.total_cleared_record,
+                                 genrator.total_cleared.getValue() - genrator.total_cleared_record])

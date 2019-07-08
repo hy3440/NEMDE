@@ -14,9 +14,6 @@ BASE_DIR = pathlib.Path(__file__).resolve().parent.parent
 # Data directory
 DATA_DIR = BASE_DIR.joinpath('data')
 
-# Raw directory
-RAW_DIR = BASE_DIR.joinpath('raw')
-
 
 class Unit:
     """Unit class.
@@ -82,7 +79,9 @@ class Load(Unit):
 
 
 def add_marginal_loss_factors(all_generators, all_loads):
-    mlf_file = RAW_DIR.joinpath('LOSS_FACTORS/2019-20 MLF Applicable from 01 July 2019 to 30 June 2020.xlsx')
+    mlf_file = DATA_DIR.joinpath('MLF.xls')
+    if not mlf_file.is_file():
+        preprocess.download_mlf()
     with xlrd.open_workbook(mlf_file) as xlsx:
         for sheet_index in range(xlsx.nsheets):
             sheet = xlsx.sheet_by_index(sheet_index)
@@ -93,12 +92,18 @@ def add_marginal_loss_factors(all_generators, all_loads):
                         generator = all_generators[duid]
                         generator.connection_point_id = sheet.cell_value(row_index, 3)
                         generator.tni = sheet.cell_value(row_index, 4)
-                        generator.mlf = sheet.cell_value(row_index, 6)
+                        # 2018-19 MLF applicable from 01 July 2018 to 30 June 2019
+                        # generator.mlf = sheet.cell_value(row_index, 6)
+                        # 2019-20 MLF applicable from 01 July 2019 to 30 June 2020
+                        generator.mlf = sheet.cell_value(row_index, 5)
                     elif duid in all_loads:
                         load = all_loads[duid]
                         load.connection_point_id = sheet.cell_value(row_index, 3)
                         load.tni = sheet.cell_value(row_index, 4)
-                        load.mlf = sheet.cell_value(row_index, 6)
+                        # 2018-19 MLF applicable from 01 July 2018 to 30 June 2019
+                        # load.mlf = sheet.cell_value(row_index, 6)
+                        # 2019-20 MLF applicable from 01 July 2019 to 30 June 2020
+                        load.mlf = sheet.cell_value(row_index, 5)
                     # else:
                     #     print(duid)
 
@@ -107,7 +112,9 @@ def save_generators_and_loads():
     logging.info('Save generators and loads.')
     all_generators = {}
     all_loads = {}
-    generators_file = RAW_DIR.joinpath('GENERATORS/NEM Registration and Exemption List.xls')
+    generators_file = DATA_DIR.joinpath('REGISTRATION.xls')
+    if not generators_file.is_file():
+        preprocess.download_registration()
     with pd.ExcelFile(generators_file) as xls:
         df = pd.read_excel(xls, 'Generators and Scheduled Loads')
         for index, row in df.iterrows():
@@ -138,15 +145,13 @@ def extract_generators_and_loads():
     return generators, loads
 
 
-def bid_day_offer(case_date):
+def bid_day_offer(t):
     all_generators, all_loads = extract_generators_and_loads()
     logging.info('Get bid day offer.')
     generators = {}
     loads = {}
     reserve_trader = set()
-    bids_dir = DATA_DIR.joinpath('PUBLIC_BIDMOVE_COMPLETE_{}.csv'.format(case_date))
-    if not bids_dir.is_file():
-        preprocess.download_bidmove_complete(case_date)
+    bids_dir = preprocess.download_bidmove_complete(t)
     with bids_dir.open() as csvfile:
         reader = csv.reader(csvfile)
         logging.info('Read bid day offer.')
@@ -165,11 +170,10 @@ def bid_day_offer(case_date):
         return generators, loads, reserve_trader
 
 
-def bid_per_offer(generators, loads, case_date, interval_datatime):
+def bid_per_offer(generators, loads, t):
     logging.info('Get bid per offer.')
-    bids_dir = DATA_DIR.joinpath('PUBLIC_BIDMOVE_COMPLETE_{}.csv'.format(case_date))
-    if not bids_dir.is_file():
-        preprocess.download_bidmove_complete(case_date)
+    bids_dir = preprocess.download_bidmove_complete(t)
+    interval_datatime = preprocess.get_interval_datetime(t)
     with bids_dir.open() as csvfile:
         reader = csv.reader(csvfile)
         logging.info('Read bid per offer.')
@@ -181,10 +185,8 @@ def bid_per_offer(generators, loads, case_date, interval_datatime):
                     loads[row[5]].set_bid_per_offer(row)
 
 
-def add_scada_value(generators, loads, case_datetime):
-    scada_dir = DATA_DIR.joinpath('PUBLIC_DISPATCHSCADA_{}.csv'.format(case_datetime))
-    if not scada_dir.is_file():
-        preprocess.download_dispatch_scada(case_datetime)
+def add_scada_value(generators, loads, t):
+    scada_dir = preprocess.download_dispatch_scada(t)
     with scada_dir.open() as csvfile:
         reader = csv.reader(csvfile)
         logging.info('Read bid day offer.')
@@ -196,10 +198,9 @@ def add_scada_value(generators, loads, case_datetime):
                     loads[row[5]].scada_value = float(row[6])
 
 
-def add_intermittent_forecast(generators, report_date, interval_datetime):
-    intermittent_dir = DATA_DIR.joinpath('PUBLIC_NEXT_DAY_INTERMITTENT_DS_{}.csv'.format(report_date))
-    if not intermittent_dir.is_file():
-        preprocess.download_intermittent(report_date)
+def add_intermittent_forecast(generators, t):
+    intermittent_dir = preprocess.download_intermittent(t)
+    interval_datetime = preprocess.get_interval_datetime(t)
     with intermittent_dir.open() as csvfile:
         reader = csv.reader(csvfile)
         logging.info('Read intermittent forecast.')
@@ -217,10 +218,9 @@ def add_intermittent_forecast(generators, report_date, interval_datetime):
     return intermittent_dir
 
 
-def add_dispatch_record(generators, loads, case_date, interval_datetime):
-    record_dir = DATA_DIR.joinpath('PUBLIC_NEXT_DAY_DISPATCH_{}.csv'.format(case_date))
-    if not record_dir.is_file():
-        preprocess.download_next_day_dispatch(case_date)
+def add_dispatch_record(generators, loads, t):
+    record_dir = preprocess.download_next_day_dispatch(t)
+    interval_datetime = preprocess.get_interval_datetime(t)
     with record_dir.open() as csvfile:
         reader = csv.reader(csvfile)
         logging.info('Read next day dispatch.')

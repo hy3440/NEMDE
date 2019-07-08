@@ -1,4 +1,5 @@
 import csv
+import datetime
 import logging
 import io
 import pathlib
@@ -16,6 +17,40 @@ DATA_DIR = BASE_DIR.joinpath('data')
 
 # Base URL to download files data from
 BASE_URL = 'http://nemweb.com.au/Reports/Current'
+
+
+def get_case_date(t: datetime) -> str:
+    return t.strftime('%Y%m%d')  # YYmmdd
+
+
+def get_report_date(t: datetime) -> str:
+    next_t = t + datetime.timedelta(days=1)
+    return next_t.strftime('%Y%m%d')
+
+
+def get_case_datetime(t: datetime) -> str:
+    return t.strftime('%Y%m%d%H%M')  # YYmmddHHMM
+
+
+def get_interval_datetime(t: datetime) -> str:
+    return t.strftime('%Y/%m/%d %H:%M:%S')  # YY/mm/dd HH:MM:SS
+
+
+def download_from_url(url: str, file: pathlib.Path) -> None:
+    """Download file from the given url.
+
+    Args:
+        url (str): URL download file from
+        file: File path to save
+
+    Returns:
+        None
+
+    """
+    result = requests.get(url)
+    if result.ok:
+        with file.open('wb') as f:
+            f.write(result.content)
 
 
 def download(url: str, file: pathlib.Path) -> None:
@@ -80,88 +115,129 @@ def download_files(section: str, filename_pattern: str) -> list:
     return filenames
 
 
-def download_intermittent(report_date: str) -> None:
+def download_trading(t: datetime) -> None:
+    """Download trading summary of the given datetime from
+    <#VISIBILITY_ID>_TRADINGIS_<#CASE_DATETIME>_<#EVENT_QUEUE_ID>.zip
+
+    e.g. http://nemweb.com.au/Reports/Current/TradingIS_Reports/PUBLIC_TRADINGIS_201907041130_0000000309915971.zip
+
+    Args:
+        t(datetime): Datetime of downloaded data
+
+    Returns:
+        Path to the downloaded file
+
+    """
+    case_datetime = get_case_datetime(t)
+    trading_dir = DATA_DIR.joinpath('PUBLIC_TRADINGIS_{}.csv'.format(case_datetime))
+    if not trading_dir.is_file():
+        section = 'TradingIS_Reports'
+        visibility_id = 'PUBLIC'
+        file_id = 'TRADINGIS'
+        filename_pattern = '{}_{}_{}_[0-9]{{16}}.zip'.format(visibility_id, file_id, case_datetime)
+        filename = '{}_{}_{}.csv'.format(visibility_id, file_id, case_datetime)
+        download_file(section, filename_pattern, DATA_DIR.joinpath(filename))
+    return trading_dir
+
+
+def download_intermittent(t: datetime) -> None:
     """Download intermittent generation forecast of the given report date from
     <#BASE_URL>/<#SECTION>/<#VISIBILITY_ID>_NEXT_DAY_INTERMITTENT_DS_<#REPORT_DATETIME>.zip
 
     e.g. http://nemweb.com.au/Reports/Current/Next_Day_Intermittent_DS/PUBLIC_NEXT_DAY_INTERMITTENT_DS_20190410041023.zip
 
     Args:
-        report_date (str): Report date of downloaded data
+        t (datetime): Report date of downloaded data
 
     Returns:
-        None
+        Path to the downloaded file
 
     """
-    section = 'Next_Day_Intermittent_DS'
-    visibility_id = 'PUBLIC'
-    file_id = 'NEXT_DAY_INTERMITTENT_DS'
-    filename_pattern = '{}_{}_{}[0-9]{{6}}.zip'.format(visibility_id, file_id, report_date)
-    filename = '{}_{}_{}.csv'.format(visibility_id, file_id, report_date)
-    download_file(section, filename_pattern, DATA_DIR.joinpath(filename))
+    case_date = get_case_date(t)
+    intermittent_dir = DATA_DIR.joinpath('PUBLIC_NEXT_DAY_INTERMITTENT_DS_{}.csv'.format(case_date))
+    if not intermittent_dir.is_file():
+        section = 'Next_Day_Intermittent_DS'
+        visibility_id = 'PUBLIC'
+        file_id = 'NEXT_DAY_INTERMITTENT_DS'
+        filename_pattern = '{}_{}_{}_[0-9]{{16}}.zip'.format(visibility_id, file_id, case_date)
+        filename = '{}_{}_{}.csv'.format(visibility_id, file_id, case_date)
+        download_file(section, filename_pattern, DATA_DIR.joinpath(filename))
+    return intermittent_dir
 
 
-def download_next_day_dispatch(case_date: str) -> None:
+def download_next_day_dispatch(t: datetime) -> None:
     """Download next day dispatch of the given date from
     <#BASE_URL>/<#SECTION>/<#VISIBILITY_ID>_NEXT_DAY_DISPATCH_<#CASE_DATE>_<#EVENT_QUEUE_ID>.zip
 
     e.g. http://nemweb.com.au/Reports/Current/Next_Day_Dispatch/PUBLIC_NEXT_DAY_DISPATCH_20190527_0000000308408731.zip
 
     Args:
-        case_date (str): Date of downloaded data
+        t (datetime): Date of downloaded data
 
     Returns:
-        None
+        Path to the downloaded file
 
     """
-    section = 'Next_Day_Dispatch'
-    visibility_id = 'PUBLIC'
-    file_id = 'NEXT_DAY_DISPATCH'
-    filename_pattern = '{}_{}_{}_[0-9]{{16}}.zip'.format(visibility_id, file_id, case_date)
-    filename = '{}_{}_{}.csv'.format(visibility_id, file_id, case_date)
-    download_file(section, filename_pattern, DATA_DIR.joinpath(filename))
+    case_date = get_case_date(t)
+    record_dir = DATA_DIR.joinpath('PUBLIC_NEXT_DAY_DISPATCH_{}.csv'.format(case_date))
+    if not record_dir.is_file():
+        section = 'Next_Day_Dispatch'
+        visibility_id = 'PUBLIC'
+        file_id = 'NEXT_DAY_DISPATCH'
+        filename_pattern = '{}_{}_{}_[0-9]{{16}}.zip'.format(visibility_id, file_id, case_date)
+        filename = '{}_{}_{}.csv'.format(visibility_id, file_id, case_date)
+        download_file(section, filename_pattern, DATA_DIR.joinpath(filename))
+    return record_dir
 
 
-def download_bidmove_summary(case_date: str) -> None:
+def download_bidmove_summary(t: datetime) -> None:
     """Download bidmove summary of the given date from
     <#BASE_URL>/<#SECTION>/<#VISIBILITY_ID>_BIDMOVE_SUMMARY_<#CASE_DATE>_<#EVENT_QUEUE_ID>.zip
 
     e.g. http://nemweb.com.au/Reports/Current/Bidmove_Summary/PUBLIC_BIDMOVE_SUMMARY_20170201_0000000280589268.zip
 
     Args:
-        case_date (str): Date of downloaded data
+        t (datetime): Date of downloaded data
 
     Returns:
-        None
+        path to the downloaded file
 
     """
-    section = 'Bidmove_Summary'
-    visibility_id = 'PUBLIC'
-    file_id = 'BIDMOVE_SUMMARY'
-    filename_pattern = '{}_{}_{}_[0-9]{{16}}.zip'.format(visibility_id, file_id, case_date)
-    filename = '{}_{}_{}.csv'.format(visibility_id, file_id, case_date)
-    download_file(section, filename_pattern, DATA_DIR.joinpath(filename))
+    case_date = get_case_date(t)
+    bids_dir = DATA_DIR.joinpath('PUBLIC_BIDMOVE_SUMMARY_{}.csv'.format(case_date))
+    if not bids_dir.is_file():
+        section = 'Bidmove_Summary'
+        visibility_id = 'PUBLIC'
+        file_id = 'BIDMOVE_SUMMARY'
+        filename_pattern = '{}_{}_{}_[0-9]{{16}}.zip'.format(visibility_id, file_id, case_date)
+        filename = '{}_{}_{}.csv'.format(visibility_id, file_id, case_date)
+        download_file(section, filename_pattern, DATA_DIR.joinpath(filename))
+    return bids_dir
 
 
-def download_bidmove_complete(case_date: str) -> None:
+def download_bidmove_complete(t: datetime) -> None:
     """Download bidmove complete of the given date from
     <#BASE_URL>/<#SECTION>/<#VISIBILITY_ID>_BIDMOVE_COMPLETE_<#CASE_DATE>_<#EVENT_QUEUE_ID>.zip
 
     e.g. http://nemweb.com.au/Reports/Current/Bidmove_Summary/PUBLIC_BIDMOVE_COMPLETE_20170201_0000000280589266.zip
 
     Args:
-        case_date (str): Date of downloaded data
+        t (datetime): Date of downloaded data
 
     Returns:
-        None
+        Path to the downloaded file
 
     """
-    section = 'Bidmove_Complete'
-    visibility_id = 'PUBLIC'
-    file_id = 'BIDMOVE_COMPLETE'
-    filename_pattern = '{}_{}_{}_[0-9]{{16}}.zip'.format(visibility_id, file_id, case_date)
-    filename = '{}_{}_{}.csv'.format(visibility_id, file_id, case_date)
-    download_file(section, filename_pattern, DATA_DIR.joinpath(filename))
+    case_date = get_case_date(t)
+    bids_dir = DATA_DIR.joinpath('PUBLIC_BIDMOVE_COMPLETE_{}.csv'.format(case_date))
+    if not bids_dir.is_file():
+        section = 'Bidmove_Complete'
+        visibility_id = 'PUBLIC'
+        file_id = 'BIDMOVE_COMPLETE'
+        filename_pattern = '{}_{}_{}_[0-9]{{16}}.zip'.format(visibility_id, file_id, case_date)
+        filename = '{}_{}_{}.csv'.format(visibility_id, file_id, case_date)
+        download_file(section, filename_pattern, DATA_DIR.joinpath(filename))
+    return bids_dir
 
 
 def download_5min_predispatch(case_datetime: str) -> None:
@@ -225,45 +301,53 @@ def download_network_outage(report_datetime: str) -> None:
     download_file(section, filename_pattern, DATA_DIR.joinpath(filename))
 
 
-def download_dispatch_summary(case_datetime: str) -> None:
+def download_dispatch_summary(t: datetime) -> None:
     """Download dispatch summary of the given datetime from
     <#BASE_URL>/<#SECTION/<#VISIBILITY_ID>_DISPATCHIS_<#CASE_DATETIME>_<#EVENT_QUEUE_ID>.zip
 
     e.g. http://nemweb.com.au/Reports/Current/DispatchIS_Reports/PUBLIC_DISPATCHIS_201904301040_0000000307325261.zip
 
     Args:
-        case_datetime(str): Datetime of downloaded data
+        t(datetime): Datetime of downloaded data
 
     Returns:
-        None
+        Path to the downloaded file
 
     """
-    section = 'DispatchIS_Reports'
-    visibility_id = 'PUBLIC'
-    file_id = 'DISPATCHIS'
-    filename_pattern = '{}_{}_{}_[0-9]{{16}}.zip'.format(visibility_id, file_id, case_datetime)
-    filename = '{}_{}_{}.csv'.format(visibility_id, file_id, case_datetime)
-    download_file(section, filename_pattern, DATA_DIR.joinpath(filename))
+    case_datetime = get_case_datetime(t)
+    dispatch_dir = DATA_DIR.joinpath('PUBLIC_DISPATCHIS_{}.csv'.format(case_datetime))
+    if not dispatch_dir.is_file():
+        section = 'DispatchIS_Reports'
+        visibility_id = 'PUBLIC'
+        file_id = 'DISPATCHIS'
+        filename_pattern = '{}_{}_{}_[0-9]{{16}}.zip'.format(visibility_id, file_id, case_datetime)
+        filename = '{}_{}_{}.csv'.format(visibility_id, file_id, case_datetime)
+        download_file(section, filename_pattern, DATA_DIR.joinpath(filename))
+    return dispatch_dir
 
 
-def download_dispatch_scada(case_datetime: str) -> None:
+def download_dispatch_scada(t: datetime) -> None:
     """Download real time scheduled, semi-scheduled and non-scheduled DUID SCADA data from
     <#BASE_URL>/<#SECTION>/<#VISIBILITY_ID>_DISPATCHSCADA_<#CASE_DATETIME>_<#EVENT_QUEUE_ID>.zip
     e.g. http://www.nemweb.com.au/REPORTS/CURRENT/Dispatch_SCADA/PUBLIC_DISPATCHSCADA_201904291630_0000000307295427.zip
 
     Args:
-        case_datetime(str): Datetime of downloaded data
+        t(datetime): Datetime of downloaded data
 
     Returns:
-        None
+        Path to the downloaded file
 
     """
-    section = 'Dispatch_SCADA'
-    visibility_id = 'PUBLIC'
-    file_id = 'DISPATCHSCADA'
-    filename_pattern = '{}_{}_{}_[0-9]{{16}}.zip'.format(visibility_id, file_id, case_datetime)
-    filename = '{}_{}_{}.csv'.format(visibility_id, file_id, case_datetime)
-    download_file(section, filename_pattern, DATA_DIR.joinpath(filename))
+    case_datetime = get_case_datetime(t)
+    scada_dir = DATA_DIR.joinpath('PUBLIC_DISPATCHSCADA_{}.csv'.format(case_datetime))
+    if not scada_dir.is_file():
+        section = 'Dispatch_SCADA'
+        visibility_id = 'PUBLIC'
+        file_id = 'DISPATCHSCADA'
+        filename_pattern = '{}_{}_{}_[0-9]{{16}}.zip'.format(visibility_id, file_id, case_datetime)
+        filename = '{}_{}_{}.csv'.format(visibility_id, file_id, case_datetime)
+        download_file(section, filename_pattern, DATA_DIR.joinpath(filename))
+    return scada_dir
 
 
 def download_altlimits() -> None:
@@ -275,7 +359,7 @@ def download_altlimits() -> None:
     """
     logging.info('Downloading Ratings in EMS.')
     file = DATA_DIR.joinpath('altlimits.csv')
-    return download('http://nemweb.com.au/Reports/Current/Alt_Limits/altlimits.zip', file)
+    download('http://nemweb.com.au/Reports/Current/Alt_Limits/altlimits.zip', file)
 
 
 def download_transmission_equipment_ratings() -> None:
@@ -287,6 +371,30 @@ def download_transmission_equipment_ratings() -> None:
     logging.info('Downloading Daily transmission equipment ratings.')
     file = DATA_DIR.joinpath('PUBLIC_TER_DAILY.CSV')
     download('http://nemweb.com.au/Reports/Current/Alt_Limits/PUBLIC_TER_DAILY.zip', file)
+
+
+def download_registration() -> None:
+    """Download NEM regeistration and exemption list.
+
+    Returns:
+        None
+
+    """
+    logging.info('Download NEM Registration and Exemption List.')
+    url = 'http://www.aemo.com.au/-/media/Files/Electricity/NEM/Participant_Information/NEM-Registration-and-Exemption-List.xls'
+    download_from_url(url, DATA_DIR.joinpath('REGISTRATION.xls'))
+
+
+def download_mlf() -> None:
+    """Download NEM marginal loss factors.
+
+    Returns:
+        None
+
+    """
+    logging.info('Download NEM margional loss factors.')
+    url = 'https://www.aemo.com.au/-/media/Files/Electricity/NEM/Security_and_Reliability/Loss_Factors_and_Regional_Boundaries/2019/2019-20-MLF-Applicable-from-01-July-2019-to-30-June-2020.xlsx'
+    download_from_url(url, DATA_DIR.joinpath('MLF.xls'))
 
 
 def download_all(case_date):

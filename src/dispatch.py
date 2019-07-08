@@ -7,32 +7,50 @@ import logging
 import result
 
 
-def dispatch(ramp_flag=False):
+five_min = datetime.timedelta(minutes=5)
+one_day = datetime.timedelta(days=1)
+thirty_min = datetime.timedelta(minutes=30)
+
+
+def dispatch(ramp_flag=False, loss_flag=False):
     try:
-        five_min = datetime.timedelta(minutes=5)
-        one_day = datetime.timedelta(days=1)
-        t = datetime.datetime(2019, 5, 28, 4, 5, 0)
-        next_t = t + one_day
-        case_date = t.strftime('%Y%m%d')  # YYmmdd
-        report_date = next_t.strftime('%Y%m%d')
-        case_datetime = t.strftime('%Y%m%d%H%M')  # YYmmddHHMM
-        interval_datetime = t.strftime('%Y/%m/%d %H:%M:%S')  # YY/mm/dd HH:MM:SS
+        t = datetime.datetime(2019, 7, 7, 4, 5, 0)
 
         model = gurobipy.Model('nemde')
         obj = 0
 
-        generators, loads, reserve_trader = bid.bid_day_offer(case_date)
-        bid.bid_per_offer(generators, loads, case_date, interval_datetime)
-        # bid.add_scada_value(generators, loads, case_datetime)
-        bid.add_intermittent_forecast(generators, report_date, interval_datetime)
-        bid.add_dispatch_record(generators, loads, case_date, interval_datetime)
+        generators, loads, reserve_trader = bid.bid_day_offer(t)
+        bid.bid_per_offer(generators, loads, t)
+        # bid.add_scada_value(generators, loads, t)
+        bid.add_intermittent_forecast(generators, t)
+        bid.add_dispatch_record(generators, loads, t)
 
-        regions, interconnectors, obj_record = interconnect.get_regions_and_interconnectors(case_datetime)
+        regions, interconnectors, obj_record = interconnect.get_regions_and_interconnectors(t)
 
         for name, interconnector in interconnectors.items():
-            interconnector.mw_flow = model.addVar(lb=-interconnector.reverse_cap, ub=interconnector.forward_cap, name=name)
-            regions[interconnector.to_region].net_interchange += interconnector.mw_flow
-            regions[interconnector.from_region].net_interchange -= interconnector.mw_flow
+            regions[interconnector.to_region].net_mw_flow_record += interconnector.mw_flow_record
+            regions[interconnector.from_region].net_mw_flow_record -= interconnector.mw_flow_record
+
+            if loss_flag:
+                interconnector.mw_flow = interconnector.mw_flow_record
+                regions[interconnector.to_region].net_mw_flow += interconnector.mw_flow_record
+                regions[interconnector.from_region].net_mw_flow -= interconnector.mw_flow_record
+            else:
+                interconnector.mw_flow = model.addVar(lb=-interconnector.reverse_cap, ub=interconnector.forward_cap,
+                                                      name=name)
+                regions[interconnector.to_region].net_mw_flow += interconnector.mw_flow
+                regions[interconnector.from_region].net_mw_flow -= interconnector.mw_flow
+
+        # interconnect.calculate_interconnector_losses(regions, interconnectors)
+        if loss_flag:
+            for region in regions.values():
+                region.losses = region.dispatchable_generation_record + region.net_mw_flow_record - region.total_demand - region.dispatchable_load_record
+        else:
+            interconnect.calculate_interconnector_losses(model, regions, interconnectors)
+
+        # for interconnector in interconnectors.values():
+        #     regions[interconnector.from_region].losses += interconnector.mw_losses_record * interconnector.from_region_loss_share
+        #     regions[interconnector.to_region].losses += interconnector.mw_losses_record * (1 - interconnector.from_region_loss_share)
 
         for generator in generators.values():
             # Dispatch generation for each price band
@@ -76,14 +94,14 @@ def dispatch(ramp_flag=False):
             # Cost of a load
             load.cost = sum([l * (p / load.mlf) for l, p in zip(load.loads, load.price_band)])
             # Add cost to objective
-            obj += load.cost
+            obj -= load.cost
             # Add load to corresponding region
             regions[load.region].loads.add(load.duid)
             # Add load total_cleared to region load
             regions[load.region].dispatchable_load += load.total_cleared
 
         for region in regions.values():
-            model.addConstr(region.dispatchable_generation + region.net_interchange == region.total_demand + region.dispatchable_load, region.region_id)
+            model.addConstr(region.dispatchable_generation + region.net_mw_flow == region.total_demand + region.dispatchable_load + region.losses, region.region_id)
 
         # Set objective
         model.setObjective(obj, gurobipy.GRB.MINIMIZE)
@@ -96,7 +114,8 @@ def dispatch(ramp_flag=False):
                 regions[constr.constrName].price = constr.pi
 
         # Generate result csv
-        result.generate_result_csv(ramp_flag, interval_datetime, model.objVal, obj_record, interconnectors, regions)
+        result.generate_result_csv(ramp_flag, loss_flag, t, model.objVal, obj_record, interconnectors, regions, generators)
+        # test.test_negative_bids(generators)
 
     except gurobipy.GurobiError as e:
          print('Error code ' + str(e.errno) + ": " + str(e))
@@ -107,4 +126,4 @@ def dispatch(ramp_flag=False):
 
 if __name__ == '__main__':
     logging.basicConfig(filename='nemde.log', filemode='w', format='%(levelname)s: %(asctime)s %(message)s', level=logging.INFO)
-    dispatch()
+    dispatch(True, False)
