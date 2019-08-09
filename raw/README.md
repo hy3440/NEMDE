@@ -19,10 +19,23 @@
 | Example          | [http://nemweb.com.au/Reports/Current/Bidmove_Summary/PUBLIC_BIDMOVE_SUMMARY_20170201_0000000280589268.zip](http://nemweb.com.au/Reports/Current/Bidmove_Summary/PUBLIC_BIDMOVE_SUMMARY_20170201_0000000280589268.zip) |
 | File             | A `csv` file after decompression (e.g. [PUBLIC_BIDMOVE_SUMMARY_20190428_0000000307275793.CSV](./BIDS/PUBLIC_BIDMOVE_SUMMARY_20190428_0000000307275793.CSV)) |
 | Content          | Two parts:<br> 1. [`BIDDAYOFFER_D`](./BIDS/BIDDAYOFFER_D.pdf) (about 1047 rows) summarises generator bids per day<br> 2. **[`BIDPEROFFER_D`](./BIDS/BIDPEROFFER_D.pdf)** summarises generator bids per period |
-| Update           | Daily shortly after 4am; 1 file per day                      |
+| Update           | Daily shortly after 4am; 1 file per day (including intervals from 4:05 to next day 4:00) |
 | More Information | [https://www.nemweb.com.au/#bidmove-summary](https://www.nemweb.com.au/#bidmove-summary) |
 
-### 3. 5-min predispatch)
+### 3. MNSP Bids
+
+| Aspect           | Description                                                  |
+| ---------------- | :----------------------------------------------------------- |
+| Section          | `Yesterdays_MNSPBids_Reports`                                |
+| File Name        | `<#VISIBILITY_ID>_YESTBIDMNSP_<#CASE_DATE>_<#EVENT_QUEUE_ID>.zip` |
+| Regex            | `PUBLIC_YESTBIDMNSP_<#CASE_DATE>0000_[0-9]{14}.zip`          |
+| Example          | [http://www.nemweb.com.au/REPORTS/CURRENT/Yesterdays_MNSPBids_Reports/PUBLIC_YESTBIDMNSP_201907160000_20190717040529.zip](http://www.nemweb.com.au/REPORTS/CURRENT/Yesterdays_MNSPBids_Reports/PUBLIC_YESTBIDMNSP_201907160000_20190717040529.zip) |
+| File             | A `csv` file after decompression (e.g. [PUBLIC_YESTBIDMNSP_201907160000_20190717040529.CSV](./MNSP/PUBLIC_YESTBIDMNSP_201907160000_20190717040529.CSV)) |
+| Content          | Two parts:  1. [`BIDDAYOFFER_D`](./MNSP/BIDDAYOFFER_D.pdf) <br>2. [BIDPEROFFER_D](./MNSP/BIDPEROFFER_D.pdf) |
+| Update           | Daily shortly after 4am; 1 file per day (including periods from 4:30 to next day 4:00) |
+| More Information | [http://nemweb.com.au/#yesterdays-mnspbids-reports](http://nemweb.com.au/#yesterdays-mnspbids-reports) |
+
+### 4. 5-min predispatch)
 
 Every 5 minutes AEMO updates a 60-minute look ahead of DISPATCH prices.
 
@@ -37,7 +50,7 @@ Every 5 minutes AEMO updates a 60-minute look ahead of DISPATCH prices.
 | Update           | Every 5 minutes, 288 files per day                           |
 | More Information | https://www.nemweb.com.au/#p5-reports                        |
 
-### 4. Pre-dispatch
+### 5. Pre-dispatch
 
 The *pre-dispatch* period starts at the next *trading interval* and continues to include the next *trading day* with a half hour resolution. At the time of initial publication the *pre-dispatch* covers the remainder of the day, the next day and the first 4 hours of the following day.
 
@@ -52,7 +65,7 @@ The *pre-dispatch* period starts at the next *trading interval* and continues to
 | Update           | Every 30 minutes, 48 files per day                           |
 | More Information | [https://www.nemweb.com.au/#predispatchis-reports](https://www.nemweb.com.au/#predispatchis-reports) |
 
-### 5. Loss Factors
+### 6. Loss Factors
 
 | Aspect  | Description                                                  |
 | ------- | ------------------------------------------------------------ |
@@ -61,7 +74,7 @@ The *pre-dispatch* period starts at the next *trading interval* and continues to
 | Content | Five sheets for five regions. Each sheet contains three parts: see [`LOSS_FACTORS`](./LOSS_FACTORS/LOSS_FACTORS.md)<br>1. Loads<br>2. Generators<br>3. Embedded Generators |
 | Update  | Annually by 1 April                                          |
 
-### 6. Network Outages
+### 7. Network Outages
 
 | Aspect    | Description                                                  |
 | --------- | ------------------------------------------------------------ |
@@ -73,7 +86,7 @@ The *pre-dispatch* period starts at the next *trading interval* and continues to
 | Content   | Two parts: <br>1. [`NETWORK_OUTAGECONSTRAINTSET`](./NETWORK/Network%20Outages/NETWORK_OUTAGECONSTRAINTSET.pdf) lists the Constraint Sets that are expected to be invoked for the outage once it is confirmed to proceed<br>2. [`NETWORK_OUTAGEDETAIL`](./NETWORK/Network%20Outages/NETWORK_OUTAGEDETAIL.pdf) lists asset owners planned outages for transmission equipment. |
 | Update    | Every 30 minutes; 50 files per day                           |
 
-### 7. Transmission Equipment Ratings
+### 8. Transmission Equipment Ratings
 
 1. **`altlimits.zip`**: complete list of ratings used in AEMO's EMS (energy management system)
 
@@ -95,7 +108,7 @@ The *pre-dispatch* period starts at the next *trading interval* and continues to
 | Update           | On change (generally every few minutes)<br>Published on 8am everyday (not sure)<br>**Note:** Historical data is not available. |
 | More Information | [https://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Data/Network-Data/Transmission-Equipment-Ratings](https://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Data/Network-Data/Transmission-Equipment-Ratings) |
 
-### 8. Market Price Cap
+### 9. Market Price Cap
 
 see [https://www.aemc.gov.au/news-centre/media-releases/aemc-publishes-schedule-reliability-settings-2018-19](https://www.aemc.gov.au/news-centre/media-releases/aemc-publishes-schedule-reliability-settings-2018-19)
 
@@ -106,11 +119,11 @@ see [https://www.aemc.gov.au/news-centre/media-releases/aemc-publishes-schedule-
 
 **updates** annually.
 
-### 9. Interconnector Connectivity & Limits
+### 10. Interconnector Connectivity & Limits
 
 [http://www.aemo.com.au/-/media/Files/Electricity/NEM/Security_and_Reliability/Congestion-Information/2017/Interconnector-Capabilities.pdf](http://www.aemo.com.au/-/media/Files/Electricity/NEM/Security_and_Reliability/Congestion-Information/2017/Interconnector-Capabilities.pdf) 
 
-### 10. Dispatch Summary
+### 11. Dispatch Summary
 
 | Aspect           | Description                                                  |
 | ---------------- | ------------------------------------------------------------ |
@@ -123,7 +136,7 @@ see [https://www.aemc.gov.au/news-centre/media-releases/aemc-publishes-schedule-
 | Update           | Every 5 minutes, 288 files per day                           |
 | More Information | [https://www.nemweb.com.au/#dispatchis-reports](https://www.nemweb.com.au/#dispatchis-reports) |
 
-### 11. Actual Generation and Load Data
+### 12. Actual Generation and Load Data
 
 | Aspect           | Description                                                  |
 | ---------------- | ------------------------------------------------------------ |
@@ -136,7 +149,7 @@ see [https://www.aemc.gov.au/news-centre/media-releases/aemc-publishes-schedule-
 | Update           | Every 5 minutes, 288 files per day                           |
 | More Information | [https://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Data/Market-Management-System-MMS/Generation-and-Load](https://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Data/Market-Management-System-MMS/Generation-and-Load) |
 
-### 12. Intermittent Generation Dispatch Forecasts
+### 13. Intermittent Generation Dispatch Forecasts
 
 | Aspect           | Description                                                  |
 | ---------------- | ------------------------------------------------------------ |
@@ -146,10 +159,10 @@ see [https://www.aemc.gov.au/news-centre/media-releases/aemc-publishes-schedule-
 | Example          | [http://nemweb.com.au/Reports/Current/Next_Day_Intermittent_DS/PUBLIC_NEXT_DAY_INTERMITTENT_DS_20190527041026.zip](http://nemweb.com.au/Reports/Current/Next_Day_Intermittent_DS/PUBLIC_NEXT_DAY_INTERMITTENT_DS_20190527041026.zip) |
 | File             | A `csv` file after decompression (e.g. [PUBLIC_NEXT_DAY_INTERMITTENT_DS_20190527041026.CSV](./INTERMITTENT_GENERATION_DISPATCH_FORECASTS/PUBLIC_NEXT_DAY_INTERMITTENT_DS_20190527041026.CSV)) |
 | Content          | See<br>1. [`INTERMITTENT_DS_RUN`](./INTERMITTENT_GENERATION_DISPATCH_FORECASTS/INTERMITTENT_DS_RUN.pdf)<br>2. [`INTERMITTENT_DS_PRED`](./INTERMITTENT_GENERATION_DISPATCH_FORECASTS/INTERMITTENT_DS_PRED.pdf)<br>3. [`INTERMITTENT_FORECAST_TRK`](./INTERMITTENT_GENERATION_DISPATCH_FORECASTS/INTERMITTENT_FORECAST_TRK.pdf) |
-| Update           | 1 files per day, shortly after 4 am                          |
+| Update           | 1 files per day, shortly after 4 am (including intervals from 4:05 to next day 4:00) |
 | More Information | 1. [https://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Planning-and-forecasting/Solar-and-wind-energy-forecasting](https://www.aemo.com.au/Electricity/National-Electricity-Market-NEM/Planning-and-forecasting/Solar-and-wind-energy-forecasting)<br>2. [Guide_to_Intermittent_Generation](./INTERMITTENT_GENERATION_DISPATCH_FORECASTS/Guide_to_Intermittent_Generation.pdf) |
 
-### 13. Dispatch results for units
+### 14. Dispatch results for units
 
 Dispatch data now Public from previous day. Targets for scheduled and semi-scheduled generating units.
 
@@ -161,10 +174,10 @@ Dispatch data now Public from previous day. Targets for scheduled and semi-sched
 | Example          | [http://nemweb.com.au/Reports/Current/Next_Day_Dispatch/PUBLIC_NEXT_DAY_DISPATCH_20190527_0000000308408731.zip](http://nemweb.com.au/Reports/Current/Next_Day_Dispatch/PUBLIC_NEXT_DAY_DISPATCH_20190527_0000000308408731.zip) |
 | File             | A `csv` file after decompression (e.g. [PUBLIC_NEXT_DAY_DISPATCH_20190527_0000000308408731.CSV](./DISPATCH_PUBLIC/PUBLIC_NEXT_DAY_DISPATCH_20190527_0000000308408731.CSV)) |
 | Content          | Five parts:<br/>1. [`DISPATCHLOAD`](./DISPATCH_PUBLIC/DISPATCHLOAD.pdf)<br/>2. [`DISPATCH_LOCAL_PRICE`](./DISPATCH_PUBLIC/DISPATCH_LOCAL_PRICE.pdf)<br/>3. [`DISPATCHOFFERTRK`](./DISPATCH_PUBLIC/DISPATCHOFFERTRK.pdf)<br/> 4. [`DISPATCHCONSTRAINT`](./DISPATCH_PUBLIC/DISPATCHCONSTRAINT.pdf)<br/> 5. [`DISPATCH_MNSPBIDTRK`](./DISPATCH_PUBLIC/DISPATCH_MNSPBIDTRK.pdf) |
-| Update           | 1 files per day, shortly after 4 am                          |
+| Update           | 1 files per day, shortly after 4 am (including intervals from 4:05 to next day 4:00) |
 | More Information | [http://nemweb.com.au/#next-day-dispatch](http://nemweb.com.au/#next-day-dispatch) |
 
-### 14. Trading
+### 15. Trading
 
 30 Minute Trading Interval Results
 
