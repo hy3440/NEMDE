@@ -6,6 +6,7 @@ import preprocess
 import xlrd
 
 log = logging.getLogger(__name__)
+intervention = '0'
 
 
 class Bid:
@@ -161,7 +162,7 @@ class Unit:
         self.max_ramp_rate_down = None
         # # Registration
         # self.dispatch_type = None
-        # self.region = None
+        # self.region_id = None
         # self.classification = None
         # self.station = None
         # self.source = None
@@ -214,7 +215,7 @@ class Unit:
 
 
 # class Generator(Unit):
-#     def __init__(self, duid, region, classification, station, reg_cap, max_cap, max_roc, source=None):
+#     def __init__(self, duid, region_id, classification, station, reg_cap, max_cap, max_roc, source=None):
 #         super().__init__(duid)
 #         self.forecast = None
 #         self.priority = 0
@@ -224,7 +225,7 @@ class Unit:
 #     pass
 
 
-def add_unit_bids(units, t):
+def add_unit_bids(units, t, fcas_flag):
     """ Add unit bids.
     Args:
         units (dict): a dictionary of units
@@ -241,12 +242,13 @@ def add_unit_bids(units, t):
         for row in reader:
             if row[0] == 'D' and row[2] == 'BIDDAYOFFER_D':
                 duid = row[5]
-                if duid not in units:
-                    units[duid] = Unit(duid)
-                unit = units[duid]
+                unit = units.get(duid)
+                if not unit:
+                    unit = Unit(duid)
+                    units[duid] = unit
                 if row[6] == 'ENERGY':
                     unit.energy = EnergyBid(row)
-                else:
+                elif fcas_flag:
                     unit.fcas_bids[row[6]] = FcasBid(row)
                     # if row[6] == 'RAISEREG':
                     #     unit.raise_reg_fcas = Fcas(row)
@@ -265,7 +267,7 @@ def add_unit_bids(units, t):
                     energy.roc_up = int(row[13])
                     energy.roc_down = int(row[14])
                     energy.band_avail = [int(avail) for avail in row[19:29]]
-                else:
+                elif fcas_flag:
                     # if row[6] == 'RAISEREG':
                     #     bid = units[row[5]].raise_reg_fcas
                     # elif row[6] == 'LOWERREG':
@@ -365,7 +367,7 @@ def add_registration_information(units):
             if row['DUID'] in units:
                 unit = units[row['DUID']]
                 unit.dispatch_type = row['Dispatch Type']
-                unit.region = row['Region']
+                unit.region_id = row['Region']
                 unit.classification = row['Classification']
                 unit.station = row['Station Name']
                 unit.source = row['Fuel Source - Primary']
@@ -379,7 +381,7 @@ def add_registration_information(units):
         for index, row in df.iterrows():
             if row['DUID'] in units:
                 unit = units[row['DUID']]
-                unit.region = row['Region']
+                unit.region_id = row['Region']
 
 
 def add_marginal_loss_factors(units):
@@ -405,7 +407,7 @@ def add_marginal_loss_factors(units):
                         # 2018-19 MLF applicable from 01 July 2018 to 30 June 2019
                         # generator.mlf = sheet.cell_value(row_index, 6)
                         # 2019-20 MLF applicable from 01 July 2019 to 30 June 2020
-                        unit.mlf = sheet.cell_value(row_index, 5)
+                        unit.transmission_loss_factor = sheet.cell_value(row_index, 5)
 
 
 def add_intermittent_forecast(units, t):
@@ -436,7 +438,7 @@ def add_intermittent_forecast(units, t):
                     logging.error('{} forecast priority record is {} but we extract is {}'.format(row[5], row[7], priority))
 
 
-def add_dispatch_record(units, t):
+def add_dispatch_record(units, t, fcas_flag):
     """ Add dispatch record.
 
     Args:
@@ -461,21 +463,40 @@ def add_dispatch_record(units, t):
                     unit.total_cleared_record = float(row[14])
                     unit.ramp_down_rate = float(row[15])
                     unit.ramp_up_rate = float(row[16])
-                    unit.lower5min_record = float(row[17])
-                    unit.lower60sec_record = float(row[18])
-                    unit.lower6sec_record = float(row[19])
-                    unit.raise5min_record = float(row[20])
-                    unit.raise60sec_record = float(row[21])
-                    unit.raise6sec_record = float(row[22])
-                    # generator.marginal_value_record = float(row[28])
-                    unit.lowerreg_record = float(row[34])
-                    unit.raisereg_record = float(row[35])
-                    unit.raisereg_availability = float(row[45])
-                    unit.raisereg_enablement_max = float(row[46])
-                    unit.raisereg_enablement_min = float(row[47])
-                    unit.lowerreg_availability = float(row[48])
-                    unit.lowerreg_enablement_max = float(row[49])
-                    unit.lowerreg_enablement_min = float(row[50])
+                    if fcas_flag:
+                        unit.lower5min_record = float(row[17])
+                        unit.lower60sec_record = float(row[18])
+                        unit.lower6sec_record = float(row[19])
+                        unit.raise5min_record = float(row[20])
+                        unit.raise60sec_record = float(row[21])
+                        unit.raise6sec_record = float(row[22])
+                        # generator.marginal_value_record = float(row[28])
+                        unit.lowerreg_record = float(row[34])
+                        unit.raisereg_record = float(row[35])
+                        unit.raisereg_availability = float(row[45])
+                        unit.raisereg_enablement_max = float(row[46])
+                        unit.raisereg_enablement_min = float(row[47])
+                        unit.lowerreg_availability = float(row[48])
+                        unit.lowerreg_enablement_max = float(row[49])
+                        unit.lowerreg_enablement_min = float(row[50])
+
+
+def add_dispatchload(units, t, start, process):
+    interval_datetime = preprocess.get_case_datetime(t)
+    if process == 'dispatch':
+        record_dir = preprocess.OUT_DIR / process / 'dispatch_{}.csv'.format(interval_datetime)
+    else:
+        record_dir = preprocess.OUT_DIR / process / '{}_{}'.format(process, preprocess.get_case_datetime(start)) / 'dispatchload_{}.csv'.format(interval_datetime)
+
+    with record_dir.open() as f:
+        reader = csv.reader(f)
+        logging.info('Read next day dispatch.')
+        for row in reader:
+            if row[0] == 'D':
+                duid = row[1]
+                if duid in units:
+                    unit = units[duid]
+                    unit.initial_mw = float(row[2])
 
 
 def add_scada_value(units, t):
@@ -510,71 +531,80 @@ def add_reserve_trader(units):
     for i in range(1, 7):
         duid = 'RT_NSW{}'.format(i)
         if duid in units:
-            units[duid].region = 'NSW1'
+            units[duid].region_id = 'NSW1'
             units[duid].dispatch_type = 'Generator'
         duid = 'DG_NSW{}'.format(i)
         if duid in units:
-            units[duid].region = 'NSW1'
+            units[duid].region_id = 'NSW1'
             units[duid].dispatch_type = 'Generator'
 
     for i in range(1, 13):
         duid = 'RT_VIC{}'.format(i)
         if duid in units:
-            units[duid].region = 'VIC1'
+            units[duid].region_id = 'VIC1'
             units[duid].dispatch_type = 'Generator'
         duid = 'DG_VIC{}'.format(i)
         if duid in units:
-            units[duid].region = 'VIC1'
+            units[duid].region_id = 'VIC1'
             units[duid].dispatch_type = 'Generator'
 
     for i in range(1, 7):
         duid = 'RT_SA{}'.format(i)
         if duid in units:
-            units[duid].region = 'SA1'
+            units[duid].region_id = 'SA1'
             units[duid].dispatch_type = 'Generator'
         duid = 'DG_SA{}'.format(i)
         if duid in units:
-            units[duid].region = 'SA1'
+            units[duid].region_id = 'SA1'
             units[duid].dispatch_type = 'Generator'
 
     for i in range(1, 2):
         duid = 'RT_TAS{}'.format(i)
         if duid in units:
-            units[duid].region = 'TAS1'
+            units[duid].region_id = 'TAS1'
             units[duid].dispatch_type = 'Generator'
         duid = 'DG_TAS{}'.format(i)
         if duid in units:
-            units[duid].region = 'TAS1'
+            units[duid].region_id = 'TAS1'
             units[duid].dispatch_type = 'Generator'
 
     for i in range(1, 2):
         duid = 'RT_QLD{}'.format(i)
         if duid in units:
-            units[duid].region = 'QLD1'
+            units[duid].region_id = 'QLD1'
             units[duid].dispatch_type = 'Generator'
         duid = 'DG_QLD{}'.format(i)
         if duid in units:
-            units[duid].region = 'QLD1'
+            units[duid].region_id = 'QLD1'
             units[duid].dispatch_type = 'Generator'
 
 
-def get_units(t):
+def get_units(t, fcas_flag, start, i, process):
     """Get units.
 
     Args:
-        t (datetime): Interval datetime
+        t (datetime.datetime): Interval datetime
+        fcas_flag (bool): Consider FCAS or not
 
     Returns:
         dict: A dictionary of units
 
     """
     units = {}
-    add_unit_bids(units, t)
-    # add_registration_information(units)
-    # add_marginal_loss_factors(units)
-    add_du_detail(units, t)
-    add_du_detail_summary(units, t)
+    add_unit_bids(units, t, fcas_flag)
+
+    add_registration_information(units)
+    add_marginal_loss_factors(units)
+    add_reserve_trader(units)
+
+    # add_du_detail(units, t)
+    # add_du_detail_summary(units, t)
     add_intermittent_forecast(units, t)
-    add_dispatch_record(units, t)
-    # add_reserve_trader(units)
+    if i == 0:
+        if process == 'dispatch':
+            add_dispatch_record(units, t, fcas_flag)
+        else:
+            add_dispatchload(units, t, start, 'dispatch')
+    else:
+        add_dispatchload(units, t, start, process)
     return units

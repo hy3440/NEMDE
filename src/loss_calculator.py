@@ -1,39 +1,76 @@
 import datetime
 import interconnect
-import numpy as np
 import gurobipy
+import pprint
+print = pprint.pprint
 
-t = datetime.datetime(2019, 7, 7, 4, 5, 0)
-regions, interconnectors, obj_record = interconnect.get_regions_and_interconnectors(t)
-qd = regions['QLD1'].total_demand
-vd = regions['VIC1'].total_demand
-nd = regions['NSW1'].total_demand
-sd = regions['SA1'].total_demand
 
-model = gurobipy.Model('temp')
 
-x_min = -2000
-x_max = 2000
-x_s = np.arange(x_min, x_max, 0.1)
-# y_s = [(-0.0468 + 3.5206E-06 * nd + 5.3555E-06 * qd) * x_i + 9.5859E-05 * (x_i ** 2) for x_i in x_s]
-y_s = [(0.0657 - 3.1523E-05 * vd + 2.1734E-05 * nd - 6.5967E-05 * sd) * x_i + 8.5133E-05 * (x_i ** 2) for x_i in x_s]
-lambda_s = [model.addVar(lb=0.0) for i in x_s]
+def calculate_losses():
+    for ic in interconnectors.values():
+        coefficient = ic.loss_constant - 1
+        for region_id, demand in ic.demand_coefficient.items():
+            coefficient += regions[region_id].total_demand * demand
 
-x = model.addVar(lb=-gurobipy.GRB.INFINITY)
-model.addConstr(x == sum([x_i * lambda_i for x_i, lambda_i in zip(x_s, lambda_s)]))
+        model = gurobipy.Model('LossCalculator')
+        model.setParam('OutputFlag', 0)
+        x_s = sorted(ic.mw_breakpoint.values())
+        y_s = [0.5 * ic.loss_flow_coefficient * x * x + coefficient * x for x in x_s]
+        ic.mw_flow = model.addVar(lb=-ic.import_limit, ub=ic.export_limit)
+        ic.mw_losses = model.addVar(lb=-gurobipy.GRB.INFINITY)
 
-y = model.addVar(lb=-gurobipy.GRB.INFINITY)
-model.addConstr(y == sum([y_i * lambda_i for y_i, lambda_i in zip(y_s, lambda_s)]))
+        if ic.interconnector_id == 'T-V-MNSP1':
+            for link_id, link in links.items():
+                link.mw_flow = model.addVar()
+            model.addSOS(gurobipy.GRB.SOS_TYPE1, [links['BLNKTAS'].mw_flow, links['BLNKVIC'].mw_flow])
+            model.addConstr(links['BLNKTAS'].mw_flow - links['BLNKVIC'].mw_flow == ic.mw_flow)
 
-model.addConstr(sum(lambda_s) == 1)
-model.addSOS(gurobipy.GRB.SOS_TYPE2, lambda_s)
+        for i in range(len(x_s) - 1):
+            if ic.interconnector_id == 'T-V-MNSP1':
+                model.addConstr((ic.mw_losses - y_s[i]) * (x_s[i + 1] - x_s[i]) >= (y_s[i + 1] - y_s[i]) * (links['BLNKTAS'].mw_flow - x_s[i]))
+                model.addConstr((ic.mw_losses - y_s[i]) * (x_s[i + 1] - x_s[i]) >= (y_s[i + 1] - y_s[i]) * (links['BLNKVIC'].mw_flow - x_s[i]))
+            else:
+                model.addConstr((ic.mw_losses - y_s[i]) * (x_s[i + 1] - x_s[i]) >= (y_s[i + 1] - y_s[i]) * (ic.mw_flow - x_s[i]))
+        model.addConstr(ic.mw_flow == ic.mw_flow_record)
 
-model.addConstr(x == interconnectors['VIC1-NSW1'].mw_flow_record)
-model.setObjective(1)
+        model.setObjective(0)
+        model.optimize()
 
-model.optimize()
-print(len(x_s))
-print(x.x)
-print(y.x)
-print("Flow record: {}".format(interconnectors['VIC1-NSW1'].mw_flow_record))
-print(interconnectors['VIC1-NSW1'].mw_losses_record)
+        loss = ic.mw_losses.x
+        if ic.interconnector_id == 'T-V-MNSP1':
+            print(ic.interconnector_id)
+            print('flow: {}'.format(ic.mw_flow.x))
+            print('loss: {}'.format(ic.mw_losses.x))
+            print('record: {}'.format(ic.mw_losses_record))
+            if ic.metered_mw_flow >= 0:
+                regions['TAS1'].losses += loss
+            else:
+                regions['VIC1'].losses += ic.mw_losses.x
+            for link in links.values():
+                print('{}: {}'.format(link.link_id, link.mw_flow.x))
+                regions[link.from_region].losses += link.mw_flow.x * (1 - link.from_region_tlf)
+                regions[link.to_region].losses += link.mw_flow.x * (1 - link.to_region_tlf)
+        else:
+            regions[ic.region_from].losses += loss * ic.from_region_loss_share
+            regions[ic.region_to].losses += loss * (1 - ic.from_region_loss_share)
+        regions[ic.region_from].net_mw_flow -= ic.mw_flow.x
+        regions[ic.region_to].net_mw_flow += ic.mw_flow.x
+
+
+def verify_equation():
+    for region_id, region in regions.items():
+        print(region_id)
+        print('lhs: {}'.format(region.dispatchable_generation_record + region.net_mw_flow))
+        print('rhs: {}'.format(region.total_demand + region.dispatchable_load_record + region.losses))
+
+
+t = datetime.datetime(2019, 7, 20, 4, 5, 0)
+for i in range(5):
+    regions, interconnectors, obj_record = interconnect.get_regions_and_interconnectors(t)
+    if interconnectors['T-V-MNSP1'].mw_flow_record > 0:
+        links = interconnect.get_links(t)
+        calculate_losses()
+        verify_equation()
+    t += datetime.timedelta(minutes=5)
+
+

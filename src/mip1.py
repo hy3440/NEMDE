@@ -6,6 +6,8 @@
 #       x,  y, z binary
 
 from gurobipy import *
+
+
 try:
 
     # create a new model
@@ -20,12 +22,13 @@ try:
     m.setObjective(x + y + 2 * z, GRB.MAXIMIZE)
 
     # add constraint: x + 2 y + 3 z <= 4
-    test = x + 2 * y + 3 * z
-    # print(type(test))
-    m.addConstr(test <= 4, "c0")
+    m.addConstr(x + 2 * y + 3 * z <= 4, "c0")
 
     # add constraint: x + y >= 1
-    m.addConstr(x + y >= 1, "c1")
+    if x > 0:
+        m.addConstr(x + y >= 1, "c1")
+    else:
+        m.addConstr(x + y >1, "c1")
 
     # optimize model
     m.optimize()
@@ -35,8 +38,8 @@ try:
 
     print('Obj: %g' % m.objVal)
 
-
 except GurobiError as e:
     print('Error code ' + str(e.errno) + ": " + str(e))
+
 except AttributeError:
     print('Encountered an attribute error')
