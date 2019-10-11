@@ -1,5 +1,12 @@
+# Custom
+.vscode
+.idea/
+
 # Date files
 *.csv
+*.png
+data/
+out/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
