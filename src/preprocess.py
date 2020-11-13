@@ -10,8 +10,9 @@ import zipfile
 log = logging.getLogger(__name__)
 
 BASE_DIR = pathlib.Path(__file__).resolve().parent.parent  # Base directory
-DATA_DIR = BASE_DIR.joinpath('data')  # Data directory
-OUT_DIR = BASE_DIR.joinpath('out')  # Result directory
+DATA_DIR = BASE_DIR / 'data'  # Data directory
+OUT_DIR = BASE_DIR / 'out'  # Result directory
+LOG_DIR = BASE_DIR / 'log'  # Log directory
 all_dir = DATA_DIR / 'all'  # all directory in data directory
 all_dir.mkdir(parents=True, exist_ok=True)
 dvd_dir = DATA_DIR / 'dvd'
@@ -79,7 +80,34 @@ def get_result_datetime(t):
     return t.strftime('%Y-%m-%d %H-%M-%S')  # YY-mm-dd HH:MM:SS
 
 
-def download_from_url(url: str, file: pathlib.Path) -> None:
+def download_p5min_unit_solution(current):
+    section = 'P5MIN_UNITSOLUTION'
+    year = current.year
+    month = current.month
+    p = dvd_dir / 'DVD_{}_{}.csv'.format(section, get_case_datetime(current))
+    if not p.is_file():
+        url = (DVD_URL + '/PUBLIC_DVD_{}_{}{:02d}010000.zip').format(year, year, month, section, year, month)
+        result = requests.get(url)
+        if result.ok:
+            with zipfile.ZipFile(io.BytesIO(result.content)) as zf:
+                csv_name = zf.namelist()[0]
+                # logging.info('Download {}'.format(csv_name))
+                with p.open('w') as f:
+                    writer = csv.writer(f, delimiter=',')
+                    with zf.open(csv_name, 'r') as infile:
+                        reader = csv.reader(io.TextIOWrapper(infile))
+                        for row in reader:
+                            if row[0] == 'I':
+                                writer.writerow(row)
+                            elif row[0] == 'D':
+                                t = extract_datetime(row[4])
+                                if t == current:
+                                    writer.writerow(row)
+                                elif t > current:
+                                    return None
+
+
+def download_from_url(url, file):
     """Download file from the given url.
 
     Args:
@@ -96,7 +124,7 @@ def download_from_url(url: str, file: pathlib.Path) -> None:
             f.write(result.content)
 
 
-def download(url: str, file: pathlib.Path) -> None:
+def download(url, p):
     """Unzip and download file from URL.
 
     Args:
@@ -112,13 +140,15 @@ def download(url: str, file: pathlib.Path) -> None:
     if result.ok:
         with zipfile.ZipFile(io.BytesIO(result.content)) as zf:
             csv_name = zf.namelist()[0]
-            logging.info('Download {}'.format(csv_name))
-            with file.open('wb') as f:
+            # logging.info('Download {}'.format(csv_name))
+            with p.open('wb') as f:
                 # print(csv_name)
                 f.write(zf.read(csv_name))
+            if not p.is_file():
+                logging.error('Cannot download from URL: {}.'.format(url))
 
 
-def download_file(section: str, file_pattern: str, date_pattern: str, file: pathlib.Path, t: datetime.datetime) -> None:
+def download_file(section, file_pattern, date_pattern, file, t):
     """Download a matched file from the section.
 
     Args:
@@ -281,7 +311,7 @@ def download_bidmove_complete(t: datetime.datetime) -> None:
     return bids_dir
 
 
-def download_mnsp_bids(t: datetime.datetime) -> None:
+def download_mnsp_bids(t):
     """Download MNSP bids of the given date from
     <#CURRENT_URL>/<#SECTION>/<#VISIBILITY_ID>_YESTBIDMNSP_<#CASE_DATE>0000_<#EVENT_QUEUE_ID>.zip
 
@@ -436,7 +466,7 @@ def download_altlimits() -> None:
         None
 
     """
-    logging.info('Downloading Ratings in EMS.')
+    # logging.info('Downloading Ratings in EMS.')
     file = all_dir / 'altlimits.csv'
     download('http://nemweb.com.au/Reports/Current/Alt_Limits/altlimits.zip', file)
 
@@ -447,7 +477,7 @@ def download_transmission_equipment_ratings() -> None:
     Returns:
         str: Name of the downloaded file
     """
-    logging.info('Downloading Daily transmission equipment ratings.')
+    # logging.info('Downloading Daily transmission equipment ratings.')
     file = all_dir / 'PUBLIC_TER_DAILY.CSV'
     download('http://nemweb.com.au/Reports/Current/Alt_Limits/PUBLIC_TER_DAILY.zip', file)
 
@@ -461,7 +491,7 @@ def download_registration() -> None:
     """
     registration_file = all_dir / 'REGISTRATION.xls'
     if not registration_file.is_file():
-        logging.info('Download NEM Registration and Exemption List.')
+        # logging.info('Download NEM Registration and Exemption List.')
         url = 'http://www.aemo.com.au/-/media/Files/Electricity/NEM/Participant_Information/NEM-Registration-and-Exemption-List.xls'
         download_from_url(url, registration_file)
     return registration_file
@@ -476,21 +506,40 @@ def download_mlf() -> None:
     """
     mlf_file = all_dir / 'MLF.xls'
     if not mlf_file.is_file():
-        logging.info('Download NEM margional loss factors.')
+        # logging.info('Download NEM margional loss factors.')
         url = 'https://www.aemo.com.au/-/media/Files/Electricity/NEM/Security_and_Reliability/Loss_Factors_and_Regional_Boundaries/2019/2019-20-MLF-Applicable-from-01-July-2019-to-30-June-2020.xlsx'
         download_from_url(url, mlf_file)
     return mlf_file
 
 
-def download_dvd_data(section):
-    current = datetime.datetime(2019, 9, 19, 4, 5, 0)
-    # current = datetime.datetime.now()
-    year = current.year if current.month != 1 else current.year - 1
-    month = current.month - 1 if current.month != 1 else 12
+def download_dvd_data(section, current=None):
+    # current = datetime.datetime(2019, 9, 19, 4, 5, 0)
+    if current:
+        year = current.year
+        month = current.month
+    else:
+        current = datetime.datetime.now()
+        year = current.year if current.month != 1 else current.year - 1
+        month = current.month - 1 if current.month != 1 else 12
     f = dvd_dir / 'DVD_{}_{}{:02d}010000.csv'.format(section, year, month)
     if not f.is_file():
         url = (DVD_URL + '/PUBLIC_DVD_{}_{}{:02d}010000.zip').format(year, year, month, section, year, month)
         download(url, f)
+    if section == 'DISPATCHCONSTRAINT':
+        wf_dir = dvd_dir / '{}_{}.csv'.format(section, get_case_datetime(current))
+        if not wf_dir.is_file():
+            # rows = []
+            with f.open() as rf:
+                reader = csv.reader(rf)
+                # for row in reader:
+                #     if row[0] == 'I' or current == extract_datetime(row[4]):
+                #         rows.append(row)
+                rows = [row for row in reader if row[0] == 'D' and current == extract_datetime(row[4])]
+            with wf_dir.open(mode='w') as result_file:
+                writer = csv.writer(result_file, delimiter=',')
+                for row in rows:
+                    writer.writerow(row)
+        return wf_dir
     return f
 
 
@@ -512,7 +561,6 @@ def download_all_day(t: datetime.datetime) -> None:
 
 
 def main():
-    # logging.basicConfig(format='%(levelname)s: %(asctime)s %(message)s', level=logging.INFO)
     t = datetime.datetime(2019, 7, 26, 4, 0)
     download_all_day(t + FIVE_MIN)
     for i in range(TOTAL_INTERVAL):
@@ -523,10 +571,12 @@ def main():
 
 
 def test():
-    t = datetime.datetime(2019, 7, 19, 4, 5)
-    download_dvd_data('INTERCONNECTORCONSTRAINT')
+    t = datetime.datetime(2019, 9, 29, 4, 5)
+    # download_dvd_data('INTERCONNECTORCONSTRAINT')
+    constr_dir = download_dvd_data('SPDREGIONCONSTRAINT', t)
+    print(constr_dir.is_file())
 
 
 if __name__ == '__main__':
     # main()
-    test()
+    download_p5min_unit_solution(datetime.datetime(2019, 9, 1, 4, 5, 0))

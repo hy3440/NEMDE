@@ -5,7 +5,6 @@ import pprint
 print = pprint.pprint
 
 
-
 def calculate_losses():
     for ic in interconnectors.values():
         coefficient = ic.loss_constant - 1

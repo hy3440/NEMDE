@@ -33,7 +33,7 @@ def extract_dispatch(t):
         reader = csv.reader(f)
         for row in reader:
             if row[0] == 'D' and row[2] == 'PRICE' and row[6] == region and row[8] == intervention:
-                interval_rrp_record.append(float(row[9]))  # RRP of interval
+                interval_rrp_record.append(float(row[9]))  # RRP of i
                 return None
 
 

@@ -1,4 +1,4 @@
-import bid
+# import bid
 import csv
 import datetime
 # import dispatch
@@ -13,6 +13,7 @@ import requests
 import zipfile
 import io
 import price_taker
+import logging
 
 
 FIVE_MIN = datetime.timedelta(minutes=5)
@@ -385,6 +386,11 @@ def test_dvd_download():
     print(p)
 
 
+def test_log():
+    p = preprocess.LOG_DIR / 'test.log'
+    logging.basicConfig(filename=p, filemode='w', format='%(levelname)s: %(asctime)s %(message)s', level=logging.DEBUG)
+    logging.debug('test')
+
 if __name__ == '__main__':
     # test_mnsp_losses()
     t = datetime.datetime(2019, 7, 19, 4, 0, 0)
@@ -398,6 +404,7 @@ if __name__ == '__main__':
     # test_p5min_predispatch_times()
     # test_trading_prices(t)
     # test_telemetered_ramp_rate(t+FIVE_MIN)
-    test_dvd_download()
+    # test_dvd_download()
+    test_log()
 
 
