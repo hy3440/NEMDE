@@ -117,7 +117,7 @@ class Battery:
         self.load_roc_down = self.data['load_roc_down'] * 60
         self.Emax = self.data['Emax']
         self.eff = self.data['eff']
-        self.bat_dir = OUT_DIR / '{} eff={}'.format(name, self.eff)
+        self.bat_dir = OUT_DIR / f'{name} eff={self.eff}'
         self.bat_dir.mkdir(parents=True, exist_ok=True)
         self.gen_fcas_types = self.data['gen_fcas_types']
         self.load_fcas_types = self.data['load_fcas_types']
@@ -151,7 +151,7 @@ class Battery:
 
 def extract_e0(t):
     file_datetime = t.strftime('%d-%b-%Y-%H-%M-%S')
-    e0_dir = DATA_DIR.joinpath('E0_{}.csv'.format(t.strftime('%Y%m%d')))
+    e0_dir = DATA_DIR.joinpath(f"E0_{t.strftime('%Y%m%d')}.csv")
     with e0_dir.open() as f:
         reader = csv.reader(f)
         for row in reader:
@@ -344,15 +344,15 @@ def extract_predispatch_prices(i, t, region):
 
 
 def schedule(i, t, battery):
-    model = gurobipy.Model('price_taker_{}'.format(i))
+    model = gurobipy.Model(f'price_taker_{i}')
     # model.setParam('OutputFlag', False)
     # energy_prices, raise6sec_prices, raise60sec_prices, raise5min_prices, raisereg_prices, lower6sec_prices, lower60sec_prices, lower5min_prices, lowerreg_prices = extract_5min_predispatch(t + FIVE_MIN)
     # extract_predispatch(6 - i, t, energy_prices, raise6sec_prices, raise60sec_prices, raise5min_prices, raisereg_prices, lower6sec_prices, lower60sec_prices, lower5min_prices, lowerreg_prices)
     energy_prices, n, energy_times, p5min_energy_prices, p5min_times, predispatch_energy_prices, predispatch_times = calculate_energy_prices(i, t, battery.region) if forecast_flag else extract_predispatch_prices(i, t, battery.region)
     T = len(energy_prices)
-    Epred = [model.addVar(ub=battery.Emax, name='Epred_{}'.format(j)) for j in range(T)]
-    energy_pgen = [model.addVar(ub=battery.gen_max_cap, name='energy_pgen_{}'.format(j)) for j in range(T)]
-    energy_pload = [model.addVar(ub=battery.load_max_cap, name='energy_pload_{}'.format(j)) for j in range(T)]
+    Epred = [model.addVar(ub=battery.Emax, name=f'Epred_{j}') for j in range(T)]
+    energy_pgen = [model.addVar(ub=battery.gen_max_cap, name=f'energy_pgen_{j}') for j in range(T)]
+    energy_pload = [model.addVar(ub=battery.load_max_cap, name=f'energy_pload_{j}') for j in range(T)]
     # raise6sec_pgen = [model.addVar(ub=max_cap, name='raise6sec_pgen_{}'.format(j)) for j in range(T)]
     # raise6sec_pload = [model.addVar(ub=max_cap, name='raise6sec_pload_{}'.format(j)) for j in range(T)]
     # raise60sec_pgen = [model.addVar(ub=max_cap, name='raise60sec_pgen_{}'.format(j)) for j in range(T)]
@@ -509,13 +509,13 @@ def plot_power(time, gen, load, gen_record, load_record, prices, name, results_d
     plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
     plt.gca().xaxis.set_major_locator(mdates.HourLocator(interval=4))
     plt.gca().xaxis.set_minor_locator(mdates.HourLocator(byhour=range(0, 24, 4)))
-    plt.plot(times, [gen[i] - load[i] for i in range(TOTAL_INTERVALS)], label='Our {}'.format(name))
-    plt.plot(times, [gen_record[i] - load_record[i] for i in range(TOTAL_INTERVALS)], label='AEMO {}'.format(name))
-    plt.plot(times, prices, label='{} price'.format(name))
+    plt.plot(times, [gen[i] - load[i] for i in range(TOTAL_INTERVALS)], label=f'Our {name}')
+    plt.plot(times, [gen_record[i] - load_record[i] for i in range(TOTAL_INTERVALS)], label=f'AEMO {name}')
+    plt.plot(times, prices, label=f'{name} price')
     plt.xlabel('Interval')
     plt.ylabel('Power (MW)')
     plt.legend()
-    plt.savefig(results_dir / '{}_{}_{}'.format(name, preprocess.get_case_date(time), DAYS))
+    plt.savefig(results_dir / f'{name}_{preprocess.get_case_date(time)}_{DAYS}')
 
 
 def plot_revenue(time, results_dir):
@@ -535,7 +535,7 @@ def plot_revenue(time, results_dir):
     plt.xlabel('Interval')
     plt.ylabel('Revenue')
     plt.legend()
-    plt.savefig(results_dir / 'revenue_{}_{}'.format(preprocess.get_case_date(time), DAYS))
+    plt.savefig(results_dir / f'revenue_{preprocess.get_case_date(time)}_{DAYS}')
 
 
 def plot_charge_level(time, results_dir):
@@ -548,7 +548,7 @@ def plot_charge_level(time, results_dir):
     plt.xlabel('Interval')
     plt.ylabel('Battery Charge Level (MWh)')
     plt.legend()
-    plt.savefig(results_dir / 'battery_charge_level_{}_{}'.format(preprocess.get_case_date(time), DAYS))
+    plt.savefig(results_dir / f'battery_charge_level_{preprocess.get_case_date(time)}_{DAYS}')
 
 
 def plot_forecasts(time, Epred, energy_prices, energy_times, p5min_energy_prices, p5min_times, predispatch_energy_prices, predispatch_times, battery):
@@ -584,7 +584,7 @@ def plot_forecasts(time, Epred, energy_prices, energy_times, p5min_energy_prices
 def generate_forecasts(time, Epred, energy_prices, energy_times, p5min_energy_prices, p5min_times, predispatch_energy_prices, predispatch_times, battery):
     forecast_csv = battery.bat_dir / 'forecast_csv'
     forecast_csv.mkdir(parents=True, exist_ok=True)
-    with (forecast_csv / '{}.csv'.format(preprocess.get_result_datetime(time + FIVE_MIN))).open(mode='w') as f:
+    with (forecast_csv / f'{preprocess.get_result_datetime(time + FIVE_MIN)}.csv').open(mode='w') as f:
         writer = csv.writer(f, delimiter=',')
         writer.writerow(['Datetime',
                          'Charge Level (MWh)',

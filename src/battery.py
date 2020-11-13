@@ -48,14 +48,14 @@ price = price * 100 / (15 * 365 * 24)  # (c/kWh/hr)
 
 # Battery variables
 ###################
-E = [LpVariable('E_{}'.format(i), 0, None) for i in range(T)]  # battery energy (kWh)
-pc = [LpVariable('pc_{}'.format(i), 0, None) for i in range(T)]  # battery charge (kW)
-pd = [LpVariable('pd_{}'.format(i), 0, None) for i in range(T)]  # battery discharge (kW)
+E = [LpVariable(f'E_{i}', 0, None) for i in range(T)]  # battery energy (kWh)
+pc = [LpVariable(f'pc_{i}', 0, None) for i in range(T)]  # battery charge (kW)
+pd = [LpVariable(f'pd_{i}', 0, None) for i in range(T)]  # battery discharge (kW)
 
 # Auxiliary variables
 #####################
-p = [LpVariable('p_{}'.format(i), None, None) for i in range(T)]  # total house power (kW)
-cpow = [LpVariable('cpow_{}'.format(i), None, None) for i in range(T)]  # power cost (c)
+p = [LpVariable(f'p_{i}', None, None) for i in range(T)]  # total house power (kW)
+cpow = [LpVariable(f'cpow_{i}', None, None) for i in range(T)]  # power cost (c)
 
 # Optimisation problem
 prb = LpProblem('Battery Operation')
@@ -82,10 +82,10 @@ for i in range(1, T):
 # Solve problem
 prb.solve()
 
-print('Status {}'.format(LpStatus[prb.status]))
-print('Cost {}'.format(value(prb.objective)))
-print('pv_size {}'.format(value(pv_size)))
-print('Emax {}'.format(value(Emax)))
+print(f'Status {LpStatus[prb.status]}')
+print(f'Cost {value(prb.objective)}')
+print(f'pv_size {value(pv_size)}')
+print(f'Emax {value(Emax)}')
 
 import matplotlib
 import matplotlib.pyplot as plt

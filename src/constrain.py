@@ -22,10 +22,33 @@ class Constraint:
         limit_type (str): The limit type of the constraint e.g. Transient Stability, Voltage Stability
         force_scada (int): Flags Constraints for which NEMDE must use "InitialMW" values instead of "WhatOfInitialMW" for Intervention Pricing runs
     """
-    def __init__(self, row):
-        # Generic constraint data
-        self.gen_con_id = row[6]
-        self.update(row)
+    def __init__(self, row, rhs=None):
+        if rhs is None:
+            # Generic constraint data
+            self.gen_con_id = row[6]
+            self.update(row)
+        else:
+            self.gen_con_id = row
+        # Custom attribute
+        self.bind_flag = False  # True if constr is recorded as binding
+        self.fcas_flag = False  # True if constr contains FCAS factor
+        # Generic Constraint Data
+        self.constraint_type = None
+        self.constraint_value = None
+        self.generic_constraint_weight = None
+        self.last_changed = None
+        self.dispatch = None
+        self.predispatch = None
+        self.stpasa = None
+        self.mtpasa = None
+        self.limit_type = None
+        self.force_scada = None
+        # Dispatch constraint
+        self.rhs = rhs
+        self.marginal_value = None
+        self.violation_degree = None
+        self.lhs = None
+        self.violation_price = None
         # SPD connection point constraint
         self.connection_point_flag = True  # True if connection point has corresponding unit else False
         self.connection_point_lhs = 0.0
@@ -42,11 +65,6 @@ class Constraint:
         self.region_lhs_record = 0.0
         self.regions = set()
         self.region_last_changed = None
-        # Dispatch constraint
-        self.rhs = None
-        self.marginal_value = None
-        self.violation_degree = None
-        self.lhs = None
 
     def update(self, row):
         self.constraint_type = row[7]
@@ -61,7 +79,8 @@ class Constraint:
         self.force_scada = int(row[29])
 
 
-def init_constraints(t, constraints={}):
+def init_constraints(t):
+    constraints = {}
     constr_dir = preprocess.download_dvd_data('GENCONDATA', t)
     # logging.info('Read generic constraint data.')
     with constr_dir.open() as f:
@@ -87,7 +106,7 @@ def add_spd_connection_point_constraint(t, constraints, units, connection_points
             if row[0] == 'D' and t >= preprocess.extract_datetime(row[5]):
                 constr = constraints.get(row[7])  # 7: Gen con ID
                 if constr is None:
-                    logging.error('Constraint {} for connection point was not included.'.format('row[7]'))
+                    logging.error(f'Constraint {row[7]} for connection point was not included.')
                 last = constr.connection_point_last_changed
                 current = preprocess.extract_datetime(row[9])
                 if last is None or last < current:  # 9: Last changed
@@ -95,10 +114,10 @@ def add_spd_connection_point_constraint(t, constraints, units, connection_points
                         constr.connection_point_flag = False
                         if row[4] not in uncovered:  # 4: Connection point ID
                             uncovered.add(row[4])
-                            logging.error('Connection point {} for Constraint {} has no corresponding unit.'.format(row[4], row[7]))
+                            logging.error(f'Connection point {row[4]} for Constraint {row[7]} has no corresponding unit.')
                     else:
                         constr.connection_points.clear()
-                        constr.connection_points.add('{} {} {}'.format(connection_points[row[4]], row[10], row[8]))
+                        constr.connection_points.add(f'{connection_points[row[4]]} {row[10]} {row[8]}')
                         if row[10] == 'ENERGY':  # 10: Bid type
                             constr.connection_point_lhs = float(row[8]) * units[connection_points[row[4]]].total_cleared  # 8: Factor
                             constr.connection_point_lhs_record = float(row[8]) * units[connection_points[row[4]]].total_cleared_record
@@ -112,9 +131,9 @@ def add_spd_connection_point_constraint(t, constraints, units, connection_points
                         constr.connection_point_flag = False
                         if row[4] not in uncovered:
                             uncovered.add(row[4])
-                            logging.error('Connection point {} for Constraint {} has no corresponding unit.'.format(row[4], row[7]))
+                            logging.error(f'Connection point {row[4]} for Constraint {row[7]} has no corresponding unit.')
                     else:
-                        constr.connection_points.add('{} {} {}'.format(connection_points[row[4]], row[10], row[8]))
+                        constr.connection_points.add(f'{connection_points[row[4]]} {row[10]} {row[8]}')
                         if row[10] == 'ENERGY':
                             constr.connection_point_lhs += float(row[8]) * units[connection_points[row[4]]].total_cleared
                             constr.connection_point_lhs_record += float(row[8]) * units[connection_points[row[4]]].total_cleared_record
@@ -137,12 +156,12 @@ def add_spd_interconnector_constraint(t, constraints, interconnectors):
                     constr.interconnector_lhs = float(row[8]) * interconnectors[row[4]].mw_flow  # 8: Factor; 4: Interconnector ID
                     constr.interconnector_lhs_record = float(row[8]) * interconnectors[row[4]].mw_flow_record
                     constr.interconnectors.clear()
-                    constr.interconnectors.add('{} {}'.format(row[4], row[8]))
+                    constr.interconnectors.add(f'{row[4]} {row[8]}')
                     constr.interconnector_last_changed = current
                 elif last == current:
                     constr.interconnector_lhs += float(row[8]) * interconnectors[row[4]].mw_flow
                     constr.interconnector_lhs_record += float(row[8]) * interconnectors[row[4]].mw_flow_record
-                    constr.interconnectors.add('{} {}'.format(row[4], row[8]))
+                    constr.interconnectors.add(f'{row[4]} {row[8]}')
 
 
 def add_spd_region_constraint(t, constraints, regions):
@@ -159,12 +178,12 @@ def add_spd_region_constraint(t, constraints, regions):
                     constr.region_lhs = float(row[8]) * regions[row[4]].fcas_local_dispatch[row[10]]  # 8: Factor; 4: Region ID; 10: Bid type
                     constr.region_lhs_record = float(row[8]) * regions[row[4]].fcas_local_dispatch_record[row[10]]
                     constr.regions.clear()
-                    constr.regions.add('{} {} {}'.format(row[4], row[10], row[8]))
+                    constr.regions.add(f'{row[4]} {row[10]} {row[8]}')
                     constr.region_last_changed = current
                 elif last == current:
                     constr.region_lhs += float(row[8]) * regions[row[4]].fcas_local_dispatch[row[10]]
                     constr.region_lhs_record += float(row[8]) * regions[row[4]].fcas_local_dispatch_record[row[10]]
-                    constr.regions.add('{} {} {}'.format(row[4], row[10], row[8]))
+                    constr.regions.add(f'{row[4]} {row[10]} {row[8]}')
 
 
 def add_dispatch_constraint(t, constraints):
@@ -177,12 +196,17 @@ def add_dispatch_constraint(t, constraints):
             if row[0] == 'D' and row[2] == 'CONSTRAINT' and row[8] == intervention:
                 constr = constraints.get(row[6])
                 if constr:
-                    constr.rhs = float(row[9])
+                    if constr.rhs is not None:
+                        csv_rhs = float(row[9])
+                        if abs(constr.rhs - csv_rhs) > 1:
+                            print(f'Constraint {row[6]} rhs {constr.rhs} but csv record {csv_rhs}')
+                        constr.rhs = float(row[9])
                     constr.marginal_value = float(row[10])
                     constr.violation_degree = float(row[11])
                     constr.lhs = float(row[16])
+                    constr.bind_flag = True
                 else:
-                    logging.error('Constraint {} was not included'.format(row[6]))
+                    logging.error(f'Constraint {row[6]} was not included')
 
 
 def add_predispatch_constraint(t, start, constraints):
@@ -199,7 +223,7 @@ def add_predispatch_constraint(t, start, constraints):
                     constr.voilation_degree = float(row[11])
                     constr.lhs = float(row[17])
                 # else:
-                #     logging.error('Constraint {} was not included'.format(row[6]))
+                #     logging.error('Constraint {row[6]} was not included')
 
 
 def add_p5min_constraint(t, start, constraints):
@@ -216,21 +240,21 @@ def add_p5min_constraint(t, start, constraints):
                     constr.voilation_degree = float(row[10])
                     constr.lhs = float(row[15])
                 # else:
-                #     logging.error('Constraint {} was not included'.format(row[7]))
+                #     logging.error('Constraint {row[7]} was not included')
 
 
 def get_constraints(process, t, units, connection_points, interconnectors, regions, start, fcas_flag):
     constraints = init_constraints(t)
-    add_spd_connection_point_constraint(t, constraints, units, connection_points, fcas_flag)
-    add_spd_interconnector_constraint(t, constraints, interconnectors)
-    if fcas_flag:
-        add_spd_region_constraint(t, constraints, regions)
     if process == 'dispatch':
         add_dispatch_constraint(t, constraints)
     elif process == 'predispatch':
         add_predispatch_constraint(t, start, constraints)
     elif process == 'p5min':
         add_p5min_constraint(t, start, constraints)
+    add_spd_connection_point_constraint(t, constraints, units, connection_points, fcas_flag)
+    add_spd_interconnector_constraint(t, constraints, interconnectors)
+    if fcas_flag:
+        add_spd_region_constraint(t, constraints, regions)
     return constraints
 
 

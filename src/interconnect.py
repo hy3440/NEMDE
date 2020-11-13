@@ -59,10 +59,12 @@ class Region:
         region_id (str): Region identifier
         # generators (set): A set of generators' DUID within the region
         # loads (set): A set of loads' DUID within the region
-        dispatchable_generation (float): Total generation of the region
-        dispatchable_load (float): Total loads of the region
-        net_mw_flow (float): Net flow into the region
-        net_mw_flow_record (float): AEMO record for net flow
+        dispatchable_generation (float): Total dispatched generation of the region
+        dispatchable_generation_temp (float): Used to calculate AEMO generation record
+        dispatchable_load (float): Total dispatched load of the region
+        dispatchable_load_temp (float): Used to calculation AEMO load record
+        net_mw_flow (float): Net interconnector targets into the region
+        net_mw_flow_record (float): AEMO record for net flow into the region
         total_demand (float): Total demand of the region at given interval
         dispatchable_generation_record (float): AEMO record for total generation
         dispatchable_load_record (float): AEMO record for total loads
@@ -79,6 +81,7 @@ class Region:
         losses (float): Allocated interconnector losses for the region
     """
     def __init__(self, region_id):
+        self.debug_duid = None
         self.region_id = region_id
         # self.generators = set()
         # self.loads = set()
@@ -155,6 +158,7 @@ class Region:
         self.available_generation_record = None
         self.available_load_record = None
         self.net_interchange_record = None
+        self.net_interchange_record_temp = 0.0
         self.uigf_record = None
         self.losses = 0.0
         self.losses_record = 0.0
@@ -351,9 +355,9 @@ def init_links():
 
 
 def add_mnsp_interconnector(links, t):
-    mi_dir = preprocess.download_dvd_data('MNSP_INTERCONNECTOR', t)
+    mnsp_dir = preprocess.download_dvd_data('MNSP_INTERCONNECTOR', t)
     # logging.info('Read MNSP interconnector.')
-    with mi_dir.open() as f:
+    with mnsp_dir.open() as f:
         reader = csv.reader(f)
         for row in reader:
             if row[0] == 'D' and preprocess.extract_datetime(row[5]) <= t:
@@ -493,19 +497,19 @@ def nonlinear_calculate_interconnector_losses(model, regions, interconnectors, l
 
 
 def sos_calculate_interconnector_losses(model, regions, interconnectors, links=None):
-    for ic in interconnectors.values():
+    for ic_id, ic in interconnectors.items():
         coefficient = ic.loss_constant - 1
         for region_id, dc in ic.demand_coefficient.items():
             coefficient += regions[region_id].total_demand * dc
 
         x_s = sorted(ic.mw_breakpoint.values())
         y_s = [0.5 * ic.loss_flow_coefficient * x * x + coefficient * x for x in x_s]
-        ic.mw_losses = model.addVar(lb=-gurobipy.GRB.INFINITY, name='Mw_Losses_{}'.format(ic.interconnector_id))
+        ic.mw_losses = model.addVar(lb=-gurobipy.GRB.INFINITY, name=f'Mw_Losses_{ic_id}')
 
-        lambda_s = [model.addVar(lb=0.0) for i in x_s]
-        model.addConstr(ic.mw_flow == sum([x_i * lambda_i for x_i, lambda_i in zip(x_s, lambda_s)]))
-        model.addConstr(ic.mw_losses == sum([y_i * lambda_i for y_i, lambda_i in zip(y_s, lambda_s)]))
-        model.addConstr(sum(lambda_s) == 1)
+        lambda_s = [model.addVar(name=f'Lambda{i}_{ic_id}') for i in x_s]
+        model.addConstr(ic.mw_flow == sum([x_i * lambda_i for x_i, lambda_i in zip(x_s, lambda_s)]), f'SOS_MW_FLOW_{ic_id}')
+        model.addConstr(ic.mw_losses == sum([y_i * lambda_i for y_i, lambda_i in zip(y_s, lambda_s)]), f'SOS_MW_LOSSES_{ic_id}')
+        model.addConstr(sum(lambda_s) == 1, f'SOS_LAMBDA_{ic_id}')
         model.addSOS(gurobipy.GRB.SOS_TYPE2, lambda_s)
         share_losses(regions, ic)
 
@@ -518,12 +522,12 @@ def calculate_interconnector_losses(model, regions, interconnectors):
 
         x_s = sorted(ic.mw_breakpoint.values())
         y_s = [0.5 * ic.loss_flow_coefficient * x * x + coefficient * x for x in x_s]
-        ic.mw_losses = model.addVar(lb=-gurobipy.GRB.INFINITY, name='Mw_Losses_{}'.format(ic.interconnector_id))
+        ic.mw_losses = model.addVar(lb=-gurobipy.GRB.INFINITY, name=f'Mw_Losses_{ic.interconnector_id}')
 
         for i in range(len(x_s) - 1):
-            model.addConstr((ic.mw_losses - y_s[i]) * (x_s[i + 1] - x_s[i]) >= (y_s[i + 1] - y_s[i]) * (ic.mw_flow - x_s[i]), 'LOSSES_{}'.format(ic.interconnector_id))
+            model.addConstr((ic.mw_losses - y_s[i]) * (x_s[i + 1] - x_s[i]) >= (y_s[i + 1] - y_s[i]) * (ic.mw_flow - x_s[i]), f'LOSSES_{ic.interconnector_id}')
             if (ic.mw_losses_record - y_s[i]) * (x_s[i + 1] - x_s[i]) < (y_s[i + 1] - y_s[i]) * (ic.mw_flow_record - x_s[i]):
-                logging.warning('IC {} violate losses constraint'.format(ic.interconnector_id))
+                logging.warning(f'IC {ic.interconnector_id} violate losses constraint')
         share_losses(regions, ic)
 
 
@@ -532,14 +536,18 @@ def share_losses(regions, ic):
         if ic.metered_mw_flow >= 0:
             regions['TAS1'].losses += ic.mw_losses
             regions['TAS1'].losses_record += ic.mw_losses_record
+            regions['TAS1'].net_interchange_record_temp += ic.mw_losses_record
         else:
             regions['VIC1'].losses += ic.mw_losses
             regions['VIC1'].losses_record += ic.mw_losses_record
+            regions['VIC1'].net_interchange_record_temp += ic.mw_losses_record
     else:
         regions[ic.region_from].losses += ic.mw_losses * ic.from_region_loss_share
         regions[ic.region_to].losses += ic.mw_losses * (1 - ic.from_region_loss_share)
         regions[ic.region_from].losses_record += ic.mw_losses_record * ic.from_region_loss_share
         regions[ic.region_to].losses_record += ic.mw_losses_record * (1 - ic.from_region_loss_share)
+        regions[ic.region_from].net_interchange_record_temp += ic.mw_losses_record * ic.from_region_loss_share
+        regions[ic.region_to].net_interchange_record_temp += ic.mw_losses_record * (1 - ic.from_region_loss_share)
 
 
 def add_dispatchis_record(regions, interconnectors, t, fcas_flag):
@@ -713,10 +721,10 @@ def main():
 
     for ic_id, ic in interconnectors.items():
         # Define interconnector MW flow
-        ic.mw_flow = model.addVar(lb=-gurobipy.GRB.INFINITY, name='Mw_Flow_{}'.format(ic_id))
+        ic.mw_flow = model.addVar(lb=-gurobipy.GRB.INFINITY, name=f'Mw_Flow_{ic_id}')
 
-        ic.import_limit_constr = model.addConstr(ic.mw_flow >= -ic.import_limit, 'IMPORT_LIMIT_{}'.format(ic_id))
-        ic.export_limit_constr = model.addConstr(ic.mw_flow <= ic.export_limit, 'EXPORT_LIMIT_{}'.format(ic_id))
+        ic.import_limit_constr = model.addConstr(ic.mw_flow >= -ic.import_limit, f'IMPORT_LIMIT_{ic_id}')
+        ic.export_limit_constr = model.addConstr(ic.mw_flow <= ic.export_limit, f'EXPORT_LIMIT_{ic_id}')
 
         # Allocate inter-flow to regions
         regions[ic.region_to].net_mw_flow_record += ic.mw_flow_record
@@ -724,18 +732,18 @@ def main():
         regions[ic.region_to].net_mw_flow += ic.mw_flow
         regions[ic.region_from].net_mw_flow -= ic.mw_flow
 
-        model.addConstr(ic.mw_flow == ic.mw_flow_record, 'FIXED_INTERFLOW_{}'.format(ic_id))
+        model.addConstr(ic.mw_flow == ic.mw_flow_record, f'FIXED_INTERFLOW_{ic_id}')
 
     calculate_interconnector_losses(model, regions, interconnectors)
     model.optimize()
 
     for ic_id, ic in interconnectors.items():
-        print('{} losses record {} but calculate {}'.format(ic_id, ic.mw_losses_record, ic.mw_losses.x))
+        print(f'{ic_id} losses record {ic.mw_losses_record} but calculate {ic.mw_losses.x}')
 
 
 def test():
-    t = datetime.datetime(2019, 9, 29, 4, 5, 0)
-    regions, interconnectors, solution, links = get_regions_and_interconnectors(t, t, 0, 'dispatch', True)
+    t = datetime.datetime(2020, 8, 16, 14, 5, 0)
+    regions, interconnectors, solution, links = get_regions_and_interconnectors(t, t, 0, 'dispatch', True, True)
     for ic_id, ic in interconnectors.items():
         # print('{} flow {} losses {}'.format(ic_id, ic.mw_flow_record, ic.mw_losses_record))
         # print('from {} flow {} * factor {} = losses {} to flow {} * factor {} = losses {}'.format(ic.region_from,
@@ -781,14 +789,14 @@ def test():
         regions[link.to_region].net_mw_flow_record += link.mw_flow * link.to_region_tlf
 
     for region_id, region in regions.items():
-        print('{} record {} flow {} losses {} guess {}'.format(region_id, -region.net_interchange_record, region.net_mw_flow_record, region.losses_record, region.net_mw_flow_record-region.losses_record))
-        print('guess {} rhs {} lhs {}'.format(region_id, region.dispatchable_generation_record, region.dispatchable_load_record+region.total_demand+region.net_interchange_record))
-        print('verify {} rhs {} lhs {}'.format(region_id, region.dispatchable_generation_record + region.net_mw_flow_record, region.dispatchable_load_record + region.total_demand + region.losses_record))
+        print(f'{region_id} record {-region.net_interchange_record} flow {region.net_mw_flow_record} losses {region.losses_record} guess {region.net_mw_flow_record - region.losses_record}')
+        print(f'guess {region_id} rhs {region.dispatchable_generation_record} lhs {region.dispatchable_load_record + region.total_demand + region.net_interchange_record}')
+        print(f'verify {region_id} rhs {region.dispatchable_generation_record + region.net_mw_flow_record} lhs {region.dispatchable_load_record + region.total_demand + region.losses_record}')
 
 
 if __name__ == '__main__':
-    main()
-    # test()
+    # main()
+    test()
 
 
 

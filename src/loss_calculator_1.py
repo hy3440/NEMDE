@@ -32,7 +32,7 @@ model.addConstr(x == 806)
 model.setObjective(1)
 
 model.optimize()
-print('!!!: {}'.format(model.isQP))
+print(f'!!!: {model.isQP}')
 print(len(x_s))
 print(x.x)
 print(y.x)

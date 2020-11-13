@@ -1,4 +1,4 @@
-# maximize 
+# maximize
 #       x +    y + 2 z
 # subject to
 #       x + 2  y + 3 z <= 4
@@ -6,6 +6,12 @@
 #       x,  y, z binary
 
 from gurobipy import *
+
+
+def test(m, x, y):
+    # add constraint: x + y >= 1
+    l = [x, y]
+    m.addConstr(sum(l) >= 1, "c1")
 
 
 try:
@@ -24,22 +30,22 @@ try:
     # add constraint: x + 2 y + 3 z <= 4
     m.addConstr(x + 2 * y + 3 * z <= 4, "c0")
 
-    # add constraint: x + y >= 1
-    if x > 0:
-        m.addConstr(x + y >= 1, "c1")
-    else:
-        m.addConstr(x + y >1, "c1")
+    test(m, x, y)
 
     # optimize model
     m.optimize()
 
     for v in m.getVars():
-        print('%s %g' % (v.varName, v.x))
+        print(f'{v.varName} {v.x:g}')
 
-    print('Obj: %g' % m.objVal)
+    print(f'Obj: {m.objVal:g}')
 
 except GurobiError as e:
     print('Error code ' + str(e.errno) + ": " + str(e))
 
 except AttributeError:
     print('Encountered an attribute error')
+
+
+
+

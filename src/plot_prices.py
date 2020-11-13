@@ -148,7 +148,7 @@ def plot_region_prices(date, prices, name):
     plt.xlabel('Datetime')
     plt.ylabel('Price')
     plt.legend()
-    plt.savefig(OUT_DIR / '{}-prices-{}'.format(name, date))
+    plt.savefig(OUT_DIR / f'{name}-prices-{date}')
     plt.close()
 
 
@@ -167,7 +167,7 @@ def plot_fcas_prices(date):
     plt.xlabel('Datetime')
     plt.ylabel('Price')
     plt.legend()
-    plt.savefig(OUT_DIR / '{}-prices-{}'.format(region, date))
+    plt.savefig(OUT_DIR / f'{region}-prices-{date}')
     plt.close()
 
 
@@ -194,7 +194,7 @@ def plot_bat_fcas(fcas_type, date):
     plt.xlabel('Datetime')
     # plt.ylabel('Price')
     plt.legend()
-    plt.savefig(battery.bat_dir / '{}-prices-{}'.format(fcas_type, date))
+    plt.savefig(battery.bat_dir / f'{fcas_type}-prices-{date}')
     plt.close()
 
 

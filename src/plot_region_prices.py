@@ -93,7 +93,7 @@ def plot_prices(i, current, predispatch_time, predispatch_prices, fivemin_time, 
 
 def main():
     time = datetime.datetime(2019, 7, 19, 4, 0, 0)
-    result_dir = OUT_DIR / 'prices-{}-{}-{}-{}'.format(region, time.year, time.month, time.day)
+    result_dir = OUT_DIR / f'prices-{region}-{time.year}-{time.month}-{time.day}'
     result_dir.mkdir(parents=True, exist_ok=True)
     for i in range(TOTAL_INTERVALS * 2):
         interval_time.append(time + FIVE_MIN)

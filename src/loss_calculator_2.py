@@ -23,7 +23,7 @@ mw_losses = model.addVar(lb=-gurobipy.GRB.INFINITY)
 flow = 0
 losses = 0
 for i in range(0, MAX):
-    j = model.addVar(lb=0, ub=1, name='{}'.format(i))
+    j = model.addVar(lb=0, ub=1, name=f'{i}')
     flow += j
     y_1 = (0.0657 - 3.1523E-05 * vd + 2.1734E-05 * nd - 6.5967E-05 * sd) * i + 8.5133E-05 * (i ** 2)
     y_2 = (0.0657 - 3.1523E-05 * vd + 2.1734E-05 * nd - 6.5967E-05 * sd) * (i + 1) + 8.5133E-05 * ((i + 1) ** 2)
@@ -39,12 +39,12 @@ model.setObjective(1)
 
 model.optimize()
 # print('!!!: {}'.format(model.isMIP))
-print('Our flow: {}'.format(mw_flow.x))
-print('Our loss: {}'.format(mw_losses.x))
-print('AEMO flow: {}'.format(interconnectors['VIC1-NSW1'].mw_flow_record))
-print('AEMO loss: {}'.format(interconnectors['VIC1-NSW1'].mw_losses_record))
+print(f'Our flow: {mw_flow.x}')
+print(f'Our loss: {mw_losses.x}')
+print(f"AEMO flow: {interconnectors['VIC1-NSW1'].mw_flow_record}")
+print(f"AEMO loss: {interconnectors['VIC1-NSW1'].mw_losses_record}")
 print((0.0657 - 3.1523E-05 * vd + 2.1734E-05 * nd - 6.5967E-05 * sd) * mw_flow.x + 8.5133E-05 * (mw_flow.x ** 2))
 for var in model.getVars():
-    print('{}: {}'.format(var.varName, var.x))
+    print(f'{var.varName}: {var.x}')
 
 

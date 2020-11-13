@@ -12,6 +12,7 @@ import preprocess
 import requests
 import zipfile
 import io
+import offer
 import price_taker
 import logging
 
@@ -146,7 +147,7 @@ def test_model():
     m.setObjective(obj, gurobipy.GRB.MAXIMIZE)
     m.optimize()
     for i in range(N):
-        print('{} l1:{} l2:{}'.format(i, l1[i].x, l2[i].x))
+        print(f'{i} l1:{l1[i].x} l2:{l2[i].x}')
 
 
 def test_download_zip():
@@ -204,7 +205,7 @@ def test_mnsp_losses():
     model.addConstr(100 == links['BLNKVIC'].mw_flow)
     model.setObjective(1)
     model.optimize()
-    print('loss: {}'.format(link.total_losses.getValue()))
+    print(f'loss: {link.total_losses.getValue()}')
 
 
 def test_basslink_losses(t):
@@ -276,9 +277,9 @@ def test_ramp_rate(t):
     for duid, unit in units.items():
         if unit.energy is not None:
             if unit.total_cleared_record > unit.initial_mw + 5 * unit.energy.roc_up:
-                print('{} overflow'.format(duid))
+                print(f'{duid} overflow')
             if unit.total_cleared_record < unit.initial_mw - 5 * unit.energy.roc_down:
-                print('{} underflow'.format(duid))
+                print(f'{duid} underflow')
 
 
 def test_max_avail(t):
@@ -287,7 +288,7 @@ def test_max_avail(t):
         if unit.energy is not None:
             if unit.total_cleared_record > unit.energy.max_avail:
                 print(duid)
-                print('{} {}'.format(unit.total_cleared_record, unit.energy.max_avail))
+                print(f'{unit.total_cleared_record} {unit.energy.max_avail}')
 
 
 def test_fcas_local_dispatch(t):
@@ -295,12 +296,12 @@ def test_fcas_local_dispatch(t):
     units = bid.get_units(t)
     for unit in units.values():
         if unit.region is None:
-            print('{} without region'.format(unit.duid))
+            print(f'{unit.duid} without region')
         else:
             regions[unit.region].lower60sec_local_dispatch_temp += unit.lower60sec_record
             regions[unit.region].raise60sec_local_dispatch_temp += unit.raise60sec_record
     for name, region in regions.items():
-        print('{} record: {} our: {}'.format(name, region.lower60sec_local_dispatch_record, region.lower60sec_local_dispatch_temp))
+        print(f'{name} record: {region.lower60sec_local_dispatch_record} our: {region.lower60sec_local_dispatch_temp}')
 
 
 def test_fcas_only(t):
@@ -314,7 +315,7 @@ def test_p5min_predispatch_times():
     ttimes = []
     time = datetime.datetime(2019, 7, 19, 4, 0, 0)
     for i in range(12):
-        print('i = {}'.format(i))
+        print(f'i = {i}')
         print(time)
         price_taker.calculate_energy_prices(i, time, ttimes)
         ttimes.append(time + FIVE_MIN)
@@ -362,8 +363,8 @@ def test_trading_prices(t):
             period_price = sum(records[-6:]) / 6
             if abs(period_price - rrp) > 0.01:
                 print(t + FIVE_MIN)
-                print('Trading: {}'.format(rrp))
-                print('Calculating: {}'.format(period_price))
+                print(f'Trading: {rrp}')
+                print(f'Calculating: {period_price}')
         t += FIVE_MIN
 
 
@@ -375,9 +376,9 @@ def test_telemetered_ramp_rate(t):
         for unit in units.values():
             if unit.energy is not None:
                 if unit.energy.roc_up == unit.ramp_up_rate:
-                    print('{} at {} up rate warning.'.format(unit.duid, t))
+                    print(f'{unit.duid} at {t} up rate warning.')
                 if unit.energy.roc_down == unit.ramp_down_rate:
-                    print('{} at {} down rate warning.'.format(unit.duid, t))
+                    print(f'{unit.duid} at {t} down rate warning.')
         t += FIVE_MIN
 
 
@@ -391,10 +392,34 @@ def test_log():
     logging.basicConfig(filename=p, filemode='w', format='%(levelname)s: %(asctime)s %(message)s', level=logging.DEBUG)
     logging.debug('test')
 
+
+def read_record(units, current):
+    interval_datetime = preprocess.get_case_datetime(current + datetime.timedelta(minutes=5))
+    record_dir = preprocess.OUT_DIR / 'dispatch' / f'dispatch_{interval_datetime}.csv'
+    with record_dir.open() as f:
+        reader = csv.reader(f)
+        for row in reader:
+            if row[0] == 'D':
+                duid = row[1]
+                if duid in units:
+                    unit = units[duid]
+                    unit.temp = float(row[2])
+
+
+def test_ramp_rate_constr(start, interval):
+    current = start + interval * datetime.timedelta(minutes=5)
+    units, connection_points = offer.get_units(current, start, interval, 'dispatch', True)
+    read_record(units, current)
+    for duid, unit in units.items():
+        down_rate = unit.energy.roc_down if unit.ramp_down_rate is None else unit.ramp_down_rate / 60
+        if unit.temp < unit.initial_mw - 5 * down_rate and abs(unit.temp - unit.initial_mw + 5 * down_rate) > 1:
+            print(f'{unit.dispatch_type} {unit.duid} below down ramp rate constraint')
+            print(f'{unit.dispatch_type} {unit.duid} energy target {unit.temp} initial {unit.initial_mw} rate {down_rate}')
+
+
 if __name__ == '__main__':
     # test_mnsp_losses()
-    t = datetime.datetime(2019, 7, 19, 4, 0, 0)
-    # t = datetime.datetime(2019, 7, 10, 4, 0, 0)
+    start = datetime.datetime(2020, 6, 1, 14, 5, 0)
     # test_losses(t)
     # test_regional_energy_balance_equation(t)
     # negative_basslink()
@@ -405,6 +430,8 @@ if __name__ == '__main__':
     # test_trading_prices(t)
     # test_telemetered_ramp_rate(t+FIVE_MIN)
     # test_dvd_download()
-    test_log()
+    # test_log()
+    test_ramp_rate_constr(start, 2)
+    
 
 

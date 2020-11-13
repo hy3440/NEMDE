@@ -1,9 +1,9 @@
 import csv
+import datetime
 import logging
-import pathlib
-import pandas as pd
 import preprocess
-import xlrd
+# import xlrd
+
 
 log = logging.getLogger(__name__)
 intervention = '0'
@@ -24,7 +24,7 @@ class Bid:
         # Daily bids
         self.price_band = [float(price) for price in row[13:23]]
         # Period bids
-        self.max_avail = 0
+        self.max_avail = None
         self.band_avail = None
 
 
@@ -35,9 +35,11 @@ class EnergyBid(Bid):
         daily_energy_constraint (float): Maximum energy available from Energy Constrained Plant
         minimum_load (int): Minimum MW load fast START plant
         t1 (int): Time to synchronise in minutes
-        t2 (int): Time to synchronise in minutes
-        t3 (int): Time to synchronise in minutes
-        t4 (int): Time to synchronise in minutes
+        t2 (int): Time to minimum load in minutes
+        t3 (int): Time at minimum load in minutes
+        t4 (int): Time to shutdown in minutes
+        normal_status (str): ON/OFF for loads
+
         fixed_load (float): Fixed unit output MW
         roc_up (int): MW/min for raise
         roc_down (int): MW/min for lower
@@ -52,6 +54,7 @@ class EnergyBid(Bid):
         self.t2 = int(row[25])
         self.t3 = int(row[26])
         self.t4 = int(row[27])
+        self.normal_status = row[28]
         # Period bids
         self.fixed_load = None
         self.roc_up = None
@@ -63,7 +66,7 @@ class FcasBid(Bid):
 
     Attributes:
         value (float): Dispatch value
-        offers (list): Bid offer
+        offers (list): Dispatch target for each band
         upper_slope_coeff (float)
         lower_slop_coeff (float)
         enablement_status (int): 1 if the FCAS service is enabled for the unit, otherwise 0
@@ -76,17 +79,17 @@ class FcasBid(Bid):
     def __init__(self, row):
         super().__init__(row)
         self.value = 0.0
-        self.offers = None
-        self.upper_slope_coeff = None
-        self.lower_slope_coeff = None
+        self.offers = []
+        self.upper_slope_coeff = 0.0
+        self.lower_slope_coeff = 0.0
         self.enablement_status = 0
         # Period bids
         self.enablement_min = None
         self.enablement_max = None
         self.low_breakpoint = None
         self.high_breakpoint = None
-        # Dispatch lod
-        self.flag = 0
+        # Dispatch load
+        self.flag = None
 
 
 class Unit:
@@ -128,6 +131,7 @@ class Unit:
         total_cleared (float): Target MW for end of period
         offers (list): A list of dispatch target at price bands
         total_cleared_record (float): AEMO record for total cleared
+        dispatch_mode (int): Dispatch mode for fast start plant (0 to 4)
         initial_mw (float): AEMO actual initial MW at START of period
         marginal_value (float): Marginal $ value for energy
         marginal_value_record (float): AEMO record for marginal value
@@ -182,6 +186,7 @@ class Unit:
         self.forecast_poe50 = None
         # Dispatch
         self.energy = None
+        self.offers = []
         self.total_cleared = 0.0
         # self.lower5min = None
         # self.lower60sec = None
@@ -198,6 +203,7 @@ class Unit:
         # self.raise_con_fcas = {}
         # self.lower_con_fcas = {}
         # Dispatch load
+        self.dispatch_mode = None
         self.agc_status = None
         self.initial_mw = None
         self.total_cleared_record = None
@@ -300,7 +306,7 @@ def add_unit_bids(units, t, fcas_flag):
                     bid.band_avail = [int(avail) for avail in row[19:29]]
 
 
-def add_du_detail(units, t, connection_points={}):
+def add_du_detail(units, t):
     """ Add DU detail.
 
     Args:
@@ -310,6 +316,7 @@ def add_du_detail(units, t, connection_points={}):
     Returns:
         None
     """
+    connection_points = {}
     dd_dir = preprocess.download_dvd_data('DUDETAIL', t)
     # logging.info('Read du detail.')
     with dd_dir.open() as f:
@@ -319,7 +326,7 @@ def add_du_detail(units, t, connection_points={}):
                 unit = units.get(row[5])
                 if unit:
                     if row[7] in connection_points and row[5] != connection_points[row[7]]:
-                        log.error('Connection point ID {} has more than one unit.'.format(row[7]))
+                        log.error(f'Connection point ID {row[7]} has more than one unit.')
                     connection_points[row[7]] = row[5]
                     unit.connection_point_id = row[7]
                     unit.volt_level = row[8]
@@ -367,64 +374,64 @@ def add_du_detail_summary(units, t):
                     unit.max_ramp_rate_down = int(row[22]) if row[22] else None
 
 
-def add_registration_information(units):
-    """ Add registration information.
+# def add_registration_information(units):
+#     """ Add registration information.
+#
+#     Args:
+#         units (dict): a dictionary of units
+#
+#     Returns:
+#         None
+#     """
+#     generators_file = preprocess.download_registration()
+#     # logging.info('Read registration information.')
+#     with pd.ExcelFile(generators_file) as xls:
+#         df = pd.read_excel(xls, 'Generators and Scheduled Loads')
+#         for index, row in df.iterrows():
+#             if row['DUID'] in units:
+#                 unit = units[row['DUID']]
+#                 unit.dispatch_type = row['Dispatch Type']
+#                 unit.region_id = row['Region']
+#                 unit.classification = row['Classification']
+#                 unit.station = row['Station Name']
+#                 unit.source = row['Fuel Source - Primary']
+#                 # if row['Reg Cap (MW)'] != '-':
+#                 #     unit.reg_cap = float(row['Reg Cap (MW)'])
+#                 if row['Max Cap (MW)'] != '-':
+#                     unit.max_capacity = float(row['Max Cap (MW)'])
+#                 # if row['Max ROC/Min'] != '-':
+#                 #     unit.max_roc = float(row['Max ROC/Min'])
+#         df = pd.read_excel(xls, 'Ancillary Services')
+#         for index, row in df.iterrows():
+#             if row['DUID'] in units:
+#                 unit = units[row['DUID']]
+#                 unit.region_id = row['Region']
 
-    Args:
-        units (dict): a dictionary of units
 
-    Returns:
-        None
-    """
-    generators_file = preprocess.download_registration()
-    # logging.info('Read registration information.')
-    with pd.ExcelFile(generators_file) as xls:
-        df = pd.read_excel(xls, 'Generators and Scheduled Loads')
-        for index, row in df.iterrows():
-            if row['DUID'] in units:
-                unit = units[row['DUID']]
-                unit.dispatch_type = row['Dispatch Type']
-                unit.region_id = row['Region']
-                unit.classification = row['Classification']
-                unit.station = row['Station Name']
-                unit.source = row['Fuel Source - Primary']
-                # if row['Reg Cap (MW)'] != '-':
-                #     unit.reg_cap = float(row['Reg Cap (MW)'])
-                if row['Max Cap (MW)'] != '-':
-                    unit.max_capacity = float(row['Max Cap (MW)'])
-                # if row['Max ROC/Min'] != '-':
-                #     unit.max_roc = float(row['Max ROC/Min'])
-        df = pd.read_excel(xls, 'Ancillary Services')
-        for index, row in df.iterrows():
-            if row['DUID'] in units:
-                unit = units[row['DUID']]
-                unit.region_id = row['Region']
-
-
-def add_marginal_loss_factors(units):
-    """ Add marginal loss factors.
-
-    Args:
-        units (dict): a dictionary of units
-
-    Returns:
-        None
-    """
-    mlf_file = preprocess.download_mlf()
-    with xlrd.open_workbook(mlf_file) as f:
-        for sheet_index in range(f.nsheets):
-            sheet = f.sheet_by_index(sheet_index)
-            for row_index in range(sheet.nrows):
-                if sheet.cell_type(row_index, 6) == 2:
-                    duid = sheet.cell_value(row_index, 2)
-                    if duid in units:
-                        unit = units[duid]
-                        unit.connection_point_id = sheet.cell_value(row_index, 3)
-                        unit.tni = sheet.cell_value(row_index, 4)
-                        # 2018-19 MLF applicable from 01 July 2018 to 30 June 2019
-                        # generator.mlf = sheet.cell_value(row_index, 6)
-                        # 2019-20 MLF applicable from 01 July 2019 to 30 June 2020
-                        unit.transmission_loss_factor = sheet.cell_value(row_index, 5)
+# def add_marginal_loss_factors(units):
+#     """ Add marginal loss factors.
+#
+#     Args:
+#         units (dict): a dictionary of units
+#
+#     Returns:
+#         None
+#     """
+#     mlf_file = preprocess.download_mlf()
+#     with xlrd.open_workbook(mlf_file) as f:
+#         for sheet_index in range(f.nsheets):
+#             sheet = f.sheet_by_index(sheet_index)
+#             for row_index in range(sheet.nrows):
+#                 if sheet.cell_type(row_index, 6) == 2:
+#                     duid = sheet.cell_value(row_index, 2)
+#                     if duid in units:
+#                         unit = units[duid]
+#                         unit.connection_point_id = sheet.cell_value(row_index, 3)
+#                         unit.tni = sheet.cell_value(row_index, 4)
+#                         # 2018-19 MLF applicable from 01 July 2018 to 30 June 2019
+#                         # generator.mlf = sheet.cell_value(row_index, 6)
+#                         # 2019-20 MLF applicable from 01 July 2019 to 30 June 2020
+#                         unit.transmission_loss_factor = sheet.cell_value(row_index, 5)
 
 
 def add_intermittent_forecast(units, t):
@@ -476,6 +483,7 @@ def add_dispatchload_record(units, t, fcas_flag):
                 duid = row[6]
                 if duid in units:
                     unit = units[duid]
+                    unit.dispatch_mode = int(row[11])
                     unit.agc_status = int(row[12])
                     unit.initial_mw = float(row[13])
                     unit.total_cleared_record = float(row[14])
@@ -532,7 +540,7 @@ def add_dispatchload_record(units, t, fcas_flag):
 
 
 def add_dispatchload(units, t, start, process):
-    """ Add dispatch load record generated by our NEMDE
+    """ Add the dispatch load record generated by our model
 
     Args:
         units (dict): the dictionary of units
@@ -545,10 +553,9 @@ def add_dispatchload(units, t, start, process):
     """
     interval_datetime = preprocess.get_case_datetime(t)
     if process == 'dispatch':
-        record_dir = preprocess.OUT_DIR / process / 'dispatch_{}.csv'.format(interval_datetime)
+        record_dir = preprocess.OUT_DIR / f'{process}_{preprocess.get_case_datetime(start)}' / f'dispatchload_{interval_datetime}.csv'
     else:
-        record_dir = preprocess.OUT_DIR / process / '{}_{}'.format(process, preprocess.get_case_datetime(start)) / 'dispatchload_{}.csv'.format(interval_datetime)
-
+        record_dir = preprocess.OUT_DIR / process / f'{process}_{preprocess.get_case_datetime(start)}' / f'dispatchload_{interval_datetime}.csv'
     with record_dir.open() as f:
         reader = csv.reader(f)
         # logging.info('Read next day dispatch.')
@@ -590,51 +597,51 @@ def add_reserve_trader(units):
         None
     """
     for i in range(1, 7):
-        duid = 'RT_NSW{}'.format(i)
+        duid = f'RT_NSW{i}'
         if duid in units:
             units[duid].region_id = 'NSW1'
             units[duid].dispatch_type = 'Generator'
-        duid = 'DG_NSW{}'.format(i)
+        duid = f'DG_NSW{i}'
         if duid in units:
             units[duid].region_id = 'NSW1'
             units[duid].dispatch_type = 'Generator'
 
     for i in range(1, 13):
-        duid = 'RT_VIC{}'.format(i)
+        duid = f'RT_VIC{i}'
         if duid in units:
             units[duid].region_id = 'VIC1'
             units[duid].dispatch_type = 'Generator'
-        duid = 'DG_VIC{}'.format(i)
+        duid = f'DG_VIC{i}'
         if duid in units:
             units[duid].region_id = 'VIC1'
             units[duid].dispatch_type = 'Generator'
 
     for i in range(1, 7):
-        duid = 'RT_SA{}'.format(i)
+        duid = f'RT_SA{i}'
         if duid in units:
             units[duid].region_id = 'SA1'
             units[duid].dispatch_type = 'Generator'
-        duid = 'DG_SA{}'.format(i)
+        duid = f'DG_SA{i}'
         if duid in units:
             units[duid].region_id = 'SA1'
             units[duid].dispatch_type = 'Generator'
 
     for i in range(1, 2):
-        duid = 'RT_TAS{}'.format(i)
+        duid = f'RT_TAS{i}'
         if duid in units:
             units[duid].region_id = 'TAS1'
             units[duid].dispatch_type = 'Generator'
-        duid = 'DG_TAS{}'.format(i)
+        duid = f'DG_TAS{i}'
         if duid in units:
             units[duid].region_id = 'TAS1'
             units[duid].dispatch_type = 'Generator'
 
     for i in range(1, 2):
-        duid = 'RT_QLD{}'.format(i)
+        duid = f'RT_QLD{i}'
         if duid in units:
             units[duid].region_id = 'QLD1'
             units[duid].dispatch_type = 'Generator'
-        duid = 'DG_QLD{}'.format(i)
+        duid = f'DG_QLD{i}'
         if duid in units:
             units[duid].region_id = 'QLD1'
             units[duid].dispatch_type = 'Generator'
@@ -662,17 +669,14 @@ def get_units(t, start, i, process, fcas_flag):
     add_du_detail_summary(units, t)
 
     add_intermittent_forecast(units, t)
-    # add_dispatchload_record(units, t, fcas_flag)
-    if process == 'predispatch':
-        import datetime
-        add_dispatchload_record(units, t - datetime.timedelta(minutes=25), fcas_flag)
-    else:
-        add_dispatchload_record(units, t, fcas_flag)
-        # if process == 'dispatch':
-        #     add_dispatchload_record(units, t, fcas_flag)
-        # else:
-        #     add_dispatchload(units, t, start, 'dispatch')
-    # if i != 0:
+    # if process == 'predispatch':
+    #     import datetime
+    #     add_dispatchload_record(units, t - datetime.timedelta(minutes=25), fcas_flag)
+    # else:
+    #     add_dispatchload_record(units, t, fcas_flag)
+
+    add_dispatchload_record(units, t, fcas_flag)
+    # if i > 0:
     #     add_dispatchload(units, t, start, process)
     return units, connection_points
 

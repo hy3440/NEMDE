@@ -38,15 +38,15 @@ def calculate_losses():
         loss = ic.mw_losses.x
         if ic.interconnector_id == 'T-V-MNSP1':
             print(ic.interconnector_id)
-            print('flow: {}'.format(ic.mw_flow.x))
-            print('loss: {}'.format(ic.mw_losses.x))
-            print('record: {}'.format(ic.mw_losses_record))
+            print(f'flow: {ic.mw_flow.x}')
+            print(f'loss: {ic.mw_losses.x}')
+            print(f'record: {ic.mw_losses_record}')
             if ic.metered_mw_flow >= 0:
                 regions['TAS1'].losses += loss
             else:
                 regions['VIC1'].losses += ic.mw_losses.x
             for link in links.values():
-                print('{}: {}'.format(link.link_id, link.mw_flow.x))
+                print(f'{link.link_id}: {link.mw_flow.x}')
                 regions[link.from_region].losses += link.mw_flow.x * (1 - link.from_region_tlf)
                 regions[link.to_region].losses += link.mw_flow.x * (1 - link.to_region_tlf)
         else:
@@ -59,8 +59,8 @@ def calculate_losses():
 def verify_equation():
     for region_id, region in regions.items():
         print(region_id)
-        print('lhs: {}'.format(region.dispatchable_generation_record + region.net_mw_flow))
-        print('rhs: {}'.format(region.total_demand + region.dispatchable_load_record + region.losses))
+        print(f'lhs: {region.dispatchable_generation_record + region.net_mw_flow}')
+        print(f'rhs: {region.total_demand + region.dispatchable_load_record + region.losses}')
 
 
 t = datetime.datetime(2019, 7, 20, 4, 5, 0)

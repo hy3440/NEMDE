@@ -17,6 +17,8 @@ all_dir = DATA_DIR / 'all'  # all directory in data directory
 all_dir.mkdir(parents=True, exist_ok=True)
 dvd_dir = DATA_DIR / 'dvd'
 dvd_dir.mkdir(parents=True, exist_ok=True)
+NEMSPDOutputs_dir = DATA_DIR / 'NEMSPDOutputs'
+NEMSPDOutputs_dir.mkdir(parents=True, exist_ok=True)
 
 CURRENT_URL = 'http://nemweb.com.au/Reports/Current'  # Base URL to download files
 ARCHIVE_URL = 'http://nemweb.com.au/Reports/Archive/'  # Archive URL to download files
@@ -80,18 +82,25 @@ def get_result_datetime(t):
     return t.strftime('%Y-%m-%d %H-%M-%S')  # YY-mm-dd HH:MM:SS
 
 
+def datetime_to_interval(t):
+    last = t - ONE_DAY if early_morning(t) else t
+    start = datetime.datetime(last.year, last.month, last.day, 4, 0)
+    no = int((t - start) / FIVE_MIN)
+    return last, no
+
+
 def download_p5min_unit_solution(current):
     section = 'P5MIN_UNITSOLUTION'
     year = current.year
     month = current.month
-    p = dvd_dir / 'DVD_{}_{}.csv'.format(section, get_case_datetime(current))
+    p = dvd_dir / f'DVD_{section}_{get_case_datetime(current)}.csv'
     if not p.is_file():
         url = (DVD_URL + '/PUBLIC_DVD_{}_{}{:02d}010000.zip').format(year, year, month, section, year, month)
         result = requests.get(url)
         if result.ok:
             with zipfile.ZipFile(io.BytesIO(result.content)) as zf:
                 csv_name = zf.namelist()[0]
-                # logging.info('Download {}'.format(csv_name))
+                # logging.info(f'Download {csv_name}')
                 with p.open('w') as f:
                     writer = csv.writer(f, delimiter=',')
                     with zf.open(csv_name, 'r') as infile:
@@ -124,6 +133,21 @@ def download_from_url(url, file):
             f.write(result.content)
 
 
+def download_xml(t):
+    last, no = datetime_to_interval(t)
+    f = NEMSPDOutputs_dir / f'NEMSPDOutputs_{last.year}{last.month:02d}{last.day:02d}{no:03d}00.loaded'
+    if not f.is_file():
+        url = f'https://www.nemweb.com.au/Data_Archive/Wholesale_Electricity/NEMDE/{last.year}/NEMDE_{last.year}_{last.month:02d}/NEMDE_Market_Data/NEMDE_Files/NemSpdOutputs_{last.year}{last.month:02d}{last.day:02d}_loaded.zip'
+        r = requests.get(url)
+        zf = zipfile.ZipFile(io.BytesIO(r.content))
+        for xml_file in zf.infolist():
+            if xml_file.filename == f'NEMSPDOutputs_{last.year}{last.month:02d}{last.day:02d}{no:03d}00.loaded':
+                # with p.open('wb') as f:
+                #     f.write(zf.read(xml_file))
+                zf.extract(xml_file, NEMSPDOutputs_dir)
+    return f
+
+
 def download(url, p):
     """Unzip and download file from URL.
 
@@ -140,15 +164,14 @@ def download(url, p):
     if result.ok:
         with zipfile.ZipFile(io.BytesIO(result.content)) as zf:
             csv_name = zf.namelist()[0]
-            # logging.info('Download {}'.format(csv_name))
+            # logging.info(f'Download {csv_name}')
             with p.open('wb') as f:
-                # print(csv_name)
                 f.write(zf.read(csv_name))
             if not p.is_file():
-                logging.error('Cannot download from URL: {}.'.format(url))
+                logging.error(f'Cannot download from URL: {url}.')
 
 
-def download_file(section, file_pattern, date_pattern, file, t):
+def download_file(section, file_pattern, date_pattern, file, t, archive_pattern=None):
     """Download a matched file from the section.
 
     Args:
@@ -162,20 +185,20 @@ def download_file(section, file_pattern, date_pattern, file, t):
         None
 
     """
-    page = requests.get('{}/{}'.format(CURRENT_URL, section))
-    regex = re.compile('{}_{}<'.format(file_pattern, date_pattern))
+    page = requests.get(f'{CURRENT_URL}/{section}')
+    regex = re.compile(f'{file_pattern}_{date_pattern}<')
     matches = regex.findall(page.text)
     if len(matches) == 0:
         current_date = get_current_date(t)
-        p = requests.get('{}/{}'.format(ARCHIVE_URL, section))
-        r = re.compile('{}_{}.zip<'.format(file_pattern, current_date))
+        p = requests.get(f'{ARCHIVE_URL}/{section}')
+        r = re.compile(f'{file_pattern if archive_pattern is None else archive_pattern}_{current_date}.zip<')
         match = r.findall(p.text)[0]
 
-        url = '{}/{}/{}'.format(ARCHIVE_URL, section, match[:-1])
+        url = f'{ARCHIVE_URL}/{section}/{match[:-1]}'
         result = requests.get(url)
         if result.ok:
             with zipfile.ZipFile(io.BytesIO(result.content)) as zf:
-                regex = re.compile('{}_{}'.format(file_pattern, date_pattern))
+                regex = re.compile(f'{file_pattern}_{date_pattern}')
                 m = list(filter(regex.match, zf.namelist()))[0]
                 zzf = zipfile.ZipFile(io.BytesIO(zf.read(m)))
                 csv_name = zzf.namelist()[0]
@@ -183,7 +206,7 @@ def download_file(section, file_pattern, date_pattern, file, t):
                     f.write(zzf.read(csv_name))
     else:
         match = matches[0]
-        download('{}/{}/{}'.format(CURRENT_URL, section, match[:-1]), file)
+        download(f'{CURRENT_URL}/{section}/{match[:-1]}', file)
 
 
 def download_trading(t: datetime.datetime) -> None:
@@ -200,13 +223,13 @@ def download_trading(t: datetime.datetime) -> None:
 
     """
     case_datetime = get_case_datetime(t)
-    trading_dir = new_dir(t) / 'PUBLIC_TRADINGIS_{}.csv'.format(case_datetime)
+    trading_dir = new_dir(t) / f'PUBLIC_TRADINGIS_{case_datetime}.csv'
     if not trading_dir.is_file():
         section = 'TradingIS_Reports'
         visibility_id = 'PUBLIC'
         file_id = 'TRADINGIS'
-        file_pattern = '{}_{}'.format(visibility_id, file_id)
-        date_pattern = '{}_[0-9]{{16}}.zip'.format(case_datetime)
+        file_pattern = f'{visibility_id}_{file_id}'
+        date_pattern = f'{case_datetime}_[0-9]{{16}}.zip'
         download_file(section, file_pattern, date_pattern, trading_dir, t)
     return trading_dir
 
@@ -225,13 +248,13 @@ def download_intermittent(t: datetime.datetime) -> None:
 
     """
     case_date = get_case_date(t)
-    intermittent_dir = new_dir(t) / 'PUBLIC_NEXT_DAY_INTERMITTENT_DS_{}.csv'.format(case_date)
+    intermittent_dir = new_dir(t) / f'PUBLIC_NEXT_DAY_INTERMITTENT_DS_{case_date}.csv'
     if not intermittent_dir.is_file():
         section = 'Next_Day_Intermittent_DS'
         visibility_id = 'PUBLIC'
         file_id = 'NEXT_DAY_INTERMITTENT_DS'
-        file_pattern = '{}_{}'.format(visibility_id, file_id)
-        date_pattern = '{}_[0-9]{{16}}.zip'.format(case_date)
+        file_pattern = f'{visibility_id}_{file_id}'
+        date_pattern = f'{case_date}_[0-9]{{16}}.zip'
         download_file(section, file_pattern, date_pattern, intermittent_dir, t)
     return intermittent_dir
 
@@ -250,13 +273,13 @@ def download_next_day_dispatch(t: datetime.datetime) -> None:
 
     """
     case_date = get_case_date(t)
-    record_dir = new_dir(t) / 'PUBLIC_NEXT_DAY_DISPATCH_{}.csv'.format(case_date)
+    record_dir = new_dir(t) / f'PUBLIC_NEXT_DAY_DISPATCH_{case_date}.csv'
     if not record_dir.is_file():
         section = 'Next_Day_Dispatch'
         visibility_id = 'PUBLIC'
         file_id = 'NEXT_DAY_DISPATCH'
-        file_pattern = '{}_{}'.format(visibility_id, file_id)
-        date_pattern = '{}_[0-9]{{16}}.zip'.format(case_date)
+        file_pattern = f'{visibility_id}_{file_id}'
+        date_pattern = f'{case_date}_[0-9]{{16}}.zip'
         download_file(section, file_pattern, date_pattern, record_dir, t)
     return record_dir
 
@@ -275,13 +298,13 @@ def download_bidmove_summary(t: datetime.datetime) -> None:
 
     """
     case_date = get_case_date(t)
-    bids_dir = new_dir(t) / 'PUBLIC_BIDMOVE_SUMMARY_{}.csv'.format(case_date)
+    bids_dir = new_dir(t) / f'PUBLIC_BIDMOVE_SUMMARY_{case_date}.csv'
     if not bids_dir.is_file():
         section = 'Bidmove_Summary'
         visibility_id = 'PUBLIC'
         file_id = 'BIDMOVE_SUMMARY'
-        file_pattern = '{}_{}'.format(visibility_id, file_id)
-        date_pattern = '{}_[0-9]{{16}}.zip'.format(case_date)
+        file_pattern = f'{visibility_id}_{file_id}'
+        date_pattern = f'{case_date}_[0-9]{{16}}.zip'
         download_file(section, file_pattern, date_pattern, bids_dir, t)
     return bids_dir
 
@@ -300,13 +323,13 @@ def download_bidmove_complete(t: datetime.datetime) -> None:
 
     """
     case_date = get_case_date(t)
-    bids_dir = new_dir(t) / 'PUBLIC_BIDMOVE_COMPLETE_{}.csv'.format(case_date)
+    bids_dir = new_dir(t) / f'PUBLIC_BIDMOVE_COMPLETE_{case_date}.csv'
     if not bids_dir.is_file():
         section = 'Bidmove_Complete'
         visibility_id = 'PUBLIC'
         file_id = 'BIDMOVE_COMPLETE'
-        file_pattern = '{}_{}'.format(visibility_id, file_id)
-        date_pattern = '{}_[0-9]{{16}}.zip'.format(case_date)
+        file_pattern = f'{visibility_id}_{file_id}'
+        date_pattern = f'{case_date}_[0-9]{{16}}.zip'
         download_file(section, file_pattern, date_pattern, bids_dir, t)
     return bids_dir
 
@@ -325,14 +348,14 @@ def download_mnsp_bids(t):
 
     """
     case_date = get_case_date(t)
-    mnsp_dir = new_dir(t) / 'PUBLIC_YESTBIDMNSP_{}.csv'.format(case_date)
+    mnsp_dir = new_dir(t) / f'PUBLIC_YESTBIDMNSP_{case_date}.csv'
     if not mnsp_dir.is_file():
         section = 'Yesterdays_MNSPBids_Reports'
         visibility_id = 'PUBLIC'
         file_id = 'YESTBIDMNSP'
-        file_pattern = '{}_{}'.format(visibility_id, file_id)
-        date_pattern = '{}0000_[0-9]{{14}}.zip'.format(case_date)
-        download_file(section, file_pattern, date_pattern, mnsp_dir, t)
+        file_pattern = f'{visibility_id}_{file_id}'
+        date_pattern = f'{case_date}0000_[0-9]{{14}}.zip'
+        download_file(section, file_pattern, date_pattern, mnsp_dir, t, 'PUBLIC_YESTMNSPBID')
     return mnsp_dir
 
 
@@ -349,13 +372,13 @@ def download_5min_predispatch(t: datetime.datetime) -> None:
 
     """
     case_datetime = get_case_datetime(t)
-    p5_dir = new_dir(t) / 'PUBLIC_P5MIN_{}.csv'.format(case_datetime)
+    p5_dir = new_dir(t) / f'PUBLIC_P5MIN_{case_datetime}.csv'
     if not p5_dir.is_file():
         section = 'P5_Reports'
         visibility_id = 'PUBLIC'
         file_id = 'P5MIN'
-        file_pattern = '{}_{}'.format(visibility_id, file_id)
-        date_pattern = '{}_[0-9]{{14}}.zip'.format(case_datetime)
+        file_pattern = f'{visibility_id}_{file_id}'
+        date_pattern = f'{case_datetime}_[0-9]{{14}}.zip'
         download_file(section, file_pattern, date_pattern, p5_dir, t)
     return p5_dir
 
@@ -374,13 +397,13 @@ def download_predispatch(t: datetime.datetime) -> None:
 
     """
     case_datetime = get_case_datetime(t)
-    predispatch_dir = new_dir(t) / 'PUBLIC_PREDISPATCHIS_{}.csv'.format(case_datetime)
+    predispatch_dir = new_dir(t) / f'PUBLIC_PREDISPATCHIS_{case_datetime}.csv'
     if not predispatch_dir.is_file():
         section = 'PredispatchIS_Reports'
         visibility_id = 'PUBLIC'
         file_id = 'PREDISPATCHIS'
-        file_pattern = '{}_{}'.format(visibility_id, file_id)
-        date_pattern = '{}_[0-9]{{14}}.zip'.format(case_datetime)
+        file_pattern = f'{visibility_id}_{file_id}'
+        date_pattern = f'{case_datetime}_[0-9]{{14}}.zip'
         download_file(section, file_pattern, date_pattern, predispatch_dir, t)
     return predispatch_dir
 
@@ -398,12 +421,12 @@ def download_network_outage(t: datetime.datetime) -> None:
 
     """
     case_datetime = get_case_datetime(t)
-    outage_dir = new_dir(t) / 'PUBLIC_NETWORK_{}.csv'.format(case_datetime)
+    outage_dir = new_dir(t) / f'PUBLIC_NETWORK_{case_datetime}.csv'
     if not outage_dir.is_file():
         section = 'Network'
         visibility_id = 'PUBLIC'
         file_id = 'NETWORK'
-        file_pattern = '{}_{}'.format(visibility_id, file_id)
+        file_pattern = f'{visibility_id}_{file_id}'
         date_pattern = '{}[0-9]{2}_[0-9]{{16}}.zip'.format(case_datetime)
         download_file(section, file_pattern, date_pattern, outage_dir, t)
     return outage_dir
@@ -423,13 +446,13 @@ def download_dispatch_summary(t: datetime.datetime) -> None:
 
     """
     case_datetime = get_case_datetime(t)
-    dispatch_dir = new_dir(t) / 'PUBLIC_DISPATCHIS_{}.csv'.format(case_datetime)
+    dispatch_dir = new_dir(t) / f'PUBLIC_DISPATCHIS_{case_datetime}.csv'
     if not dispatch_dir.is_file():
         section = 'DispatchIS_Reports'
         visibility_id = 'PUBLIC'
         file_id = 'DISPATCHIS'
-        file_pattern = '{}_{}'.format(visibility_id, file_id)
-        date_pattern = '{}_[0-9]{{16}}.zip'.format(case_datetime)
+        file_pattern = f'{visibility_id}_{file_id}'
+        date_pattern = f'{case_datetime}_[0-9]{{16}}.zip'
         download_file(section, file_pattern, date_pattern, dispatch_dir, t)
     return dispatch_dir
 
@@ -447,14 +470,14 @@ def download_dispatch_scada(t: datetime.datetime) -> None:
 
     """
     case_datetime = get_case_datetime(t)
-    scada_dir = new_dir(t) / 'PUBLIC_DISPATCHSCADA_{}.csv'.format(case_datetime)
+    scada_dir = new_dir(t) / f'PUBLIC_DISPATCHSCADA_{case_datetime}.csv'
     if not scada_dir.is_file():
         section = 'Dispatch_SCADA'
         visibility_id = 'PUBLIC'
         file_id = 'DISPATCHSCADA'
-        file_pattern = '{}_{}'.format(visibility_id, file_id)
-        date_pattern = '{}_[0-9]{{16}}.zip'.format(case_datetime)
-        filename = '{}_{}_{}.csv'.format(visibility_id, file_id, case_datetime)
+        file_pattern = f'{visibility_id}_{file_id}'
+        date_pattern = f'{case_datetime}_[0-9]{{16}}.zip'
+        filename = f'{visibility_id}_{file_id}_{case_datetime}.csv'
         download_file(section, file_pattern, date_pattern, scada_dir, t)
     return scada_dir
 
@@ -521,12 +544,12 @@ def download_dvd_data(section, current=None):
         current = datetime.datetime.now()
         year = current.year if current.month != 1 else current.year - 1
         month = current.month - 1 if current.month != 1 else 12
-    f = dvd_dir / 'DVD_{}_{}{:02d}010000.csv'.format(section, year, month)
+    f = dvd_dir / f'DVD_{section}_{year}{month:02d}010000.csv'
     if not f.is_file():
         url = (DVD_URL + '/PUBLIC_DVD_{}_{}{:02d}010000.zip').format(year, year, month, section, year, month)
         download(url, f)
     if section == 'DISPATCHCONSTRAINT':
-        wf_dir = dvd_dir / '{}_{}.csv'.format(section, get_case_datetime(current))
+        wf_dir = dvd_dir / f'{section}_{get_case_datetime(current)}.csv'
         if not wf_dir.is_file():
             # rows = []
             with f.open() as rf:
@@ -561,13 +584,14 @@ def download_all_day(t: datetime.datetime) -> None:
 
 
 def main():
-    t = datetime.datetime(2019, 7, 26, 4, 0)
-    download_all_day(t + FIVE_MIN)
-    for i in range(TOTAL_INTERVAL):
-        download_interval(t + FIVE_MIN)
-        if i % 6 == 0:
-            download_period(t + THIRTY_MIN)
-        t += FIVE_MIN
+    t = datetime.datetime(2020, 9, 1, 4, 0)
+    # download_all_day(t + FIVE_MIN)
+    # for i in range(TOTAL_INTERVAL):
+    #     download_interval(t + FIVE_MIN)
+    #     if i % 6 == 0:
+    #         download_period(t + THIRTY_MIN)
+    #     t += FIVE_MIN
+    download_xml(t)
 
 
 def test():
@@ -578,5 +602,5 @@ def test():
 
 
 if __name__ == '__main__':
-    # main()
-    download_p5min_unit_solution(datetime.datetime(2019, 9, 1, 4, 5, 0))
+    main()
+    # download_p5min_unit_solution(datetime.datetime(2019, 9, 1, 4, 5, 0))

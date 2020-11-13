@@ -11,10 +11,10 @@ log = logging.getLogger(__name__)
 FCAS_TYPES = ['RAISEREG', 'RAISE6SEC', 'RAISE60SEC', 'RAISE5MIN', 'LOWERREG', 'LOWER6SEC', 'LOWER60SEC', 'LOWER5MIN']
 
 
-def generate_dispatchis(t, regions, prices):
-    p = preprocess.OUT_DIR / 'dispatch'
+def generate_dispatchis(start, t, regions, prices):
+    p = preprocess.OUT_DIR / f'dispatch_{preprocess.get_case_datetime(start)}'
     p.mkdir(parents=True, exist_ok=True)
-    result_dir = p / 'DISPATCHIS_{}.csv'.format(preprocess.get_case_datetime(t))
+    result_dir = p / f'DISPATCHIS_{preprocess.get_case_datetime(t)}.csv'
 
     with result_dir.open(mode='w') as result_file:
         writer = csv.writer(result_file, delimiter=',')
@@ -26,7 +26,7 @@ def generate_dispatchis(t, regions, prices):
 def generate_predispatchis(start, t, i, regions, prices):
     p = preprocess.OUT_DIR / 'predispatch'
     p.mkdir(parents=True, exist_ok=True)
-    result_dir = p / 'PREDISPATCHIS_{}.csv'.format(preprocess.get_case_datetime(start))
+    result_dir = p / f'PREDISPATCHIS_{preprocess.get_case_datetime(start)}.csv'
     with result_dir.open(mode='a+') as result_file:
         writer = csv.writer(result_file, delimiter=',')
         writer.writerow(['I', 'PREDISPATCH', 'REGION_PRICE', '', 'PREDISPATCHSEQNO', 'RUNNO', 'REGIONID', 'PERIODID', 'INTERVENTION', 'RRP', 'RRP Record'])
@@ -48,7 +48,7 @@ def generate_predispatchis(start, t, i, regions, prices):
 def generate_p5min(start, t, regions, prices):
     p = preprocess.OUT_DIR / 'p5min' 
     p.mkdir(parents=True, exist_ok=True)
-    result_dir = p / 'P5MIN_{}.csv'.format(preprocess.get_case_datetime(start))
+    result_dir = p / f'P5MIN_{preprocess.get_case_datetime(start)}.csv'
     with result_dir.open(mode='a+') as result_file:
         writer = csv.writer(result_file, delimiter=',')
         writer.writerow(['I', 'P5MIN', 'REGIONSOLUTION', '', 'RUN_DATETIME', 'INTERVENTION', 'RUNNO', 'REGIONID', 'Price', 'RRP Record', 'ROP Record'])
@@ -70,13 +70,19 @@ def generate_p5min(start, t, regions, prices):
 def generate_dispatchload(units, t, start, process):
     interval_datetime = preprocess.get_case_datetime(t + preprocess.THIRTY_MIN) if process == 'predispatch' else preprocess.get_case_datetime(t + preprocess.FIVE_MIN)
     if process == 'dispatch':
-        p = preprocess.OUT_DIR / process
-        p.mkdir(parents=True, exist_ok=True)
-        result_dir = p / 'dispatch_{}.csv'.format(interval_datetime)
+        p = preprocess.OUT_DIR / f'{process}_{preprocess.get_case_datetime(start)}'
     else:
-        p = preprocess.OUT_DIR / process / '{}_{}'.format(process, preprocess.get_case_datetime(start))
-        p.mkdir(parents=True, exist_ok=True)
-        result_dir = p / 'dispatchload_{}.csv'.format(interval_datetime)
+        p = preprocess.OUT_DIR / process / f'{process}_{preprocess.get_case_datetime(start)}'
+    p.mkdir(parents=True, exist_ok=True)
+    result_dir = p / f'dispatchload_{interval_datetime}.csv'
+    # if process == 'dispatch':
+    #     p = preprocess.OUT_DIR / f'{process}_{preprocess.get_case_datetime(start)}'
+    #     p.mkdir(parents=True, exist_ok=True)
+    #     result_dir = p / f'dispatch_{interval_datetime}.csv'
+    # else:
+    #     p = preprocess.OUT_DIR / process / f'{process}_{preprocess.get_case_datetime(start)}'
+    #     p.mkdir(parents=True, exist_ok=True)
+    #     result_dir = p / f'dispatchload_{interval_datetime}.csv'
     with result_dir.open(mode='w') as result_file:
         writer = csv.writer(result_file, delimiter=',')
         writer.writerow(['I', 'DUID', 'TOTALCLEARED', 'RECORD'])
@@ -90,9 +96,10 @@ def generate_dispatchload(units, t, start, process):
 
 
 def add_prices(process, start, t, prices):
-    result_dir = preprocess.OUT_DIR / '{}_{}_{}.csv'.format(process,
-                                                            preprocess.get_case_datetime(start) if process != 'dispatch' else '',
-                                                            preprocess.get_case_datetime(t))
+    if process == 'dispatch':
+        result_dir = preprocess.OUT_DIR / f'{process}_{preprocess.get_case_datetime(start)}' / f'{process}_{preprocess.get_case_datetime(t)}.csv'
+    else:
+        result_dir = preprocess.OUT_DIR / process / f'{process}_{preprocess.get_case_datetime(start)}_{preprocess.get_case_datetime(t)}.csv'
     with result_dir.open(mode='a') as result_file:
         writer = csv.writer(result_file, delimiter=',')
         writer.writerow(['Region ID', 'Differece of Costs'])
@@ -114,9 +121,10 @@ def generate_result_csv(process, start, t, obj_value, obj_record, interconnector
         None
 
     """
-    result_dir = preprocess.OUT_DIR / '{}_{}_{}.csv'.format(process, 
-                                                            preprocess.get_case_datetime(start) if process != 'dispatch' else '',
-                                                            preprocess.get_case_datetime(t))
+    if process == 'dispatch':
+        result_dir = preprocess.OUT_DIR / f'{process}_{preprocess.get_case_datetime(start)}' / f'{process}_{preprocess.get_case_datetime(t)}.csv'
+    else:
+        result_dir = preprocess.OUT_DIR / process / f'{process}_{preprocess.get_case_datetime(start)}_{preprocess.get_case_datetime(t)}.csv'
     with result_dir.open(mode='w') as result_file:
         writer = csv.writer(result_file, delimiter=',')
 
@@ -139,32 +147,38 @@ def generate_result_csv(process, start, t, obj_value, obj_record, interconnector
 
         row = ['REGIONSUM',
                'Region ID',
-               'Generation',
-               'AEMO Gen',
-               'Load',
-               'AEMO Load',
-               # 'Available Gen',
-               # 'AEMO',
-               # 'Available Load',
-               # 'AEMO'
-               'Net Interchange (into)',
+               'Total Demand',
+               'Available Gen',
+               'AEMO Avail Gen Record',
+               'Available Load',
+               'AEMO Avail Load Record',
+               '*Dispatchable Generation*',
+               'AEMO Gen Record',
+               'Aggregate AEMO Gen Record',
+               '*Dispatchable Load*',
+               'AEMO Load Record',
+               'Aggregate AEMO Gen Record',
+               'Net Interconnector Targets (into)',
                'AEMO Inter-flow']
         for bid_type in FCAS_TYPES:
             row.append(bid_type)
-            row.append('AEMO {}'.format(bid_type))
+            row.append(f'AEMO {bid_type}')
 
         writer.writerow(row)
         for name, region in regions.items():
             row = ['REGIONSUM',
                    name,
+                   region.total_demand,
+                   region.available_generation,
+                   region.available_generation_record,
+                   region.available_load,
+                   region.available_load_record,
                    region.dispatchable_generation.getValue(),
                    region.dispatchable_generation_record,
+                   region.dispatchable_generation_temp,
                    region.dispatchable_load.getValue() if type(region.dispatchable_load) != float else 0,
                    region.dispatchable_load_record,
-                   # region.available_generation,
-                   # region.available_generation_record,
-                   # region.available_load,
-                   # region.available_load_record
+                   region.dispatchable_load_temp,
                    region.net_mw_flow.getValue(),
                    region.net_mw_flow_record]
             if fcas_flag:
@@ -175,13 +189,13 @@ def generate_result_csv(process, start, t, obj_value, obj_record, interconnector
 
         row = ['PRICE',
                'Region ID',
-               'Dual Variable',
-               'AEMO RRP',
+               'Price',
+               'AEMO Regional Reference Price',
                'AEMO ROP'
                ]
         for bid_type in FCAS_TYPES:
             row.append(bid_type)
-            row.append('AEMO {}'.format(bid_type))
+            row.append(f'AEMO {bid_type}')
 
         writer.writerow(row)
         for name, region in regions.items():
