@@ -1,2 +1,2 @@
-# NEMDE
-A simple version of Australian National Electricity Market Dispatch Engine.
+# NEMDE Simulator
+A simulator of the Australian National Electricity Market Dispatch Engine (NEMDE).
