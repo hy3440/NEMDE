@@ -3,7 +3,7 @@ import preprocess
 
 
 def condition1(process, i):
-    """ All intervals of dispatch and first i of p5min and predispatch.
+    """ All intervals of dispatch and first interval of p5min and predispatch.
 
     Args:
         process (str): 'dispatch', 'p5min' or 'predispatch'
@@ -16,7 +16,7 @@ def condition1(process, i):
 
 
 def condition2(process, i):
-    """ All intervals of dispatch, first i of p5min, and none of predispatch.
+    """ All intervals of dispatch, first interval of p5min, and none of predispatch.
 
         Args:
             process (str): 'dispatch', 'p5min' or 'predispatch'

@@ -1,5 +1,6 @@
 import constrain
 import datetime
+import debug
 import fcas_constraints
 import gurobipy
 import helpers
@@ -11,29 +12,6 @@ import result
 import xml_parser
 import preprocess
 import unit_constraints
-
-
-def verify_region_record(regions):
-    # Verify region record
-    for region_id, region in regions.items():
-        # print(f'{region_id} net interchange record {region.net_interchange_record} calculate {region.net_interchange_record_temp}')
-        if abs(region.dispatchable_generation_record - region.dispatchable_generation_temp) > 0.1:
-            logging.warning(
-                f'Region {region_id} dispatchable generation record {region.dispatchable_generation_record} but sum of total cleared {region.dispatchable_generation_temp}')
-        if abs(region.dispatchable_load_record - region.dispatchable_load_temp) > 0.1:
-            logging.warning(
-                f'Region {region_id} dispatchable load record {region.dispatchable_load_record} but sum of total cleared {region.dispatchable_load_temp}')
-        if abs(region.available_generation_record - region.available_generation) > 0.1:
-            logging.warning(
-                f'Region {region_id} available generation record {region.available_generation_record} but our calculation {region.available_generation}')
-        if abs(region.available_load_record - region.available_load) > 0.1:
-            logging.warning(
-                f'Region {region_id} available load record {region.available_load_record} but our calculation {region.available_load}')
-        for bid_type, record in region.fcas_local_dispatch_record.items():
-            # print(f'{region_id} {bid_type} record {record} sum {region.fcas_local_dispatch_record_temp[bid_type]}')
-            if abs(record - region.fcas_local_dispatch_record_temp[bid_type]) > 0.1:
-                logging.warning(
-                    f'Region {region_id} {bid_type} record {record} but sum of target {region.fcas_local_dispatch_record_temp[bid_type]}')
 
 
 def add_regional_energy_demand_supply_balance_constr(model, region, region_id, hard_flag, slack_variables, penalty, voll, cvp):
@@ -57,113 +35,6 @@ def add_regional_energy_demand_supply_balance_constr(model, region, region_id, h
     return penalty
 
 
-def debug_infeasible_model(model):
-    print('Infeasible model!!!')
-    logging.debug('The model is infeasible; computing IIS')
-    model.computeIIS()
-    logging.debug('\nThe following constraint(s) cannot be satisfied:')
-    for c in model.getConstrs():
-        if c.IISConstr:
-            logging.debug(f'Constraint name: {c.constrName}')
-            logging.debug(f'Constraint sense: {c.sense}')
-            logging.debug(f'Constraint rhs: {c.rhs}')
-
-
-def calculate_marginal_prices_by_definition(units, regions):
-    # Calculate marginal price
-    for unit in units.values():
-        if unit.energy is not None and unit.total_cleared.x > 0:
-            for target, price in zip(unit.offers, unit.energy.price_band):
-                if target.x > 0 and (prices[unit.region_id] is None or prices[
-                    unit.region_id] < price / unit.transmission_loss_factor):
-                    prices[unit.region_id] = price / unit.transmission_loss_factor
-                    regions[unit.region_id].debug_duid = unit.duid
-
-    # Verify marginal price for debugging
-    # for region in regions.values():
-    #     region.rrp = prices[region.region_id]
-    #     unit = units[region.debug_duid]
-    #     print(f'{region.region_id} {unit.dispatch_type} {region.debug_duid}')
-    #     print(f'target {unit.total_cleared.x} record {unit.total_cleared_record} MLF {unit.transmission_loss_factor}')
-    #     for t, p, a in zip(unit.offers, unit.energy.price_band, unit.energy.band_avail):
-    #         print(f'Dispatch Target {t.x} Avail {a} at Price {p / unit.transmission_loss_factor}')
-    # Sort by band price
-    class Band:
-        def __init__(self, target, avail, price, duid, mlf, bid_type, dispatch_type):
-            self.target = target
-            self.avail = avail
-            self.price = price
-            self.duid = duid
-            self.mlf = mlf
-            self.rrp = price / mlf
-            self.bid_type = bid_type
-            self.dispatch_type = dispatch_type
-
-    def getKey(band):
-        return band.rrp if band.bid_type == 'ENERGY' else band.price
-
-    generators = {'NSW1': [], 'VIC1': [], 'TAS1': [], 'SA1': [], 'QLD1': []}
-    loads = {'NSW1': [], 'VIC1': [], 'TAS1': [], 'SA1': [], 'QLD1': []}
-    for duid, unit in units.items():
-        if unit.energy is not None and unit.total_cleared.x > 0:
-            dic = generators if unit.dispatch_type == 'GENERATOR' else loads
-            for target, price, avail in zip(unit.offers, unit.energy.price_band, unit.energy.band_avail):
-                if target.x > 0:
-                    dic[unit.region_id].append(
-                        Band(target, avail, price, duid, unit.transmission_loss_factor, 'ENERGY', unit.dispatch_type))
-        if unit.fcas_bids != {}:
-            for bid_type, fcas in unit.fcas_bids.items():
-                if fcas.x > 0:
-                    for target, price, avail in zip(fcas.offers, fcas.price_band, fcas.band_avail):
-                        if target.x > 0:
-                            generators[unit.region_id].append(
-                                Band(target, avail, price, duid, unit.transmission_loss_factor, bid_type,
-                                     unit.dispatch_type))
-
-    import csv
-    # for dic, type, reverse_flag in zip([generators, loads], ['GENERATORS', 'LOADS'], [True, False]):
-    #     for region_id, list in dic.items():
-    #         list.sort(key=getKey, reverse=reverse_flag)
-    #         dir = preprocess.OUT_DIR / f'{type}_{region_id}.csv'
-    #         with dir.open(mode='w') as result_file:
-    #             writer = csv.writer(result_file, delimiter=',')
-    #             writer.writerow(['DUID', 'Var Name', 'Dispatch Target', 'Avail', 'RRP', 'Price', 'Loss Factor'])
-    #             for band in list:
-    #                 writer.writerow([band.duid, band.target.VarName, band.target.x, band.avail, band.rrp, band.price, band.mlf])
-
-    for region_id in generators.keys():
-        dir = preprocess.OUT_DIR / f'{region_id}.csv'
-        with dir.open(mode='w') as result_file:
-            writer = csv.writer(result_file, delimiter=',')
-            for dic, dispatch_type, reverse_flag in zip([generators, loads], ['GENERATOR', 'LOAD'], [True, False]):
-                row1 = ['Region ID', 'AEMO Regional Reference Price',
-                        'Total Generation' if dispatch_type == 'GENERATOR' else 'Total Load']
-                row2 = [region_id, regions[region_id].rrp_record,
-                        regions[region_id].dispatchable_generation_record if dispatch_type == 'GENERATOR' else regions[
-                            region_id].dispatchable_load_record]
-                for bid_type, record in regions[region_id].fcas_local_dispatch_record.items():
-                    row1.append(bid_type)
-                    row2.append(record)
-                l = dic[region_id]
-                l.sort(key=getKey, reverse=reverse_flag)
-                writer.writerow(['Bid Type', 'Dispatch Type', 'Unit ID', 'Var Name', 'Dispatch Target', 'Availability',
-                                 'Price/Loss Factor', 'Price', 'Loss Factor'])
-                for band in l:
-                    writer.writerow(
-                        [band.bid_type, band.dispatch_type, band.duid, band.target.VarName, band.target.x, band.avail,
-                         band.rrp, band.price, band.mlf])
-                writer.writerow([''])
-                writer.writerow([''])
-
-
-def record_binding_constr(model, constraints):
-    for constr in model.getConstrs():
-        if constr.slack is not None and constr.slack != 0 and constr.constrName in constraints and constraints[constr.constrName].bind_flag:
-            logging.warning(f'Constraint {constr.constrName} is not binding but record is')
-        # elif constr.slack is not None and constr.slack == 0 and not constr.bind_flag:
-        #     logging.info(f'Constraint {constr.constrName} is binding but record not.')
-
-
 def dispatch(cvp, start, interval, process,
              hard_flag=False,  # Apply hard constraints
              fcas_flag=True,  # Calculate FCAS
@@ -172,7 +43,7 @@ def dispatch(cvp, start, interval, process,
              fixed_interflow_flag=False,  # Fix interflow
              fixed_target_flag=False,  # Fix generator target
              link_flag=True,  # Calculate links
-             dual_flag=False,  # Calculate dual var as price
+             dual_flag=True,  # Calculate dual var as price
              ic_record_flag=False  # Apply interconnector import/export limit record
              ):
     try:
@@ -213,6 +84,7 @@ def dispatch(cvp, start, interval, process,
             # Fix inter-flow (custom flag for testing the model)
             if fixed_interflow_flag:
                 model.addConstr(ic.mw_flow, sense=gurobipy.GRB.EQUAL, rhs=ic.mw_flow_record, name=f'FIXED_INTERFLOW_{ic_id}')
+                # model.addConstr(ic.mw_losses, sense=gurobipy.GRB.EQUAL, rhs=ic.mw_losses_record, name=f'FIXED_INTERLOSSES_{ic_id}')
 
         if link_flag:
             for link_id, link in links.items():
@@ -245,11 +117,20 @@ def dispatch(cvp, start, interval, process,
                 regions[link.to_region].net_interchange_record_temp -= link.mw_flow_record * link.to_region_tlf
 
             model.addConstr(interconnectors['T-V-MNSP1'].mw_flow, sense=gurobipy.GRB.EQUAL, rhs=links['BLNKTAS'].mw_flow - links['BLNKVIC'].mw_flow, name='BASSLINK_CONSTR')
-            model.addSOS(gurobipy.GRB.SOS_TYPE1, [links['BLNKTAS'].mw_flow, links['BLNKVIC'].mw_flow])
+            if fixed_target_flag or fixed_interflow_flag or dual_flag:
+                if links['BLNKTAS'].mw_flow_record == 0:
+                    model.addConstr(links['BLNKTAS'].mw_flow, sense=gurobipy.GRB.EQUAL, rhs=0, name='BASSLINK_BLNKTAS')
+                else:
+                    model.addConstr(links['BLNKVIC'].mw_flow, sense=gurobipy.GRB.EQUAL, rhs=0, name='BASSLINK_BLNKVIC')
+            else:
+                model.addSOS(gurobipy.GRB.SOS_TYPE1, [links['BLNKTAS'].mw_flow, links['BLNKVIC'].mw_flow])
 
         # Calculate inter-region losses
         if losses_flag:
-            interconnect.sos_calculate_interconnector_losses(model, regions, interconnectors)
+            if fixed_target_flag or dual_flag or fixed_interflow_flag:
+                interconnect.calculate_interconnector_losses(model, regions, interconnectors)
+            else:
+                interconnect.sos_calculate_interconnector_losses(model, regions, interconnectors)
 
         xml_parser.add_nemspdoutputs_fcas(current, units, xml_parser.add_fcas)
         # xml_parser.add_nemspdoutputs_fcas(current, units, xml_parser.verify_fcas)
@@ -273,7 +154,7 @@ def dispatch(cvp, start, interval, process,
                 if unit.energy.max_avail is not None:
                     penalty = unit_constraints.add_max_avail_constr(model, unit, hard_flag, slack_variables, penalty, voll, cvp)
                     if unit.total_cleared_record is not None and unit.total_cleared_record > unit.energy.max_avail:
-                        logging.warning(f'{unit.dispatch_type} {unit.duid} total cleared record {unit.total_cleared_record} above max avail {unit.energy.max_avail}')
+                        logging.warning(f'{unit.dispatch_type} {unit.duid} total cleared record {unit.total_cleared_record} above max avail {unit.energy.max_avail} (total band {sum(unit.energy.band_avail)})')
                 # Add total band MW offer constraint
                 penalty = unit_constraints.add_total_band_constr(model, unit, hard_flag, slack_variables, penalty, voll, cvp)
                 # Add Unconstrained Intermittent Generation Forecasts (UIGF) constraint
@@ -284,7 +165,7 @@ def dispatch(cvp, start, interval, process,
                 # Add unit ramp rate constraint
                 # If the total MW value of its bid/offer bands is zero or the unit is a fast start unit and it is
                 # targeted to be in mode 0, 1, or 2, its ramp rate constraints will be ignored.
-                if sum(unit.energy.band_avail) > 0 and (unit.start_type != 'FAST' or unit.dispatch_mode > 2):
+                if sum(unit.energy.band_avail) > 0 and (unit.start_type != 'FAST' or (helpers.condition1(process, interval) and unit.dispatch_mode > 2)):
                     penalty = unit_constraints.add_unit_ramp_constr(model, intervals, unit, hard_flag, slack_variables, penalty, voll, cvp)
                 # Add fixed loading constraint
                 penalty = unit_constraints.add_fixed_loading_constr(model, unit, hard_flag, slack_variables, penalty, voll, cvp)
@@ -334,11 +215,11 @@ def dispatch(cvp, start, interval, process,
                 else:
                     for bid_type, fcas in unit.fcas_bids.items():
                         cost, penalty = fcas_constraints.process_fcas_bid(model, unit, fcas, bid_type, hard_flag, slack_variables, penalty, voll, cvp, cost, regions)
-                # Fix unit dispatch target (custom flag for testing the model)
-                if fixed_target_flag:
-                    if fcas_flag and unit.fcas_bids != {}:
-                        for bid_type, fcas in unit.fcas_bids.items():
-                            model.addConstr(fcas.value, gurobipy.GRB.EQUAL, unit.target_record[bid_type], name=f'{bid_type}_FIXED_{unit.duid}')
+                # # Fix unit dispatch target (custom flag for testing the model)
+                # if fixed_target_flag:
+                #     if fcas_flag and unit.fcas_bids != {}:
+                #         for bid_type, fcas in unit.fcas_bids.items():
+                #             model.addConstr(fcas.value, gurobipy.GRB.EQUAL, unit.target_record[bid_type], name=f'{bid_type}_FIXED_{unit.duid}')
 
         # Region FCAS local dispatch
         if fcas_flag:
@@ -351,7 +232,7 @@ def dispatch(cvp, start, interval, process,
         generic_slack_variables = set()
         if constr_flag:
             # constraints = constrain.get_constraints(process, current, units, connection_points, interconnectors, regions, start, fcas_flag)
-            constraints = xml_parser.add_xml_constr(current, units, regions, interconnectors)
+            constraints = xml_parser.add_xml_constr(current, start, process, units, regions, interconnectors)
             for constr in constraints.values():
                 # if helpers.condition3(process, constr.dispatch, constr.predispatch, constr.rhs) and constr.connection_point_flag:
                 if constr.bind_flag or True:
@@ -397,7 +278,7 @@ def dispatch(cvp, start, interval, process,
                     # # Force lhs to equal lhs record
                     # model.addConstr(constr.connection_point_lhs + constr.interconnector_lhs + constr.region_lhs, sense=gurobipy.GRB.EQUAL, rhs=constr.lhs, name=constr.gen_con_id)
         # Verify region record
-        verify_region_record(regions)
+        debug.verify_region_record(regions)
         # Calculate marginal prices
         prices = {'NSW1': None, 'VIC1': None, 'SA1': None, 'TAS1': None, 'QLD1': None}
         if dual_flag or fixed_target_flag:
@@ -409,27 +290,25 @@ def dispatch(cvp, start, interval, process,
             model.setObjective(cost + penalty, gurobipy.GRB.MINIMIZE)
             # Optimize model
             model.optimize()
-            print(f'Model Status: {model.status}')
+            # Write model for debugging
+            # model.write(f'{process}.lp')
 
             if model.status == gurobipy.GRB.Status.INFEASIBLE or model.status == gurobipy.GRB.Status.INF_OR_UNBD:
-                debug_infeasible_model(model)
+                debug.debug_infeasible_model(model)
                 return None
             elif model.status == gurobipy.GRB.Status.OPTIMAL:
-                # record_binding_constr(model, constraints)
-                # Debug for Basslink
-                ic = interconnectors['T-V-MNSP1']
-                print(f'T-V-MNSP1: {ic.mw_flow} record {ic.mw_flow_record}')
-                for link_id, link in links.items():
-                    print(f'{link_id} {link.mw_flow} record {link.mw_flow_record}')
+                # debug.verify_binding_constr(model, constraints)
+
+                # Get dual total_cleared of regional energy balance constraint
+                for region in regions.values():
+                    prices[region.region_id] = region.rrp_constr.pi
+                    region.rrp = region.rrp_constr.pi
 
                 # Generate result csv
                 result.generate_dispatchload(units, current, start, process)
-                result.generate_result_csv(process, start, current, model.objVal, solution.total_objective,
+                result.generate_result_csv(process, start, current, model.objVal, solution, penalty.getValue(),
                                            interconnectors, regions, units, fcas_flag)
-
-                # # Get dual total_cleared of regional energy balance constraint
-                # for region in regions.values():
-                #     prices[region.region_id] = region.rrp_constr.pi
+                # result.add_prices(process, start, current, prices)
 
                 # # Check slack variables for soft constraints
                 # if not hard_flag:
@@ -464,14 +343,14 @@ def dispatch(cvp, start, interval, process,
                 model.setObjective(cost + penalty, gurobipy.GRB.MINIMIZE)
                 model.optimize()
                 if model.status == gurobipy.GRB.Status.INFEASIBLE or model.status == gurobipy.GRB.Status.INF_OR_UNBD:
-                    debug_infeasible_model(model)
+                    debug.debug_infeasible_model(model)
                     return None
                 elif region_name is None:
-                    # record_binding_constr(model, constraints)
+                    # debug.verify_binding_constr(model, constraints)
                     base = cost.getValue()
                     # Generate result csv
                     result.generate_dispatchload(units, current, start, process)
-                    result.generate_result_csv(process, start, current, model.objVal, solution.total_objective,
+                    result.generate_result_csv(process, start, current, model.objVal, solution, penalty.getValue(),
                                                interconnectors, regions, units, fcas_flag)
                 else:
                     prices[region_name] = cost.getValue() - base
@@ -484,21 +363,22 @@ def dispatch(cvp, start, interval, process,
             result.generate_p5min(start, current, regions, prices)
         return prices
 
-    except gurobipy.GurobiError as e:
-        print('Error code ' + str(e.errno) + ": " + str(e))
-    # except AttributeError as e:
-    #     print('Encountered an attribute error: ' + str(e))
+    # except gurobipy.GurobiError as e:
+    #     print('Error code ' + str(e.errno) + ": " + str(e))
+    except AttributeError as e:
+        print('Encountered an attribute error: ' + str(e))
 
 
 if __name__ == '__main__':
     cvp = helpers.read_cvp()
     start_time = datetime.datetime(2020, 9, 1, 4, 5, 0)
     end_time = datetime.datetime(2020, 9, 2, 4, 0, 0)
-    process_type = 'dispatch'
+    # process_type = 'dispatch'
     # process_type = 'p5min'
+    process_type = 'predispatch'
     path_to_log = preprocess.LOG_DIR / f'{process_type}_{preprocess.get_case_datetime(start_time)}.log'
     logging.basicConfig(filename=path_to_log, filemode='w', format='%(levelname)s: %(asctime)s %(message)s', level=logging.DEBUG)
     total_intervals = helpers.get_total_intervals(process_type, start_time)
     # for interval in range(int((end_time-start_time) / preprocess.FIVE_MIN + 1)):
-    for interval in range(288):
+    for interval in range(12):
         prices = dispatch(cvp, start_time, interval, process_type)

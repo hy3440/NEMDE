@@ -85,14 +85,29 @@ def generate_dispatchload(units, t, start, process):
     #     result_dir = p / f'dispatchload_{interval_datetime}.csv'
     with result_dir.open(mode='w') as result_file:
         writer = csv.writer(result_file, delimiter=',')
-        writer.writerow(['I', 'DUID', 'TOTALCLEARED', 'RECORD'])
+        row = ['I', 'DUID', 'TOTALCLEARED', 'RECORD']
+        for bid_type in FCAS_TYPES:
+            row.append(bid_type)
+            row.append(f'AEMO {bid_type}')
+        writer.writerow(row)
         for duid, unit in units.items():
             # print(unit.total_cleared.x if unit.total_cleared != 0 else 0)
-            writer.writerow(['D',  # 0
-                             duid,  # 1
-                             0 if type(unit.total_cleared) in {float, int} else unit.total_cleared.x,  # 2
-                             '-' if unit.total_cleared_record is None else unit.total_cleared_record
-                             ])
+            row = ['D',  # 0
+                   duid,  # 1
+                   0 if type(unit.total_cleared) == float else unit.total_cleared.x,  # 2
+                   '-' if unit.total_cleared_record is None else unit.total_cleared_record]
+
+            # if type(unit.total_cleared) != float and unit.total_cleared_record is not None and abs(unit.total_cleared.x - unit.total_cleared_record) > 1:
+            #     print(f'{unit.region_id} {unit.dispatch_type} {duid} {unit.total_cleared.x} record {unit.total_cleared_record}')
+
+            for bid_type in FCAS_TYPES:
+                if unit.fcas_bids != {} and bid_type in unit.fcas_bids:
+                    row.append('0' if type(unit.fcas_bids[bid_type].value) == float else unit.fcas_bids[bid_type].value.x)
+                    row.append('-' if unit.target_record == {} else unit.target_record[bid_type])
+                else:
+                    row.append('-')
+                    row.append('-')
+            writer.writerow(row)
 
 
 def add_prices(process, start, t, prices):
@@ -107,7 +122,7 @@ def add_prices(process, start, t, prices):
             writer.writerow([region_id, price])
 
 
-def generate_result_csv(process, start, t, obj_value, obj_record, interconnectors, regions, units, fcas_flag):
+def generate_result_csv(process, start, t, obj_value, solution, penalty, interconnectors, regions, units, fcas_flag):
     """Write the dispatch results into a csv file.
 
     Args:
@@ -129,8 +144,8 @@ def generate_result_csv(process, start, t, obj_value, obj_record, interconnector
         writer = csv.writer(result_file, delimiter=',')
 
         writer.writerow([preprocess.get_interval_datetime(t)])
-        writer.writerow(['Item', 'Our Value', 'AEMO Value'])
-        writer.writerow(['Objective', obj_value, obj_record])
+        writer.writerow(['Item', 'Our Objective', 'AEMO Objective', 'Our Violation', 'AEMO Violation'])
+        writer.writerow(['Value', obj_value, solution.total_objective, penalty, solution.total_violation])
 
         writer.writerow(['Interconnector',
                          'Inter-flow',
@@ -148,16 +163,16 @@ def generate_result_csv(process, start, t, obj_value, obj_record, interconnector
         row = ['REGIONSUM',
                'Region ID',
                'Total Demand',
-               'Available Gen',
-               'AEMO Avail Gen Record',
-               'Available Load',
-               'AEMO Avail Load Record',
+               # 'Available Gen',
+               # 'AEMO Avail Gen Record',
+               # 'Available Load',
+               # 'AEMO Avail Load Record',
                '*Dispatchable Generation*',
                'AEMO Gen Record',
-               'Aggregate AEMO Gen Record',
+               # 'Aggregate AEMO Gen Record',
                '*Dispatchable Load*',
                'AEMO Load Record',
-               'Aggregate AEMO Gen Record',
+               # 'Aggregate AEMO Load Record',
                'Net Interconnector Targets (into)',
                'AEMO Inter-flow']
         for bid_type in FCAS_TYPES:
@@ -169,16 +184,16 @@ def generate_result_csv(process, start, t, obj_value, obj_record, interconnector
             row = ['REGIONSUM',
                    name,
                    region.total_demand,
-                   region.available_generation,
-                   region.available_generation_record,
-                   region.available_load,
-                   region.available_load_record,
+                   # region.available_generation,
+                   # region.available_generation_record,
+                   # region.available_load,
+                   # region.available_load_record,
                    region.dispatchable_generation.getValue(),
                    region.dispatchable_generation_record,
-                   region.dispatchable_generation_temp,
+                   # region.dispatchable_generation_temp,
                    region.dispatchable_load.getValue() if type(region.dispatchable_load) != float else 0,
                    region.dispatchable_load_record,
-                   region.dispatchable_load_temp,
+                   # region.dispatchable_load_temp,
                    region.net_mw_flow.getValue(),
                    region.net_mw_flow_record]
             if fcas_flag:

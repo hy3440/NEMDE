@@ -115,9 +115,9 @@ def add_fcas_max_avail_constr(model, unit, fcas, bid_type, hard_flag, slack_vari
     fcas.max_avail_constr = model.addConstr(fcas.value - fcas.max_avail_deficit <= fcas.max_avail,
                                             name=f'FCAS_MAX_AVAIL_{bid_type}_{unit.duid}')
     fcas.max_avail_constr = model.addConstr(fcas.value <= fcas.max_avail, name=f'{fcas.bid_type}_MAX_AVAIL_{unit.duid}')
-    if unit.target_record and unit.target_record[bid_type] > fcas.max_avail:
+    if unit.target_record and unit.target_record[bid_type] > fcas.max_avail and abs(unit.target_record[bid_type] - fcas.max_avail) > 1:
         logging.warning(
-            f'{unit.dispatch_type} {unit.duid} {bid_type} {unit.target_record[bid_type]} above max avail {fcas.max_avail} constraint')
+            f'{unit.dispatch_type} {unit.duid} {bid_type} {unit.target_record[bid_type]} above max avail {fcas.max_avail}')
     return penalty
 
 

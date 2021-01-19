@@ -256,12 +256,17 @@ def add_nemspdoutputs(t, units, links, link_flag):
     return violation_prices
 
 
-def add_xml_constr(t, units, regions, interconnectors):
+def add_xml_constr(t, start, process, units, regions, interconnectors):
     xml = read_xml(t)
     constraints = {}
     add_generic_constraint(xml, units, regions, interconnectors, constraints)
     add_constraint_solution(xml, constraints)
-    constrain.add_dispatch_constraint(t, constraints)
+    if process == 'dispatch':
+        constrain.add_dispatch_constraint(t, constraints)
+    elif process == 'p5min':
+        constrain.add_p5min_constraint(t, start, constraints)
+    else:
+        constrain.add_predispatch_constraint(t, start, constraints)
     return constraints
 
 

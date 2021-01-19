@@ -83,16 +83,18 @@ def read_dispatchis(start, current):
         for row in reader:
             if row[0] == 'D':
                 price = float(row[8])
+                record = float(row[9])
                 if abs(price) > 2000:
                     print(current)
                 region_price[row[6]].append(price if abs(price) < 3000 else 0)
                 region_price_record[row[6]].append(float(row[9]))
+                if abs(record) > 100:
+                    print(current)
 
 
 def main():
-
-    start = datetime.datetime(2020, 9, 1, 4, 5, 0)
-    end = datetime.datetime(2020, 9, 2, 4, 5, 0)
+    start = datetime.datetime(2020, 6, 1, 4, 5, 0)
+    end = datetime.datetime(2020, 6, 2, 4, 5, 0)
     current = start
     while current < end:
         read_dispatchis(start, current)
@@ -113,7 +115,9 @@ def main():
         plt.ylabel("Price ($/MW)")
         # plt.show()
         # axs[index].set_title(region)
-        plt.savefig(preprocess.OUT_DIR / 'plots-prices' / f'{region}.png')
+        path_to_save = preprocess.OUT_DIR / f'prices_{preprocess.get_case_datetime(start)}'
+        path_to_save.mkdir(parents=True, exist_ok=True)
+        plt.savefig(path_to_save / f'{region}.png')
         plt.close()
 
     # for index, region in enumerate(region_gen):

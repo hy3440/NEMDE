@@ -31,25 +31,27 @@ class Solution:
             total_fast_start_violation (float): Total of fast start trader profile violations
             total_energy_offer_violation (float): Total of unit summated offer band violations
     """
-    def __init__(self, row):
-        self.intervention = row[6]
-        self.case_subtype = row[7]
-        self.solution_status = int(row[8])
-        self.spd_version = row[9]
-        self.non_physical_losses = int(row[10])
-        self.total_objective = float(row[11])
-        self.total_area_gen_violation = float(row[12])
-        self.total_interconnector_violation = float(row[13])
-        self.total_generic_violation = float(row[14])
-        self.total_ramp_rate_violation = float(row[15])
-        self.total_unit_mw_capacity_violation = float(row[16])
-        self.total_5min_violation = float(row[17]) if row[17] != '' else ''
-        self.total_reg_violation = float(row[18]) if row[18] != '' else ''
-        self.total_6sec_violation = float(row[19]) if row[19] != '' else ''
-        self.total_60sec_violation = float(row[20]) if row[20] != '' else ''
-        self.total_as_profile_violation = float(row[21])
-        self.total_fast_start_violation = float(row[22])
-        self.total_energy_offer_violation = float(row[23])
+    def __init__(self):
+        self.intervention = None
+        self.case_subtype = None
+        self.solution_status = None
+        self.spd_version = None
+        self.non_physical_losses = None
+        self.total_objective = None
+        self.violations = {}
+        # self.violations['total_area_gen_violation'] = float(row[12])
+        # self.violations['total_interconnector_violation'] = float(row[13])
+        # self.violations['total_generic_violation'] = float(row[14])
+        # self.violations['total_ramp_rate_violation'] = float(row[15])
+        # self.violations['total_unit_mw_capacity_violation'] = float(row[16])
+        # self.violations['total_5min_violation'] = float(row[17]) if row[17] != '' else 0
+        # self.violations['total_reg_violation'] = float(row[18]) if row[18] != '' else 0
+        # self.violations['total_6sec_violation'] = float(row[19]) if row[19] != '' else 0
+        # self.violations['total_60sec_violation'] = float(row[20]) if row[20] != '' else 0
+        # self.violations['total_as_profile_violation'] = float(row[21])
+        # self.violations['total_fast_start_violation'] = float(row[22])
+        # self.violations['total_energy_offer_violation'] = float(row[23])
+        # self.total_violation = sum(self.violations.values())
 
 
 class Region:
@@ -523,11 +525,11 @@ def calculate_interconnector_losses(model, regions, interconnectors):
         x_s = sorted(ic.mw_breakpoint.values())
         y_s = [0.5 * ic.loss_flow_coefficient * x * x + coefficient * x for x in x_s]
         ic.mw_losses = model.addVar(lb=-gurobipy.GRB.INFINITY, name=f'Mw_Losses_{ic.interconnector_id}')
-
         for i in range(len(x_s) - 1):
             model.addConstr((ic.mw_losses - y_s[i]) * (x_s[i + 1] - x_s[i]) >= (y_s[i + 1] - y_s[i]) * (ic.mw_flow - x_s[i]), f'LOSSES_{ic.interconnector_id}')
             if (ic.mw_losses_record - y_s[i]) * (x_s[i + 1] - x_s[i]) < (y_s[i + 1] - y_s[i]) * (ic.mw_flow_record - x_s[i]):
                 logging.warning(f'IC {ic.interconnector_id} violate losses constraint')
+                logging.debug(f'lhs = {(ic.mw_losses_record - y_s[i]) * (x_s[i + 1] - x_s[i])} rhs = {(y_s[i + 1] - y_s[i]) * (ic.mw_flow_record - x_s[i])}')
         share_losses(regions, ic)
 
 
@@ -604,7 +606,26 @@ def add_dispatchis_record(regions, interconnectors, t, fcas_flag):
                 # region.lower5min_rrp_record = float(row[33])
                 # region.lowerreg_rrp_record = float(row[36])
             elif row[0] == 'D' and row[2] == 'CASE_SOLUTION':
-                solution = Solution(row)
+                solution = Solution()
+                solution.intervention = row[6]
+                solution.case_subtype = row[7]
+                solution.solution_status = int(row[8])
+                solution.spd_version = row[9]
+                solution.non_physical_losses = int(row[10])
+                solution.total_objective = float(row[11])
+                solution.violations['total_area_gen_violation'] = float(row[12])
+                solution.violations['total_interconnector_violation'] = float(row[13])
+                solution.violations['total_generic_violation'] = float(row[14])
+                solution.violations['total_ramp_rate_violation'] = float(row[15])
+                solution.violations['total_unit_mw_capacity_violation'] = float(row[16])
+                solution.violations['total_5min_violation'] = float(row[17]) if row[17] != '' else 0
+                solution.violations['total_reg_violation'] = float(row[18]) if row[18] != '' else 0
+                solution.violations['total_6sec_violation'] = float(row[19]) if row[19] != '' else 0
+                solution.violations['total_60sec_violation'] = float(row[20]) if row[20] != '' else 0
+                solution.violations['total_as_profile_violation'] = float(row[21])
+                solution.violations['total_fast_start_violation'] = float(row[22])
+                solution.violations['total_energy_offer_violation'] = float(row[23])
+                solution.total_violation = sum(solution.violations.values())
             elif row[0] == 'D' and row[2] == 'INTERCONNECTORRES' and row[8] == intervention:
                 interconnector = interconnectors[row[6]]
                 interconnector.metered_mw_flow = float(row[9])
@@ -656,9 +677,48 @@ def add_p5min_record(regions, interconnectors, t, start):
                 region = regions[row[7]]
                 region.rrp_record = float(row[8])
                 region.rop_record = float(row[9])
+                region.fcas_rrp_record['RAISE6SEC'] = float(row[11])
+                region.fcas_rrp_record['RAISE60SEC'] = float(row[13])
+                region.fcas_rrp_record['RAISE5MIN'] = float(row[15])
+                region.fcas_rrp_record['RAISEREG'] = float(row[17])
+                region.fcas_rrp_record['LOWER6SEC'] = float(row[19])
+                region.fcas_rrp_record['LOWER60SEC'] = float(row[21])
+                region.fcas_rrp_record['LOWER5MIN'] = float(row[23])
+                region.fcas_rrp_record['LOWERREG'] = float(row[25])
                 region.total_demand = float(row[27])
-            # elif row[0] == 'D' and row[2] == 'CASESOLUTION':
-            #     solution = Solution(row[:7] + [None, None, None, row[8], row[7]] + row[9:])
+                region.available_generation_record = float(row[28])
+                region.available_load_record = float(row[29])
+                region.dispatchable_generation_record = float(row[31])
+                region.dispatchable_load_record = float(row[32])
+                region.net_interchange_record = float(row[33])
+                region.fcas_local_dispatch_record['LOWER5MIN'] = float(row[36])
+                region.fcas_local_dispatch_record['LOWER60SEC'] = float(row[41])
+                region.fcas_local_dispatch_record['LOWER6SEC'] = float(row[46])
+                region.fcas_local_dispatch_record['RAISE5MIN'] = float(row[51])
+                region.fcas_local_dispatch_record['RAISE60SEC'] = float(row[56])
+                region.fcas_local_dispatch_record['RAISE6SEC'] = float(row[61])
+                region.fcas_local_dispatch_record['LOWERREG'] = float(row[69])
+                region.fcas_local_dispatch_record['RAISEREG'] = float(row[74])
+                region.uigf_record = float(row[96])
+            elif row[0] == 'D' and row[2] == 'CASESOLUTION':
+                solution = Solution()
+                solution.intervention = row[6]
+                solution.total_objective = float(row[7])
+                solution.non_physical_losses = int(row[8])
+                solution.violations['total_area_gen_violation'] = float(row[9])
+                solution.violations['total_interconnector_violation'] = float(row[10])
+                solution.violations['total_generic_violation'] = float(row[11])
+                solution.violations['total_ramp_rate_violation'] = float(row[12])
+                solution.violations['total_unit_mw_capacity_violation'] = float(row[13])
+                solution.violations['total_5min_violation'] = float(row[14]) if row[14] != '' else 0
+                solution.violations['total_reg_violation'] = float(row[15]) if row[15] != '' else 0
+                solution.violations['total_6sec_violation'] = float(row[16]) if row[16] != '' else 0
+                solution.violations['total_60sec_violation'] = float(row[17]) if row[17] != '' else 0
+                solution.violations['total_as_profile_violation'] = float(row[20])
+                solution.violations['total_fast_start_violation'] = float(row[21])
+                solution.violations['total_energy_offer_violation'] = float(row[19])
+                solution.violations['total_energy_constr_violation'] = float(row[18])
+                solution.total_violation = sum(solution.violations.values())
             elif row[0] == 'D' and row[2] == 'INTERCONNECTORSOLN' and preprocess.extract_datetime(row[7]) == t and row[5] == intervention:
                 ic = interconnectors[row[6]]
                 ic.metered_mw_flow = float(row[8])
@@ -671,7 +731,7 @@ def add_p5min_record(regions, interconnectors, t, start):
                 ic.marginal_loss_record = float(row[16])
                 ic.fcas_export_limit_record = float(row[19])
                 ic.fcas_import_limit_record = float(row[20])
-    return None
+    return solution
 
 
 def add_link_record(ic, blnktas, blnkvic):
@@ -715,8 +775,9 @@ def get_regions_and_interconnectors(t, start, i, process, fcas_flag, link_flag):
 
 
 def main():
-    t = datetime.datetime(2019, 9, 29, 4, 10, 0)
-    regions, interconnectors, solution, links = get_regions_and_interconnectors(t, t, 0, 'dispatch', True)
+    logging.basicConfig(format='%(levelname)s: %(asctime)s %(message)s', level=logging.DEBUG)
+    t = datetime.datetime(2020, 9, 1, 18, 5, 0)
+    regions, interconnectors, solution, links = get_regions_and_interconnectors(t, t, 0, 'dispatch', True, True)
     model = gurobipy.Model('losses')
 
     for ic_id, ic in interconnectors.items():
@@ -738,7 +799,7 @@ def main():
     model.optimize()
 
     for ic_id, ic in interconnectors.items():
-        print(f'{ic_id} losses record {ic.mw_losses_record} but calculate {ic.mw_losses.x}')
+        print(f'{ic_id} losses record {ic.mw_losses_record} and calculate {ic.mw_losses.x}')
 
 
 def test():
@@ -795,8 +856,8 @@ def test():
 
 
 if __name__ == '__main__':
-    # main()
-    test()
+    main()
+    # test()
 
 
 

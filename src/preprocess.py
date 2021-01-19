@@ -1,12 +1,16 @@
 import csv
+# import dask.dataframe as dd
 import datetime
 import logging
+import numpy as np
 import io
+import pandas as pd
 import pathlib
 import re
 import requests
 import zipfile
 
+csv.field_size_limit(1000000000)
 log = logging.getLogger(__name__)
 
 BASE_DIR = pathlib.Path(__file__).resolve().parent.parent  # Base directory
@@ -17,6 +21,8 @@ all_dir = DATA_DIR / 'all'  # all directory in data directory
 all_dir.mkdir(parents=True, exist_ok=True)
 dvd_dir = DATA_DIR / 'dvd'
 dvd_dir.mkdir(parents=True, exist_ok=True)
+p5min_dir = DATA_DIR / 'p5min'
+p5min_dir.mkdir(parents=True, exist_ok=True)
 NEMSPDOutputs_dir = DATA_DIR / 'NEMSPDOutputs'
 NEMSPDOutputs_dir.mkdir(parents=True, exist_ok=True)
 
@@ -89,6 +95,56 @@ def datetime_to_interval(t):
     return last, no
 
 
+def read_p5min_unit_solution(start):
+    p = p5min_dir / f'DVD_P5MIN_UNITSOLUTION_{get_case_datetime(start)}.csv'
+    if p.is_file():
+        return p
+    else:
+        print(f'P5MIN unit sollution for {start} is missing.')
+
+
+def preprocess_p5min_unit_solution():
+    section = 'P5MIN_UNITSOLUTION'
+    from_path = dvd_dir / 'PUBLIC_DVD_P5MIN_UNITSOLUTION_202009010000.CSV'
+    with from_path.open('r') as infile:
+        reader = csv.reader(infile)
+        for row in reader:
+            if row[0] == 'I':
+                head = row
+            elif row[0] == 'D':
+                t = extract_datetime(row[4])
+                to_path = p5min_dir / f'DVD_{section}_{get_case_datetime(t)}.csv'
+                with to_path.open('a+') as f:
+                    writer = csv.writer(f, delimiter=',')
+                    writer.writerow(row)
+                # if t > datetime.datetime(2020, 9, 2, 4, 0, 0):
+                #     return None
+
+
+def process_p5min_unit_solution(current):
+    flag = False
+    section = 'P5MIN_UNITSOLUTION'
+    year = current.year
+    month = current.month
+    to_path = dvd_dir / f'DVD_{section}_{get_case_datetime(current)}.csv'
+    from_path = dvd_dir / 'PUBLIC_DVD_P5MIN_UNITSOLUTION_202009010000.CSV'
+    with to_path.open('w') as f:
+        writer = csv.writer(f, delimiter=',')
+        with from_path.open('r') as infile:
+            reader = csv.reader(infile)
+            for row in reader:
+                if row[0] == 'I':
+                    writer.writerow(row)
+                elif row[0] == 'D':
+                    t = extract_datetime(row[4])
+                    print(t)
+                    if t == current:
+                        writer.writerow(row)
+                        flag = True
+                    elif t > current and flag:
+                        return None
+
+
 def download_p5min_unit_solution(current):
     section = 'P5MIN_UNITSOLUTION'
     year = current.year
@@ -98,22 +154,46 @@ def download_p5min_unit_solution(current):
         url = (DVD_URL + '/PUBLIC_DVD_{}_{}{:02d}010000.zip').format(year, year, month, section, year, month)
         result = requests.get(url)
         if result.ok:
+            print('start')
             with zipfile.ZipFile(io.BytesIO(result.content)) as zf:
                 csv_name = zf.namelist()[0]
                 # logging.info(f'Download {csv_name}')
                 with p.open('w') as f:
+                    print('ok')
                     writer = csv.writer(f, delimiter=',')
                     with zf.open(csv_name, 'r') as infile:
                         reader = csv.reader(io.TextIOWrapper(infile))
                         for row in reader:
+                            print(row)
                             if row[0] == 'I':
                                 writer.writerow(row)
                             elif row[0] == 'D':
                                 t = extract_datetime(row[4])
                                 if t == current:
+                                    print(t)
                                     writer.writerow(row)
                                 elif t > current:
                                     return None
+
+                    # df = pd.read_csv(zf.open(csv_name, 'r'), sep=',', usecols=[0, 1, 2, 3])
+                    # print(df.head())
+                    # for chunk in df:
+                    #     print(chunk.shape)
+                    #     # l = file.values.tolist()
+                    #     l = np.array(chunk).tolist()
+                    #     print(l)
+                    #     for row in l:
+                    #         writer.writerow(row)
+                    #     return None
+
+                    # chunks = pd.read_csv(zf.open(csv_name, 'r'), iterator=True)
+                    # chunk = chunks.get_chunk(5)
+                    # print(chunk)
+
+                    # df = dd.read_csv(zf.open(csv_name, 'r'))
+                    # print(df.head())
+    else:
+        print('File exists.')
 
 
 def download_from_url(url, file):
@@ -602,5 +682,7 @@ def test():
 
 
 if __name__ == '__main__':
-    main()
-    # download_p5min_unit_solution(datetime.datetime(2019, 9, 1, 4, 5, 0))
+    # main()
+    # download_p5min_unit_solution(datetime.datetime(2020, 9, 1, 4, 5, 0))
+    # process_p5min_unit_solution(datetime.datetime(2020, 9, 1, 4, 5, 0))
+    preprocess_p5min_unit_solution()
