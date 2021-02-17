@@ -13,7 +13,6 @@ def add_interconnector_capacity_constr(model, ic, ic_id, hard_flag, slack_variab
     if ic.mw_flow_record is not None and ic.mw_flow_record < -ic.import_limit and abs(
             ic.mw_flow_record + ic.import_limit) > 1:
         logging.warning(f'IC {ic_id} mw flow record {ic.mw_flow_record} below import limit {-ic.import_limit}')
-
     # Interconnector Capacity Limit constraint (upper bound)
     ic.flow_surplus = model.addVar(name=f'Flow_Surplus_{ic_id}')  # Item5
     slack_variables.add(f'Flow_Surplus_{ic_id}')

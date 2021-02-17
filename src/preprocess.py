@@ -1,11 +1,10 @@
 import csv
 # import dask.dataframe as dd
-import datetime
+from default import *
 import logging
 import numpy as np
 import io
 import pandas as pd
-import pathlib
 import re
 import requests
 import zipfile
@@ -14,9 +13,6 @@ csv.field_size_limit(1000000000)
 log = logging.getLogger(__name__)
 
 BASE_DIR = pathlib.Path(__file__).resolve().parent.parent  # Base directory
-DATA_DIR = BASE_DIR / 'data'  # Data directory
-OUT_DIR = BASE_DIR / 'out'  # Result directory
-LOG_DIR = BASE_DIR / 'log'  # Log directory
 all_dir = DATA_DIR / 'all'  # all directory in data directory
 all_dir.mkdir(parents=True, exist_ok=True)
 dvd_dir = DATA_DIR / 'dvd'
@@ -29,14 +25,6 @@ NEMSPDOutputs_dir.mkdir(parents=True, exist_ok=True)
 CURRENT_URL = 'http://nemweb.com.au/Reports/Current'  # Base URL to download files
 ARCHIVE_URL = 'http://nemweb.com.au/Reports/Archive/'  # Archive URL to download files
 DVD_URL = 'http://www.nemweb.com.au/Data_Archive/Wholesale_Electricity/MMSDM/{}/MMSDM_{}_{:02d}/MMSDM_Historical_Data_SQLLoader/DATA/'
-
-ZERO = datetime.timedelta(seconds=0)
-FIVE_MIN = datetime.timedelta(minutes=5)
-THIRTY_MIN = datetime.timedelta(minutes=30)
-FOUR_HOUR = datetime.timedelta(hours=4)
-ONE_DAY = datetime.timedelta(days=1)
-
-TOTAL_INTERVAL = 288
 
 
 def new_dir(t):
@@ -93,6 +81,14 @@ def datetime_to_interval(t):
     start = datetime.datetime(last.year, last.month, last.day, 4, 0)
     no = int((t - start) / FIVE_MIN)
     return last, no
+
+
+def get_first_datetime(t):
+    if early_morning(t):
+        yesterday = t - ONE_DAY
+        return datetime.datetime(yesterday.year, yesterday.month, yesterday.day, 4, 5, 0)
+    else:
+        return datetime.datetime(t.year, t.month, t.day, 4, 5, 0)
 
 
 def read_p5min_unit_solution(start):
@@ -488,6 +484,19 @@ def download_predispatch(t: datetime.datetime) -> None:
     return predispatch_dir
 
 
+def download_next_day_predispatch(t):
+    case_date = get_case_date(t)
+    predispatch_dir = new_dir(t) / f'PUBLIC_NEXT_DAY_PREDISPATCH_{case_date}.csv'
+    if not predispatch_dir.is_file():
+        section = 'Next_Day_PreDispatch'
+        visibility_id = 'PUBLIC'
+        file_id = 'NEXT_DAY_PREDISPATCH'
+        file_pattern = f'{visibility_id}_{file_id}'
+        date_pattern = f'{case_date}_[0-9]{{16}}.zip'
+        download_file(section, file_pattern, date_pattern, predispatch_dir, t)
+    return predispatch_dir
+
+
 def download_network_outage(t: datetime.datetime) -> None:
     """Download network outage of the given datetime from
     <#CURRENT_URL>/<#SECTION>/<#VISIBILITY_ID>_NETWORK_<#REPORT_DATETIME>_<#EVENT_QUEUE_ID>.ZIP
@@ -674,15 +683,10 @@ def main():
     download_xml(t)
 
 
-def test():
-    t = datetime.datetime(2019, 9, 29, 4, 5)
-    # download_dvd_data('INTERCONNECTORCONSTRAINT')
-    constr_dir = download_dvd_data('SPDREGIONCONSTRAINT', t)
-    print(constr_dir.is_file())
-
-
 if __name__ == '__main__':
     # main()
     # download_p5min_unit_solution(datetime.datetime(2020, 9, 1, 4, 5, 0))
     # process_p5min_unit_solution(datetime.datetime(2020, 9, 1, 4, 5, 0))
-    preprocess_p5min_unit_solution()
+    # preprocess_p5min_unit_solution()
+    t = get_first_datetime(datetime.datetime(2020, 9, 1, 0, 35, 0))
+    print(t)

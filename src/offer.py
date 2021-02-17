@@ -1,5 +1,6 @@
 import csv
 import datetime
+import default
 import logging
 import preprocess
 # import xlrd
@@ -32,7 +33,7 @@ class EnergyBid(Bid):
     """Energy bid.
 
     Attributes:
-        daily_energy_constraint (float): Maximum energy available from Energy Constrained Plant
+        daily_energy_limit (float): Maximum energy available from Energy Constrained Plant
         minimum_load (int): Minimum MW load fast START plant
         t1 (int): Time to synchronise in minutes
         t2 (int): Time to minimum load in minutes
@@ -48,7 +49,9 @@ class EnergyBid(Bid):
     def __init__(self, row):
         super().__init__(row)
         # Daily bids
-        self.daily_energy_constraint = float(row[11])
+        self.daily_energy_limit = float(row[11])
+        self.daily_energy = 0.0
+        self.daily_energy_record = 0.0
         self.minimum_load = int(row[23])
         self.t1 = int(row[24])
         self.t2 = int(row[25])
@@ -544,7 +547,6 @@ def add_unit_solution(units, t, start, fcas_flag):
     interval_datetime = preprocess.get_interval_datetime(t)
     with record_dir.open() as f:
         reader = csv.reader(f)
-        # logging.info('Read next day dispatch.')
         for row in reader:
             if row[6] == interval_datetime:
                 duid = row[7]
@@ -577,7 +579,56 @@ def add_unit_solution(units, t, start, fcas_flag):
                         unit.flags['LOWERREG'] = int(row[31])
 
 
-def add_
+def add_predispatchload(units, t, start, i, fcas_flag):
+    record_dir = preprocess.download_next_day_predispatch(start)
+    period_datetime = preprocess.get_interval_datetime(start)
+    with record_dir.open() as f:
+        reader = csv.reader(f)
+        for row in reader:
+            if row[0] == 'D' and row[2] == 'UNIT_SOLUTION' and int(row[8]) == i + 1 and row[34] == period_datetime:
+                duid = row[6]
+                if duid in units:
+                    unit = units[duid]
+                    unit.dispatch_mode = int(row[12])
+                    unit.agc_status = int(row[11])
+                    unit.initial_mw = float(row[13])
+                    unit.total_cleared_record = float(row[14])
+                    unit.ramp_down_rate = float(row[21])
+                    unit.ramp_up_rate = float(row[22])
+                    unit.marginal_value_record['ENERGY'] = float(row[28]) if row[28] else None
+                    unit.violation_degree_record['ENERGY'] = float(row[32]) if row[32] else None
+                    unit.availability = float(row[37])
+                    if fcas_flag:
+                        unit.target_record['LOWER5MIN'] = float(row[15])
+                        unit.target_record['LOWER60SEC'] = float(row[16])
+                        unit.target_record['LOWER6SEC'] = float(row[17])
+                        unit.target_record['RAISE5MIN'] = float(row[18])
+                        unit.target_record['RAISE60SEC'] = float(row[19])
+                        unit.target_record['RAISE6SEC'] = float(row[20])
+                        unit.marginal_value_record['5MIN'] = float(row[25]) if row[25] else None
+                        unit.marginal_value_record['60SEC'] = float(row[26]) if row[26] else None
+                        unit.marginal_value_record['6SEC'] = float(row[27]) if row[27] else None
+                        unit.violation_degree_record['5MIN'] = float(row[29]) if row[29] else None
+                        unit.violation_degree_record['60SEC'] = float(row[30]) if row[30] else None
+                        unit.violation_degree_record['6SEC'] = float(row[31]) if row[31] else None
+                        unit.target_record['LOWERREG'] = float(row[35])
+                        unit.target_record['RAISEREG'] = float(row[36])
+                        unit.flags['RAISE6SEC'] = int(row[38])
+                        unit.flags['RAISE60SEC'] = int(row[39])
+                        unit.flags['RAISE5MIN'] = int(row[40])
+                        unit.flags['RAISEREG'] = int(row[41])
+                        unit.flags['LOWER6SEC'] = int(row[42])
+                        unit.flags['LOWER60SEC'] = int(row[43])
+                        unit.flags['LOWER5MIN'] = int(row[44])
+                        unit.flags['LOWERREG'] = int(row[45])
+                        unit.actual_availability_record['RAISE6SEC'] = float(row[46])
+                        unit.actual_availability_record['RAISE60SEC'] = float(row[47])
+                        unit.actual_availability_record['RAISE5MIN'] = float(row[48])
+                        unit.actual_availability_record['RAISEREG'] = float(row[49])
+                        unit.actual_availability_record['LOWER6SEC'] = float(row[50])
+                        unit.actual_availability_record['LOWER60SEC'] = float(row[51])
+                        unit.actual_availability_record['LOWER5MIN'] = float(row[52])
+                        unit.actual_availability_record['LOWERREG'] = float(row[53])
 
 
 def add_dispatchload(units, t, start, process):
@@ -606,6 +657,27 @@ def add_dispatchload(units, t, start, process):
                 if duid in units:
                     unit = units[duid]
                     unit.initial_mw = float(row[2])
+                    unit.daily_energy = float(row[4])
+                    unit.daily_energy_record = float(row[5])
+
+
+def add_agc(units, t):
+    record_dir = preprocess.download_next_day_dispatch(t)
+    interval_datetime = preprocess.get_interval_datetime(t)
+    with record_dir.open() as f:
+        reader = csv.reader(f)
+        # logging.info('Read next day dispatch.')
+        for row in reader:
+            if row[0] == 'D' and row[2] == 'UNIT_SOLUTION' and row[4] == interval_datetime:
+                duid = row[6]
+                if duid in units:
+                    unit = units[duid]
+                    unit.raisereg_availability = float(row[45])
+                    unit.raisereg_enablement_max = float(row[46])
+                    unit.raisereg_enablement_min = float(row[47])
+                    unit.lowerreg_availability = float(row[48])
+                    unit.lowerreg_enablement_max = float(row[49])
+                    unit.lowerreg_enablement_min = float(row[50])
 
 
 def add_scada_value(units, t):
@@ -628,64 +700,23 @@ def add_scada_value(units, t):
                     units[row[5]].scada_value = float(row[6])
 
 
-def add_reserve_trader(units):
-    """ Manually add reserve trader information.
-
-    Args:
-        units (dict): the dictionary of units
-
-    Returns:
-        None
-    """
-    for i in range(1, 7):
-        duid = f'RT_NSW{i}'
-        if duid in units:
-            units[duid].region_id = 'NSW1'
-            units[duid].dispatch_type = 'Generator'
-        duid = f'DG_NSW{i}'
-        if duid in units:
-            units[duid].region_id = 'NSW1'
-            units[duid].dispatch_type = 'Generator'
-
-    for i in range(1, 13):
-        duid = f'RT_VIC{i}'
-        if duid in units:
-            units[duid].region_id = 'VIC1'
-            units[duid].dispatch_type = 'Generator'
-        duid = f'DG_VIC{i}'
-        if duid in units:
-            units[duid].region_id = 'VIC1'
-            units[duid].dispatch_type = 'Generator'
-
-    for i in range(1, 7):
-        duid = f'RT_SA{i}'
-        if duid in units:
-            units[duid].region_id = 'SA1'
-            units[duid].dispatch_type = 'Generator'
-        duid = f'DG_SA{i}'
-        if duid in units:
-            units[duid].region_id = 'SA1'
-            units[duid].dispatch_type = 'Generator'
-
-    for i in range(1, 2):
-        duid = f'RT_TAS{i}'
-        if duid in units:
-            units[duid].region_id = 'TAS1'
-            units[duid].dispatch_type = 'Generator'
-        duid = f'DG_TAS{i}'
-        if duid in units:
-            units[duid].region_id = 'TAS1'
-            units[duid].dispatch_type = 'Generator'
-
-    for i in range(1, 2):
-        duid = f'RT_QLD{i}'
-        if duid in units:
-            units[duid].region_id = 'QLD1'
-            units[duid].dispatch_type = 'Generator'
-        duid = f'DG_QLD{i}'
-        if duid in units:
-            units[duid].region_id = 'QLD1'
-            units[duid].dispatch_type = 'Generator'
+def calculate_daily_energy(units, t):
+    start = preprocess.get_first_datetime(t)
+    while start < t:
+        record_dir = preprocess.download_next_day_dispatch(start)
+        interval_datetime = preprocess.get_interval_datetime(start)
+        with record_dir.open() as f:
+            reader = csv.reader(f)
+            # logging.info('Read next day dispatch.')
+            for row in reader:
+                if row[0] == 'D' and row[2] == 'UNIT_SOLUTION' and row[4] == interval_datetime:
+                    duid = row[6]
+                    if duid in units:
+                        unit = units[duid]
+                        unit.daily_energy += float(row[14]) / 12.0
+                        unit.daily_energy_record += float(row[14]) / 12.0
+        start += default.FIVE_MIN
+    return None
 
 
 def get_units(t, start, i, process, fcas_flag):
@@ -701,6 +732,7 @@ def get_units(t, start, i, process, fcas_flag):
     """
     units = {}
     add_unit_bids(units, t, fcas_flag)
+    add_intermittent_forecast(units, t)
 
     # add_registration_information(units)
     # add_marginal_loss_factors(units)
@@ -709,19 +741,21 @@ def get_units(t, start, i, process, fcas_flag):
     connection_points = add_du_detail(units, t)
     add_du_detail_summary(units, t)
 
-    add_intermittent_forecast(units, t)
-    # if process == 'predispatch':
-    #     import datetime
-    #     add_dispatchload_record(units, t - datetime.timedelta(minutes=25), fcas_flag)
-    # else:
-    #     add_dispatchload_record(units, t, fcas_flag)
-
-    if process == 'dispatch' or (process == 'p5min' and i == 0):
+    if process == 'dispatch':
         add_dispatchload_record(units, t, fcas_flag)
     elif process == 'p5min':
         add_unit_solution(units, t, start, fcas_flag)
-    # if i > 0:
-    #     add_dispatchload(units, t, start, process)
+    elif process == 'predispatch':
+        import datetime
+        add_predispatchload(units, t + datetime.timedelta(minutes=25), start, i, fcas_flag)
+        if i == 0:
+            calculate_daily_energy(units, t)
+    if i == 0 and fcas_flag:
+        if process != 'dispatch':
+            add_agc(units, t)
+    elif i > 0:
+        import datetime
+        add_dispatchload(units, t + datetime.timedelta(minutes=25) if process == 'predispatch' else t, start, process)
     return units, connection_points
 
 

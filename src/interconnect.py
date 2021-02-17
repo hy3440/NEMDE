@@ -647,12 +647,54 @@ def add_predispatch_record(regions, interconnectors, i, start):
             if row[0] == 'D' and row[2] == 'REGION_SOLUTION' and int(row[7]) == i + 1 and row[8] == intervention:  # 7: Period ID; 8: Intervention flag
                 region = regions[row[6]]
                 region.total_demand = float(row[9])
+                region.available_generation_record = float(row[10])
+                region.available_load_record = float(row[11])
+                region.dispatchable_generation_record = float(row[13])
+                region.dispatchable_load_record = float(row[14])
+                region.net_interchange_record = float(row[15])
+                region.fcas_local_dispatch_record['LOWER5MIN'] = float(row[19])
+                region.fcas_local_dispatch_record['LOWER60SEC'] = float(row[27])
+                region.fcas_local_dispatch_record['LOWER6SEC'] = float(row[35])
+                region.fcas_local_dispatch_record['RAISE5MIN'] = float(row[43])
+                region.fcas_local_dispatch_record['RAISE60SEC'] = float(row[51])
+                region.fcas_local_dispatch_record['RAISE6SEC'] = float(row[59])
+                region.fcas_local_dispatch_record['LOWERREG'] = float(row[70])
+                region.fcas_local_dispatch_record['RAISEREG'] = float(row[74])
+                region.uigf_record = float(row[106])
             elif row[0] == 'D' and row[2] == 'REGION_PRICES' and int(row[7]) == i + 1 and row[8] == intervention:
                 region = regions[row[6]]
                 region.rrp_record = float(row[9])
                 # region.rop_record = float(row[])  # Note: Predispatch doesn't have ROP
-            # elif row[0] == 'D' and row[2] == 'CASE_SOLUTION':
-            #     solution = Solution(row[:5] + [None, row[23], None] + row[5:])
+                region.fcas_rrp_record['RAISE6SEC'] = float(row[29])
+                region.fcas_rrp_record['RAISE60SEC'] = float(row[30])
+                region.fcas_rrp_record['RAISE5MIN'] = float(row[31])
+                region.fcas_rrp_record['RAISEREG'] = float(row[32])
+                region.fcas_rrp_record['LOWER6SEC'] = float(row[33])
+                region.fcas_rrp_record['LOWER60SEC'] = float(row[34])
+                region.fcas_rrp_record['LOWER5MIN'] = float(row[35])
+                region.fcas_rrp_record['LOWERREG'] = float(row[36])
+            elif row[0] == 'D' and row[2] == 'CASE_SOLUTION':
+                solution = Solution()
+                # solution.intervention = row[6]
+                # solution.case_subtype = row[7]
+                solution.solution_status = int(row[6])
+                solution.spd_version = row[7]
+                solution.non_physical_losses = int(row[8])
+                solution.total_objective = float(row[9])
+                solution.violations['total_area_gen_violation'] = float(row[10])
+                solution.violations['total_interconnector_violation'] = float(row[11])
+                solution.violations['total_generic_violation'] = float(row[12])
+                solution.violations['total_ramp_rate_violation'] = float(row[13])
+                solution.violations['total_unit_mw_capacity_violation'] = float(row[14])
+                solution.violations['total_5min_violation'] = float(row[15]) if row[15] != '' else 0
+                solution.violations['total_reg_violation'] = float(row[16]) if row[16] != '' else 0
+                solution.violations['total_6sec_violation'] = float(row[17]) if row[17] != '' else 0
+                solution.violations['total_60sec_violation'] = float(row[18]) if row[18] != '' else 0
+                solution.violations['total_as_profile_violation'] = float(row[19])
+                # solution.violations['total_fast_start_violation'] = float(row[22])
+                solution.violations['total_energy_constr_violation'] = float(row[20])
+                solution.violations['total_energy_offer_violation'] = float(row[21])
+                solution.total_violation = sum(solution.violations.values())
             elif row[0] == 'D' and row[2] == 'INTERCONNECTOR_SOLN' and int(row[7]) == i + 1 and row[8] == intervention:
                 ic = interconnectors[row[6]]
                 ic.metered_mw_flow = float(row[9])
@@ -665,7 +707,7 @@ def add_predispatch_record(regions, interconnectors, i, start):
                 ic.marginal_loss_record = float(row[18])
                 ic.fcas_export_limit_record = float(row[21])
                 ic.fcas_import_limit_record = float(row[22])
-    return None
+    return solution
                 
 
 def add_p5min_record(regions, interconnectors, t, start):

@@ -76,11 +76,13 @@ def add_trader_factor(constr, lhs_factor_collection, units):
             trade_type = item['@TradeType']
             if trade_type == 'ENOF' or trade_type == 'LDOF':
                 constr.connection_point_lhs += float(item['@Factor']) * units[item['@TraderID']].total_cleared
-                constr.connection_point_lhs_record += float(item['@Factor']) * units[item['@TraderID']].total_cleared_record
+                if units[item['@TraderID']].total_cleared_record is not None:
+                    constr.connection_point_lhs_record += float(item['@Factor']) * units[item['@TraderID']].total_cleared_record
             else:
                 constr.fcas_flag = True
                 constr.connection_point_lhs += float(item['@Factor']) * units[item['@TraderID']].fcas_bids[fcas_types[trade_type]].value
-                constr.connection_point_lhs_record += float(item['@Factor']) * units[item['@TraderID']].target_record[fcas_types[trade_type]]
+                if units[item['@TraderID']].target_record:
+                    constr.connection_point_lhs_record += float(item['@Factor']) * units[item['@TraderID']].target_record[fcas_types[trade_type]]
 
         if type(trader_factor) != list:
             add_trader_constr(constr, units, trader_factor)
@@ -245,15 +247,16 @@ def read_xml(t):
         return xml
 
 
-def add_nemspdoutputs(t, units, links, link_flag):
+def add_nemspdoutputs(t, units, links, link_flag, process):
     xml = read_xml(t)
-    add_traders(xml, units)
-    violation_prices = add_case(xml)
+    if process == 'dispatch':
+        add_traders(xml, units)
+        violation_prices = add_case(xml)
+        add_uigf_forecast(xml, units)
     if link_flag:
         add_mnsp_offer(xml, links)
-    add_uigf_forecast(xml, units)
     # add_trader_period(xml, units, add_fcas)
-    return violation_prices
+    return None
 
 
 def add_xml_constr(t, start, process, units, regions, interconnectors):
@@ -266,7 +269,8 @@ def add_xml_constr(t, start, process, units, regions, interconnectors):
     elif process == 'p5min':
         constrain.add_p5min_constraint(t, start, constraints)
     else:
-        constrain.add_predispatch_constraint(t, start, constraints)
+        import datetime
+        constrain.add_predispatch_constraint(t + datetime.timedelta(minutes=25), start, constraints)
     return constraints
 
 

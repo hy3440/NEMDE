@@ -5,28 +5,29 @@ def verify_region_record(regions):
     # Verify region record
     for region_id, region in regions.items():
         # print(f'{region_id} net interchange record {region.net_interchange_record} calculate {region.net_interchange_record_temp}')
-        if abs(region.dispatchable_generation_record - region.dispatchable_generation_temp) > 0.1:
+        if abs(region.dispatchable_generation_record - region.dispatchable_generation_temp) > 1:
             logging.warning(
                 f'Region {region_id} dispatchable generation record {region.dispatchable_generation_record} but sum of total cleared {region.dispatchable_generation_temp}')
-        if abs(region.dispatchable_load_record - region.dispatchable_load_temp) > 0.1:
+        if abs(region.dispatchable_load_record - region.dispatchable_load_temp) > 1:
             logging.warning(
                 f'Region {region_id} dispatchable load record {region.dispatchable_load_record} but sum of total cleared {region.dispatchable_load_temp}')
-        if abs(region.available_generation_record - region.available_generation) > 0.1:
+        if abs(region.available_generation_record - region.available_generation) > 1:
             logging.warning(
                 f'Region {region_id} available generation record {region.available_generation_record} but our calculation {region.available_generation}')
-        if abs(region.available_load_record - region.available_load) > 0.1:
+        if abs(region.available_load_record - region.available_load) > 1:
             logging.warning(
                 f'Region {region_id} available load record {region.available_load_record} but our calculation {region.available_load}')
         for bid_type, record in region.fcas_local_dispatch_record.items():
             # print(f'{region_id} {bid_type} record {record} sum {region.fcas_local_dispatch_record_temp[bid_type]}')
-            if abs(record - region.fcas_local_dispatch_record_temp[bid_type]) > 0.1:
+            if abs(record - region.fcas_local_dispatch_record_temp[bid_type]) > 1:
                 logging.warning(
                     f'Region {region_id} {bid_type} record {record} but sum of target {region.fcas_local_dispatch_record_temp[bid_type]}')
 
 
 def verify_binding_constr(model, constraints):
     for constr in model.getConstrs():
-        if constr.slack is not None and constr.slack != 0 and constr.constrName in constraints and constraints[constr.constrName].bind_flag:
+        if constr.slack is not None and constr.slack != 0 and constr.constrName in constraints and constraints[
+            constr.constrName].bind_flag:
             logging.warning(f'Constraint {constr.constrName} is not binding but record is')
         # elif constr.slack is not None and constr.slack == 0 and not constr.bind_flag:
         #     logging.info(f'Constraint {constr.constrName} is binding but record not.')
@@ -129,3 +130,30 @@ def calculate_marginal_prices_by_definition(units, regions, prices):
                          band.rrp, band.price, band.mlf])
                 writer.writerow([''])
                 writer.writerow([''])
+
+
+def debug(model, hard_flag, regions, slack_variables, generic_slack_variables):
+    # Check slack variables for soft constraints
+    if not hard_flag:
+        for region_id, region in regions.items():
+            logging.debug('{} Deficit: {}'.format(region_id, region.deficit_gen.x))
+            logging.debug('{} Surplus: {}'.format(region_id, region.surplus_gen.x))
+        logging.debug('Slack variables:')
+        for name in slack_variables:
+            var = model.getVarByName(name)
+            if var.x != 0:
+                logging.debug('{}'.format(var))
+        logging.debug('Slack variables for generic constraints:')
+        for name in generic_slack_variables:
+            var = model.getVarByName(name)
+            if var.x != 0:
+                logging.debug('{}'.format(var))
+
+
+def compare_total_cleared(units):
+    # Compare total cleared with record
+    for duid, unit in units.items():
+        if unit.total_cleared_record is not None and abs(unit.total_cleared_record - (0 if type(unit.total_cleared) == float else unit.total_cleared.x)) > 1:
+            print(f'{duid} {unit.total_cleared.x} record {unit.total_cleared_record}')
+
+

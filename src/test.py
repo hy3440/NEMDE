@@ -417,6 +417,33 @@ def test_ramp_rate_constr(start, interval):
             print(f'{unit.dispatch_type} {unit.duid} energy target {unit.temp} initial {unit.initial_mw} rate {down_rate}')
 
 
+def compare_dispatch_and_predispatch_result():
+    units = {}
+    for process in ('dispatch', 'p5min', 'predispatch'):
+        t = datetime.datetime(2020, 9, 1, 4, 30 if process == 'predispatch' else 5, 0)
+        interval_datetime = preprocess.get_case_datetime(
+            t + preprocess.THIRTY_MIN) if process == 'predispatch' else preprocess.get_case_datetime(
+            t + preprocess.FIVE_MIN)
+        if process == 'dispatch':
+            p = preprocess.OUT_DIR / f'{process}_{preprocess.get_case_datetime(t)}'
+        else:
+            p = preprocess.OUT_DIR / process / f'{process}_{preprocess.get_case_datetime(t)}'
+        result_dir = p / f'dispatchload_{interval_datetime}.csv'
+        with result_dir.open(mode='r') as result_file:
+            reader = csv.reader(result_file)
+            for row in reader:
+                if row[0] == 'D':
+                    if row[1] not in units:
+                        units[row[1]] = []
+                    units[row[1]].append(float(row[3]))
+    for duid, l in units.items():
+        def different(l):
+            return l[0] != l[1] or l[1] != l[2] or l[0] != l[2]
+        if different(l):
+            print(f'{duid} {l}')
+    print(units)
+
+
 if __name__ == '__main__':
     # test_mnsp_losses()
     start = datetime.datetime(2020, 6, 1, 14, 5, 0)
@@ -431,7 +458,7 @@ if __name__ == '__main__':
     # test_telemetered_ramp_rate(t+FIVE_MIN)
     # test_dvd_download()
     # test_log()
-    test_ramp_rate_constr(start, 2)
-    
+    # test_ramp_rate_constr(start, 2)
+    compare_dispatch_and_predispatch_result()
 
 

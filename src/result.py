@@ -75,17 +75,9 @@ def generate_dispatchload(units, t, start, process):
         p = preprocess.OUT_DIR / process / f'{process}_{preprocess.get_case_datetime(start)}'
     p.mkdir(parents=True, exist_ok=True)
     result_dir = p / f'dispatchload_{interval_datetime}.csv'
-    # if process == 'dispatch':
-    #     p = preprocess.OUT_DIR / f'{process}_{preprocess.get_case_datetime(start)}'
-    #     p.mkdir(parents=True, exist_ok=True)
-    #     result_dir = p / f'dispatch_{interval_datetime}.csv'
-    # else:
-    #     p = preprocess.OUT_DIR / process / f'{process}_{preprocess.get_case_datetime(start)}'
-    #     p.mkdir(parents=True, exist_ok=True)
-    #     result_dir = p / f'dispatchload_{interval_datetime}.csv'
     with result_dir.open(mode='w') as result_file:
         writer = csv.writer(result_file, delimiter=',')
-        row = ['I', 'DUID', 'TOTALCLEARED', 'RECORD']
+        row = ['I', 'DUID', 'TOTALCLEARED', 'RECORD', 'DAILY ENERGY', 'DAILY ENERGY RECORD']
         for bid_type in FCAS_TYPES:
             row.append(bid_type)
             row.append(f'AEMO {bid_type}')
@@ -95,11 +87,10 @@ def generate_dispatchload(units, t, start, process):
             row = ['D',  # 0
                    duid,  # 1
                    0 if type(unit.total_cleared) == float else unit.total_cleared.x,  # 2
-                   '-' if unit.total_cleared_record is None else unit.total_cleared_record]
-
-            # if type(unit.total_cleared) != float and unit.total_cleared_record is not None and abs(unit.total_cleared.x - unit.total_cleared_record) > 1:
-            #     print(f'{unit.region_id} {unit.dispatch_type} {duid} {unit.total_cleared.x} record {unit.total_cleared_record}')
-
+                   '-' if unit.total_cleared_record is None else unit.total_cleared_record,  # 3
+                   (unit.total_cleared / 2.0 + unit.energy.daily_energy).getValue() if unit.energy is not None and process == 'predispatch' else 0,  # 4
+                   unit.total_cleared_record / 2.0 + unit.energy.daily_energy_record if unit.total_cleared_record is not None and unit.energy is not None and process == 'predispatch' else 0  # 5
+                   ]
             for bid_type in FCAS_TYPES:
                 if unit.fcas_bids != {} and bid_type in unit.fcas_bids:
                     row.append('0' if type(unit.fcas_bids[bid_type].value) == float else unit.fcas_bids[bid_type].value.x)

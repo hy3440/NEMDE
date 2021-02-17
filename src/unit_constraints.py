@@ -4,13 +4,28 @@ import logging
 
 def add_max_avail_constr(model, unit, hard_flag, slack_variables, penalty, voll, cvp):
     # Unit MaxAvail constraint
+    # if unit.dispatch_type == 'LOAD' or (process == 'predispatch' and unit.forecast_poe50 is not None):
     if unit.dispatch_type == 'LOAD':
-        unit.deficit_trader_energy_capacity = model.addVar(name='Deficit_Trader_Energy_Capacity_{}'.format(unit.duid))  # Item14 CONFUSED
+        unit.deficit_trader_energy_capacity = model.addVar(name=f'Deficit_Trader_Energy_Capacity_{unit.duid}')  # Item14 CONFUSED
         slack_variables.add('Deficit_Trader_Energy_Capacity_{}'.format(unit.duid))
         if hard_flag:
             model.addConstr(unit.deficit_trader_energy_capacity, sense=gurobipy.GRB.EQUAL, rhs=0, name=f'DEFICIT_TRADER_ENERGY_CAPACITY_{unit.duid}')
         penalty += unit.deficit_trader_energy_capacity * cvp['Unit_MaxAvail'] * voll
         unit.max_avail_constr = model.addConstr(unit.total_cleared - unit.deficit_trader_energy_capacity <= unit.energy.max_avail, name=f'MAX_AVAIL_{unit.duid}')
+    return penalty
+
+
+def add_daily_energy_constr(model, unit, hard_flag, slack_variables, penalty, voll, cvp):
+    # Daily Energy constraint
+    unit.defict_energy = model.addVar(name=f'Deficit_Energy_{unit.duid}')  # Item14
+    slack_variables.add(f'Deficit_Energy_{unit.duid}')
+    if hard_flag:
+        model.addConstr(unit.defict_energy, sense=gurobipy.GRB.EQUAL, rhs=0, name=f'DEFICIT_ENERGY_{unit.duid}')
+    penalty += unit.defict_energy * cvp['Unit_MaxAvail'] * voll
+    unit.daily_energy_constr = model.addConstr(unit.total_cleared / 2.0 + unit.energy.daily_energy - unit.defict_energy <= unit.energy.daily_energy_limit, name=f'DAILY_ENERGY_{unit.duid}')
+    if unit.total_cleared_record is not None and unit.total_cleared_record / 2.0 + unit.energy.daily_energy_record > unit.energy.daily_energy_limit:
+        logging.warning(f'{unit.dispatch_type} {unit.duid} total cleared record above daily energy limit')
+        logging.debug(f'record {unit.total_cleared_record} / 2.0 + daily {unit.energy.daily_energy_record} > limit {unit.energy.daily_energy_limit}')
     return penalty
 
 
@@ -79,9 +94,9 @@ def add_fast_start_inflexibility_profile_constr(model, unit, hard_flag, slack_va
     return penalty
 
 
-def add_unit_ramp_constr(model, intervals, unit, hard_flag, slack_variables, penalty, voll, cvp):
+def add_unit_ramp_constr(process, model, intervals, unit, hard_flag, slack_variables, penalty, voll, cvp):
     # Unit Ramp Rate constraint (Raise)
-    up_rate = unit.energy.roc_up if unit.ramp_up_rate is None else unit.ramp_up_rate / 60
+    up_rate = unit.energy.roc_up if unit.ramp_up_rate is None or process == 'predispatch' else unit.ramp_up_rate / 60
     unit.surplus_ramp_rate = model.addVar(name=f'Surplus_Ramp_Rate_{unit.duid}')  # Item3
     slack_variables.add(f'Surplus_Ramp_Rate_{unit.duid}')
     if hard_flag:
@@ -94,7 +109,7 @@ def add_unit_ramp_constr(model, intervals, unit, hard_flag, slack_variables, pen
         logging.warning(f'{unit.dispatch_type} {unit.duid} above raise ramp rate constraint')
 
     # Unit Ramp Rate constraint (Down)
-    down_rate = unit.energy.roc_down if unit.ramp_down_rate is None else unit.ramp_down_rate / 60
+    down_rate = unit.energy.roc_down if unit.ramp_down_rate is None or process == 'predispatch' else unit.ramp_down_rate / 60
     unit.deficit_ramp_rate = model.addVar(name=f'Deficit_Ramp_Rate_{unit.duid}')  # Item3
     slack_variables.add(f'Deficit_Ramp_Rate_{unit.duid}')
     if hard_flag:
@@ -131,7 +146,7 @@ def add_fixed_loading_constr(model, unit, hard_flag, slack_variables, penalty, v
     return penalty
 
 
-def add_cost(unit, regions, cost):
+def add_cost(unit, regions, cost, process):
     # Cost of an unit
     unit.cost = sum([o * (p / unit.transmission_loss_factor) for o, p in zip(unit.offers, unit.energy.price_band)])
     if unit.dispatch_type == 'GENERATOR':
@@ -139,14 +154,22 @@ def add_cost(unit, regions, cost):
         cost += unit.cost
         # Add generation to region generation
         regions[unit.region_id].dispatchable_generation += unit.total_cleared
-        regions[unit.region_id].dispatchable_generation_temp += unit.total_cleared_record
-        regions[unit.region_id].available_generation += unit.energy.max_avail if unit.forecast_poe50 is None else unit.forecast_poe50
+        if unit.total_cleared_record is not None:
+            regions[unit.region_id].dispatchable_generation_temp += unit.total_cleared_record
+        if unit.forecast_poe50 is None:
+            regions[unit.region_id].available_generation += unit.energy.max_avail
+        # else:
+        #     regions[unit.region_id].available_generation += sum(unit.energy.band_avail)
+        # else:
+        #     print(f'{unit.dispatch_type} {unit.duid} UIGF {unit.forecast_poe50} record {unit.total_cleared_record} max {unit.energy.max_avail} sum {sum(unit.energy.band_avail)}')
+        # regions[unit.region_id].available_generation += unit.energy.max_avail if unit.forecast_poe50 is None and process == 'predispatch' else unit.forecast_poe50
     elif unit.dispatch_type == 'LOAD':
         # Minus cost from objective
         cost -= unit.cost
         # Add load to region load
         regions[unit.region_id].dispatchable_load += unit.total_cleared
-        regions[unit.region_id].dispatchable_load_temp += unit.total_cleared_record
+        if unit.total_cleared_record is not None:
+            regions[unit.region_id].dispatchable_load_temp += unit.total_cleared_record
         regions[unit.region_id].available_load += unit.energy.max_avail
     else:
         logging.error(f'{unit.duid} has no dispatch type.')

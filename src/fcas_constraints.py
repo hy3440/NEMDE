@@ -63,7 +63,7 @@ def scale_fcas(unit, fcas, bid_type, process, interval, intervals):
                     fcas.enablement_max - fcas.high_breakpoint) / fcas.max_avail
             fcas.max_avail = agc_ramping_capability
     # Scale for UIGF (for both regulating and contingency services)
-    if unit.forecast_poe50 is not None:
+    if unit.forecast_poe50 is not None and process != 'predispatch':  # ATTENTION: UIGF for predispatch is unknown
         fcas.high_breakpoint = fcas.high_breakpoint - (
                 fcas.enablement_max - min(fcas.enablement_max, unit.forecast_poe50))
         fcas.enablement_max = min(fcas.enablement_max, unit.forecast_poe50)
@@ -87,7 +87,7 @@ def preprocess_fcas(model, unit, process, interval, intervals):
         # Verify flag
         if fcas.flag == 3:
             logging.debug(f'{unit.duid} {fcas.bid_type} flag is {fcas.flag}')
-        if unit.flags[bid_type] != fcas.flag:
+        if unit.flags and unit.flags[bid_type] != fcas.flag:
             logging.warning(
                 f'{unit.dispatch_type} {unit.duid} {bid_type} FCAS flag record {unit.flags[bid_type]} but {fcas.flag}')
 
@@ -121,11 +121,6 @@ def add_fcas_max_avail_constr(model, unit, fcas, bid_type, hard_flag, slack_vari
     return penalty
 
 
-def add_fcas_to_region_sum(region, bid_type, value, record):
-    region.fcas_local_dispatch_temp[bid_type] += value
-    region.fcas_local_dispatch_record_temp[bid_type] += record
-
-
 def process_fcas_bid(model, unit, fcas, bid_type, hard_flag, slack_variables, penalty,
                                         voll, cvp, cost, regions):
     fcas.value = model.addVar(name=f'{fcas.bid_type}_Target_{unit.duid}')
@@ -141,14 +136,13 @@ def process_fcas_bid(model, unit, fcas, bid_type, hard_flag, slack_variables, pe
     penalty = add_fcas_max_avail_constr(model, unit, fcas, bid_type, hard_flag, slack_variables, penalty,
                                         voll, cvp)
     # Add FCAS target to region sum
-    add_fcas_to_region_sum(regions[unit.region_id], bid_type, fcas.value,
-                           unit.target_record[bid_type])
+    regions[unit.region_id].fcas_local_dispatch_temp[bid_type] += fcas.value
     return cost, penalty
 
 
 def add_enablement_min_constr(model, unit, fcas, bid_type, hard_flag, slack_variables, penalty, voll, cvp):
     # FCAS EnablementMin constraint
-    unit.lower_surplus = model.addVar(name=f'Lower_Surplus_{unit.duid}_{bid_type}')  # Item22
+    # unit.lower_surplus = model.addVar(name=f'Lower_Surplus_{unit.duid}_{bid_type}')  # Item22
     return penalty
 
 
