@@ -174,3 +174,30 @@ def add_cost(unit, regions, cost, process):
     else:
         logging.error(f'{unit.duid} has no dispatch type.')
     return cost
+
+
+def add_tie_break_constr(model, unit, bands, hard_flag, slack_variables, penalty, voll, cvp):
+    # Tie-Break constraint
+    for no, (offer, price, avail) in enumerate(zip(unit.offers, unit.energy.price_band, unit.energy.band_avail)):
+        p = price / unit.transmission_loss_factor
+        if p in bands:
+            if len(bands[p]) == 1:
+                other_offer, other_avail = bands[p][0]
+                unit.tb_slack1 = model.addVar(name=f'TBSlack1_{unit.duid}')  # Item47
+                slack_variables.add(f'TBSlack1_{unit.duid}')
+                unit.tb_slack2 = model.addVar(name=f'TBSlack2_{unit.duid}')  # Item47
+                slack_variables.add(f'TBSlack2_{unit.duid}')
+                if hard_flag:
+                    model.addConstr(unit.tb_slack1, sense=gurobipy.GRB.EQUAL, rhs=0, name=f'TBSLACK1_{unit.duid}')
+                    model.addConstr(unit.tb_slack2, sense=gurobipy.GRB.EQUAL, rhs=0, name=f'TBSLACK2_{unit.duid}')
+                penalty += (unit.tb_slack1 + unit.tb_slack2) * cvp['Tie-Break'] * voll
+                model.update()
+                # print(p)
+                # print(f'TIE_BREAK_{offer.VarName}_{other_offer.VarName}')
+                model.addConstr(offer * other_avail - other_offer * avail + unit.tb_slack1 - unit.tb_slack2, sense=gurobipy.GRB.EQUAL, rhs=0, name=f'TIE_BREAK_{offer.VarName}_{other_offer.VarName}')
+                bands[p].append((offer, avail))
+            else:
+                logging.error(f'More two bands have the same price (Tie-Break constraint).')
+        else:
+            bands[p] = [(offer, avail)]
+    return penalty

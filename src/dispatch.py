@@ -57,6 +57,8 @@ def dispatch(cvp, start, interval, process,
         model.setParam("OutputFlag", 0)  # 0 if no log information; otherwise 1
         cost, penalty = 0, 0
         slack_variables = set()
+        energy_bands = {'GENERATOR': {'NSW1': {}, 'SA1': {}, 'VIC1': {}, 'QLD1': {}, 'TAS1': {}},
+                        'LOAD': {'NSW1': {}, 'SA1': {}, 'VIC1': {}, 'QLD1': {}, 'TAS1': {}}}
         if process == 'predispatch':
             current -= datetime.timedelta(minutes=25)
         # Get market price cap (MPC) and floor
@@ -140,7 +142,8 @@ def dispatch(cvp, start, interval, process,
 
         for unit in units.values():
             # Unit participates in the energy market
-            if unit.energy is not None:
+            # Normally-on loads have already been included as a component of the metered demand calculation
+            if unit.energy is not None and unit.normally_on_flag != 'Y':
                 # Dispatch target at each price band
                 for no, avail in enumerate(unit.energy.band_avail):
                     bid_offer = model.addVar(name=f'Energy_Avail{no}_{unit.duid}')
@@ -166,8 +169,9 @@ def dispatch(cvp, start, interval, process,
                 # Add Unconstrained Intermittent Generation Forecasts (UIGF) constraint
                 if process != 'predispatch':
                     penalty = unit_constraints.add_uigf_constr(model, unit, regions, hard_flag, slack_variables, penalty, voll, cvp)
-                # elif process == 'predispatch' and unit.total_cleared_record is not None and unit.forecast_poe50 is not None:
-                #     model.addConstr(unit.total_cleared <= unit.total_cleared_record)
+                elif process == 'predispatch' and unit.total_cleared_record is not None and unit.forecast_poe50 is not None:
+                    model.addConstr(unit.total_cleared <= unit.total_cleared_record)
+                    # print(f'{unit.duid} record {unit.total_cleared_record} forecast {unit.forecast_poe50} capacity {unit.max_capacity} avail {unit.energy.max_avail} sum {sum(unit.energy.band_avail)}')
                 # Add on-line dispatch fast start inflexibility profile constraint
                 if process == 'dispatch':
                     penalty = unit_constraints.add_fast_start_inflexibility_profile_constr(model, unit, hard_flag, slack_variables, penalty, voll, cvp)
@@ -184,6 +188,8 @@ def dispatch(cvp, start, interval, process,
                     unit.transmission_loss_factor = 1.0
                 # Calculate cost
                 cost = unit_constraints.add_cost(unit, regions, cost, process)
+                # Add Tie-Break constraint
+                penalty = unit_constraints.add_tie_break_constr(model, unit, energy_bands[unit.dispatch_type][unit.region_id], hard_flag, slack_variables, penalty, voll, cvp)
                 # Fix unit dispatch target (custom flag for testing the model)
                 # if fixed_target_flag and unit.dispatch_type == 'GENERATOR':
                 if fixed_target_flag:
