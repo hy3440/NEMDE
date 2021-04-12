@@ -37,6 +37,7 @@ def add_regional_energy_demand_supply_balance_constr(model, region, region_id, h
 
 
 def dispatch(cvp, start, interval, process,
+             custom_unit=None,
              hard_flag=False,  # Apply hard constraints
              fcas_flag=True,  # Calculate FCAS
              constr_flag=True,  # Apply generic constraints
@@ -67,6 +68,9 @@ def dispatch(cvp, start, interval, process,
         regions, interconnectors, solution, links = interconnect.get_regions_and_interconnectors(current, start, interval, process, fcas_flag, link_flag)
         # Get units and connection points
         units, connection_points = offer.get_units(current, start, interval, process, fcas_flag)
+        # Add cutom unit
+        if custom_unit is not None:
+            units[custom_unit.duid] = custom_unit
         # Add NEM SPD outputs
         violation_prices = xml_parser.add_nemspdoutputs(current, units, links, link_flag, process)
 
@@ -156,11 +160,9 @@ def dispatch(cvp, start, interval, process,
                     # model.addConstr(unit.total_cleared <= unit.max_capacity, name='MAX_CAPACITY_{}'.format(unit.duid))
                     if unit.total_cleared_record is not None and unit.total_cleared_record > unit.max_capacity:
                         logging.warning(f'{unit.dispatch_type} {unit.duid} total cleared record {unit.total_cleared_record} above max capacity {unit.max_capacity}')
-                # Add Unit MaxAvail constraint (only constr for loads included)
+                # Add Unit MaxAvail constraint
                 if unit.energy.max_avail is not None:
                     penalty = unit_constraints.add_max_avail_constr(model, unit, hard_flag, slack_variables, penalty, voll, cvp)
-                    if unit.total_cleared_record is not None and unit.total_cleared_record > unit.energy.max_avail:
-                        logging.warning(f'{unit.dispatch_type} {unit.duid} total cleared record {unit.total_cleared_record} above max avail {unit.energy.max_avail} (total band {sum(unit.energy.band_avail)})')
                 # Daily Energy Constraint (only for 30min Pre-dispatch)
                 if process == 'predispatch' and unit.energy.daily_energy_limit != 0:
                     penalty = unit_constraints.add_daily_energy_constr(model, unit, hard_flag, slack_variables, penalty, voll, cvp)
@@ -189,7 +191,7 @@ def dispatch(cvp, start, interval, process,
                 # Calculate cost
                 cost = unit_constraints.add_cost(unit, regions, cost, process)
                 # Add Tie-Break constraint
-                penalty = unit_constraints.add_tie_break_constr(model, unit, energy_bands[unit.dispatch_type][unit.region_id], hard_flag, slack_variables, penalty, voll, cvp)
+                unit_constraints.add_tie_break_constr(model, unit, energy_bands[unit.dispatch_type][unit.region_id], hard_flag, slack_variables, penalty, voll, cvp)
                 # Fix unit dispatch target (custom flag for testing the model)
                 # if fixed_target_flag and unit.dispatch_type == 'GENERATOR':
                 if fixed_target_flag:
@@ -239,6 +241,8 @@ def dispatch(cvp, start, interval, process,
                 #         for bid_type, fcas in unit.fcas_bids.items():
                 #             model.addConstr(fcas.value, gurobipy.GRB.EQUAL, unit.target_record[bid_type], name=f'{bid_type}_FIXED_{unit.duid}')
 
+        # Print the collected energy bands
+        # debug.print_energy_bands(energy_bands)
         # Region FCAS local dispatch
         if fcas_flag:
             for region_id, region in regions.items():
@@ -297,7 +301,7 @@ def dispatch(cvp, start, interval, process,
                     # model.addConstr(constr.connection_point_lhs + constr.interconnector_lhs + constr.region_lhs, sense=gurobipy.GRB.EQUAL, rhs=constr.lhs, name=constr.gen_con_id)
         # Verify region record
         debug.verify_region_record(regions)
-        # Calculate marginal prices
+        # Calculate marginal get_prices
         prices = {'NSW1': None, 'VIC1': None, 'SA1': None, 'TAS1': None, 'QLD1': None}
         # Calculate dual variable as marginal price
         if dual_flag or fixed_target_flag:
@@ -310,8 +314,8 @@ def dispatch(cvp, start, interval, process,
             # Optimize model
             model.optimize()
             # Write model for debugging
-            path_to_model = default.MODEL_DIR / f'{process}_{preprocess.get_case_datetime(start)}_{interval}.lp'
-            model.write(str(path_to_model))
+            # path_to_model = default.MODEL_DIR / f'{process}_{preprocess.get_case_datetime(start)}_{interval}.lp'
+            # model.write(str(path_to_model))
 
             if model.status == gurobipy.GRB.Status.INFEASIBLE or model.status == gurobipy.GRB.Status.INF_OR_UNBD:
                 debug.debug_infeasible_model(model)
@@ -367,7 +371,10 @@ def dispatch(cvp, start, interval, process,
         elif process == 'predispatch':
             result.generate_predispatchis(start, current + datetime.timedelta(minutes=25), interval, regions, prices)
         else:
-            result.generate_p5min(start, current, regions, prices)
+            result.generate_p5min(start, current, interval, regions, prices)
+        if custom_unit is not None:
+            # print(custom_unit.total_cleared)
+            result.record_cutom_unit(current, custom_unit, prices)
         return prices
 
     except gurobipy.GurobiError as e:
@@ -376,12 +383,21 @@ def dispatch(cvp, start, interval, process,
     #     print('Encountered an attribute error: ' + str(e))
 
 
+def get_dispatch(start, process, custom_unit=None):
+    cvp = helpers.read_cvp()
+    total = helpers.get_total_intervals(process, start)
+    for i in range(total):
+        prices = dispatch(cvp, start, i, process, custom_unit)
+    return prices
+
+
 if __name__ == '__main__':
     cvp = helpers.read_cvp()
     # process_type = 'dispatch'
-    # process_type = 'p5min'
-    process_type = 'predispatch'
-    start_time = datetime.datetime(2020, 9, 1, 4, 30 if process_type == 'predispatch' else 5, 0)
+    process_type = 'p5min'
+    # process_type = 'predispatch'
+    start_time = datetime.datetime(2020, 9, 1, 14, 5, 0)
+    # start_time = datetime.datetime(2020, 9, 1, 4, 30 if process_type == 'predispatch' else 5, 0)
     end_time = datetime.datetime(2020, 9, 2, 4, 0, 0)
 
     path_to_log = preprocess.LOG_DIR / f'{process_type}_{preprocess.get_case_datetime(start_time)}.log'
@@ -389,5 +405,5 @@ if __name__ == '__main__':
     total_intervals = helpers.get_total_intervals(process_type, start_time)
     # for interval in range(int((end_time-start_time) / preprocess.FIVE_MIN + 1)):
     # for interval in range(32, total_intervals, 1):
-    for interval in range(1):
+    for interval in range(total_intervals):
         prices = dispatch(cvp, start_time, interval, process_type)

@@ -57,7 +57,7 @@ def calculate_marginal_prices_by_definition(units, regions, prices):
 
     # Verify marginal price for debugging
     # for region in regions.values():
-    #     region.rrp = prices[region.region_id]
+    #     region.rrp = get_prices[region.region_id]
     #     unit = units[region.debug_duid]
     #     print(f'{region.region_id} {unit.dispatch_type} {region.debug_duid}')
     #     print(f'target {unit.total_cleared.x} record {unit.total_cleared_record} MLF {unit.transmission_loss_factor}')
@@ -157,3 +157,10 @@ def compare_total_cleared(units):
             print(f'{duid} {unit.total_cleared.x} record {unit.total_cleared_record}')
 
 
+def print_energy_bands(energy_bands):
+    for d in energy_bands.values():
+        for dd in d.values():
+            for p, l in dd.items():
+                if len(l) > 1:
+                    print(p)
+                    print(l)

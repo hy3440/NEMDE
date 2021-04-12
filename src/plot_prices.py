@@ -4,7 +4,7 @@ import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import pathlib
 import preprocess
-from price_taker import Battery
+from price_taker_2 import Battery
 from pandas.plotting import register_matplotlib_converters
 register_matplotlib_converters()
 
@@ -131,7 +131,7 @@ def extract_dispatch(t):
 #     return fivemin_time, fivemin_prices
 
 
-def plot_region_prices(date, prices, name):
+def plot_region_prices(date, get_prices, name):
     plt.figure()
     plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
     # plt.plot(interval_time[:288], interval_rrp_record[:288], label='Interval (5min) price')
@@ -148,7 +148,7 @@ def plot_region_prices(date, prices, name):
     plt.xlabel('Datetime')
     plt.ylabel('Price')
     plt.legend()
-    plt.savefig(OUT_DIR / f'{name}-prices-{date}')
+    plt.savefig(OUT_DIR / f'{name}-get_prices-{date}')
     plt.close()
 
 
@@ -167,7 +167,7 @@ def plot_fcas_prices(date):
     plt.xlabel('Datetime')
     plt.ylabel('Price')
     plt.legend()
-    plt.savefig(OUT_DIR / f'{region}-prices-{date}')
+    plt.savefig(OUT_DIR / f'{region}-get_prices-{date}')
     plt.close()
 
 
@@ -194,7 +194,7 @@ def plot_bat_fcas(fcas_type, date):
     plt.xlabel('Datetime')
     # plt.ylabel('Price')
     plt.legend()
-    plt.savefig(battery.bat_dir / f'{fcas_type}-prices-{date}')
+    plt.savefig(battery.bat_dir / f'{fcas_type}-get_prices-{date}')
     plt.close()
 
 

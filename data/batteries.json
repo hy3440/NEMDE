@@ -1,4 +1,25 @@
 {
+  "Battery": {
+    "region" : "SA1",
+    "gen_id" : "G",
+    "gen_mlf": 0.9045,
+    "gen_reg_cap": 30,
+    "gen_max_cap": 25,
+    "gen_max_roc": 360,
+    "gen_roc_up": 1000,
+    "gen_roc_down": 1000,
+    "load_id": "L",
+    "load_mlf" : 0.9990,
+    "load_reg_cap": 30,
+    "load_max_cap": 25,
+    "load_max_roc": 360,
+    "load_roc_up": 1000,
+    "load_roc_down": 1000,
+    "Emax" : 100,
+    "eff": 0.85,
+    "gen_fcas_types": ["Raise5min", "Raise60sec", "Raise6sec"],
+    "load_fcas_types": ["Lower5min", "Lower60sec", "Lower6sec"]
+  },
   "Dalrymple": {
     "region" : "SA1",
     "gen_id" : "DALNTH01",
@@ -16,7 +37,7 @@
     "load_roc_up": 100,
     "load_roc_down": 100,
     "Emax" : 12.65,
-    "eff": 0.85,
+    "eff": 0.15,
     "gen_fcas_types": ["Raise5min", "Raise60sec", "Raise6sec"],
     "load_fcas_types": ["Lower5min", "Lower60sec", "Lower6sec"]
   },

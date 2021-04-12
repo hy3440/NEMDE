@@ -13,7 +13,7 @@ import requests
 import zipfile
 import io
 import offer
-import price_taker
+import price_taker_2
 import logging
 
 
@@ -167,8 +167,8 @@ def test_download_zip():
 
 def test_extract_e_record():
     time = datetime.datetime(2019, 7, 9, 4, 0, 0)
-    price_taker.extract_e_record(time)
-    print(price_taker.E_record)
+    price_taker_2.extract_e_record(time)
+    print(price_taker_2.E_record)
 
 
 def test_mnsp_losses():
@@ -317,7 +317,7 @@ def test_p5min_predispatch_times():
     for i in range(12):
         print(f'i = {i}')
         print(time)
-        price_taker.calculate_energy_prices(i, time, ttimes)
+        price_taker_2.calculate_energy_prices(i, time, ttimes)
         ttimes.append(time + FIVE_MIN)
         time += FIVE_MIN
 
@@ -331,8 +331,8 @@ def test_p5min_predispatch_times():
     
 
 def test_energy_prices_calculator(i, k, ttimes):
-    p5min_energy_prices, p5min_times = price_taker.extract_5min_predispatch(t + FIVE_MIN)
-    predispatch_energy_prices, predispatch_times = price_taker.extract_predispatch(k, t)
+    p5min_energy_prices, p5min_times = price_taker_2.extract_5min_predispatch(t + FIVE_MIN)
+    predispatch_energy_prices, predispatch_times = price_taker_2.extract_predispatch(k, t)
     print('Dispatch: ')
     if k == 0:
         print(0)
@@ -356,9 +356,9 @@ def test_energy_prices_calculator(i, k, ttimes):
 def test_trading_prices(t):
     records = []
     for i in range(288):
-        price_taker.extract_dispatch(t + FIVE_MIN, records)
+        price_taker_2.extract_dispatch(t + FIVE_MIN, records)
         if i % 6 == 0:
-            rrp = price_taker.extract_trading(t + THIRTY_MIN)  # Get spot price for period
+            rrp = price_taker_2.extract_trading(t + THIRTY_MIN)  # Get spot price for period
         elif i % 6 == 5:
             period_price = sum(records[-6:]) / 6
             if abs(period_price - rrp) > 0.01:

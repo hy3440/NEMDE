@@ -222,6 +222,7 @@ def add_predispatch_constraint(t, start, constraints):
                     constr.marginal_value = float(row[10])
                     constr.voilation_degree = float(row[11])
                     constr.lhs = float(row[17])
+                    constr.bind_flag = True
                 # else:
                 #     logging.error('Constraint {row[6]} was not included')
 
@@ -239,6 +240,7 @@ def add_p5min_constraint(t, start, constraints):
                     constr.marginal_value = float(row[9])
                     constr.voilation_degree = float(row[10])
                     constr.lhs = float(row[15])
+                    constr.bind_flag = True
                 # else:
                 #     logging.error('Constraint {row[7]} was not included')
 

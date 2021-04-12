@@ -47,21 +47,22 @@ class EnergyBid(Bid):
 
     """
     def __init__(self, row):
-        super().__init__(row)
-        # Daily bids
-        self.daily_energy_limit = float(row[11])
-        self.daily_energy = 0.0
-        self.daily_energy_record = 0.0
-        self.minimum_load = int(row[23])
-        self.t1 = int(row[24])
-        self.t2 = int(row[25])
-        self.t3 = int(row[26])
-        self.t4 = int(row[27])
-        self.normal_status = row[28]
-        # Period bids
-        self.fixed_load = None
-        self.roc_up = None
-        self.roc_down = None
+        if row != []:
+            super().__init__(row)
+            # Daily bids
+            self.daily_energy_limit = float(row[11])
+            self.daily_energy = 0.0
+            self.daily_energy_record = 0.0
+            self.minimum_load = int(row[23])
+            self.t1 = int(row[24])
+            self.t2 = int(row[25])
+            self.t3 = int(row[26])
+            self.t4 = int(row[27])
+            self.normal_status = row[28]
+            # Period bids
+            self.fixed_load = None
+            self.roc_up = None
+            self.roc_down = None
 
 
 class FcasBid(Bid):
@@ -645,9 +646,9 @@ def add_dispatchload(units, t, start, process):
     """
     interval_datetime = preprocess.get_case_datetime(t)
     if process == 'dispatch':
-        record_dir = preprocess.OUT_DIR / f'{process}_{preprocess.get_case_datetime(start)}' / f'dispatchload_{interval_datetime}.csv'
+        record_dir = preprocess.OUT_DIR / process / f'dispatchload_{interval_datetime}.csv'
     else:
-        record_dir = preprocess.OUT_DIR / process / f'{process}_{preprocess.get_case_datetime(start)}' / f'dispatchload_{interval_datetime}.csv'
+        record_dir = preprocess.OUT_DIR / process / f'{process}load_{preprocess.get_case_datetime(start)}' / f'dispatchload_{interval_datetime}.csv'
     with record_dir.open() as f:
         reader = csv.reader(f)
         # logging.info('Read next day dispatch.')
@@ -719,6 +720,23 @@ def calculate_daily_energy(units, t):
     return None
 
 
+def add_custom_units(units):
+    generator1 = Unit('G')
+    generator1.dispatch_type = 'GENERATOR'
+    generator1.dispatch_mode = 0
+    generator1.region_id = 'SA1'
+    generator1.transmission_loss_factor = 0.9045
+    generator1.ramp_up_rate = 100
+    generator1.ramp_down_rate = 100
+    generator1.energy = EnergyBid([])
+    generator1.energy.price_band = [0]
+    generator1.energy.max_avail = 30
+    generator1.energy.band_avail = [30]
+    generator1.initial_mw = 0
+    generator1.energy.fixed_load = 0
+    units['G'] = generator1
+
+
 def get_units(t, start, i, process, fcas_flag):
     """Get units.
 
@@ -743,6 +761,7 @@ def get_units(t, start, i, process, fcas_flag):
 
     if process == 'dispatch':
         add_dispatchload_record(units, t, fcas_flag)
+        # add_custom_units(units)
     elif process == 'p5min':
         add_unit_solution(units, t, start, fcas_flag)
     elif process == 'predispatch':
@@ -784,5 +803,5 @@ def test_forecast():
 if __name__ == "__main__":
     # verify_fcas_availability()
     # test_forecast()
-    units, _ = get_units(datetime.datetime(2020, 9, 1, 4, 5), datetime.datetime(2020, 9, 1, 4, 5), 0, 'dispatch', False)
-    print(len(units))
+    a = add_custom_units()
+    print(a)

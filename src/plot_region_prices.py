@@ -4,7 +4,7 @@ import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import pathlib
 import preprocess
-from price_taker import extract_trading
+from price_taker_2 import extract_trading
 from pandas.plotting import register_matplotlib_converters
 register_matplotlib_converters()
 
@@ -67,19 +67,19 @@ def plot_prices(i, current, predispatch_time, predispatch_prices, fivemin_time, 
     plt.figure()
     plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
     if datetime.time(4, 5) <= current.time() <= datetime.time(12, 30):
-        # plt.plot(interval_time[i:288], interval_rrp_record[i:288], label='Interval prices')
-        # plt.plot(period_time[(i // 6):48], period_rrp_record[(i // 6):48], label='Period prices')
+        # plt.plot(interval_time[i:288], interval_rrp_record[i:288], label='Interval get_prices')
+        # plt.plot(period_time[(i // 6):48], period_rrp_record[(i // 6):48], label='Period get_prices')
         plt.plot(interval_time[:288], interval_rrp_record[:288], label='Interval (5min) price')
         plt.plot(interval_time[:288], period_prices[:288], label='Period (30min) price')
-        # plt.plot(period_time[:48], period_rrp_record[:48], label='Trading prices')
+        # plt.plot(period_time[:48], period_rrp_record[:48], label='Trading get_prices')
         plt.gca().xaxis.set_major_locator(mdates.HourLocator(interval=4))
         plt.gca().xaxis.set_minor_locator(mdates.HourLocator(byhour=range(0, 24, 4)))
     else:
         plt.plot(interval_time, interval_rrp_record, label='Interval (5min) price')
         plt.plot(interval_time, period_prices, label='Period (30min) price')
-        # plt.plot(period_time, period_rrp_record, label='Trading prices')
-        # plt.plot(interval_time[i:], interval_rrp_record[i:], label='Interval prices')
-        # plt.plot(period_time[(i//6):], period_rrp_record[(i//6):], label='Period prices')
+        # plt.plot(period_time, period_rrp_record, label='Trading get_prices')
+        # plt.plot(interval_time[i:], interval_rrp_record[i:], label='Interval get_prices')
+        # plt.plot(period_time[(i//6):], period_rrp_record[(i//6):], label='Period get_prices')
         plt.gca().xaxis.set_major_locator(mdates.HourLocator(interval=8))
         plt.gca().xaxis.set_minor_locator(mdates.HourLocator(byhour=range(0, 24, 8)))
     plt.plot(predispatch_time, predispatch_prices, label='30min predispatch price')
@@ -93,7 +93,7 @@ def plot_prices(i, current, predispatch_time, predispatch_prices, fivemin_time, 
 
 def main():
     time = datetime.datetime(2019, 7, 19, 4, 0, 0)
-    result_dir = OUT_DIR / f'prices-{region}-{time.year}-{time.month}-{time.day}'
+    result_dir = OUT_DIR / f'get_prices-{region}-{time.year}-{time.month}-{time.day}'
     result_dir.mkdir(parents=True, exist_ok=True)
     for i in range(TOTAL_INTERVALS * 2):
         interval_time.append(time + FIVE_MIN)

@@ -566,7 +566,7 @@ def dispatch(cvp, start, i, process,
         # Set objective
         model.setObjective(cost + penalty, gurobipy.GRB.MINIMIZE)
 
-        # Calculate marginal prices
+        # Calculate marginal get_prices
         prices = {}
         if dual_flag:
             # Optimize model
@@ -709,4 +709,4 @@ if __name__ == '__main__':
         # if not flag:
         #     break
         prices = dispatch(cvp, start_time, interval, process_type)
-        # print(prices)
+        # print(get_prices)

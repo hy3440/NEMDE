@@ -1,3 +1,5 @@
+# Based on paper Zhai2017Modeling
+
 import csv
 import datetime
 import gurobipy

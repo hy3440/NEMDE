@@ -42,7 +42,7 @@ def read_cvp():
 
 
 def get_total_intervals(process, start_time):
-    dispatch_intervals = 288
+    dispatch_intervals = 1
     p5min_intervals = 12
     if process == 'dispatch':
         return dispatch_intervals

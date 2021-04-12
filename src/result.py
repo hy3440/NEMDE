@@ -12,44 +12,44 @@ FCAS_TYPES = ['RAISEREG', 'RAISE6SEC', 'RAISE60SEC', 'RAISE5MIN', 'LOWERREG', 'L
 
 
 def generate_dispatchis(start, t, regions, prices):
-    p = preprocess.OUT_DIR / f'dispatch_{preprocess.get_case_datetime(start)}'
+    p = preprocess.OUT_DIR / 'dispatch'
     p.mkdir(parents=True, exist_ok=True)
     result_dir = p / f'DISPATCHIS_{preprocess.get_case_datetime(t)}.csv'
 
     with result_dir.open(mode='w') as result_file:
         writer = csv.writer(result_file, delimiter=',')
-        writer.writerow(['I', 'DISPATCH', 'PRICE', '', 'SETTLEMENTDATE', 'RUNNO', 'REGIONID', 'INTERVENTION', 'RRP', 'RRP Record', 'ROP Record'])
+        writer.writerow(['I', 'DISPATCH', 'PRICE', '', 'SETTLEMENTDATE', 'RUNNO', 'REGIONID', 'DISPATCHINTERVAL', 'INTERVENTION', 'RRP', 'RRP Record', 'ROP Record'])
         for region_id, region in regions.items():
-            writer.writerow(['D', 'DISPATCH', 'PRICE', '', preprocess.get_interval_datetime(t), '', region_id, 0, prices[region_id], region.rrp_record, region.rop_record])
+            writer.writerow(['D', 'DISPATCH', 'PRICE', '', preprocess.get_interval_datetime(t), '', region_id, '', 0, prices[region_id], region.rrp_record, region.rop_record])
 
 
 def generate_predispatchis(start, t, i, regions, prices):
     p = preprocess.OUT_DIR / 'predispatch'
     p.mkdir(parents=True, exist_ok=True)
     result_dir = p / f'PREDISPATCHIS_{preprocess.get_case_datetime(start)}.csv'
-    with result_dir.open(mode='a+') as result_file:
+    with result_dir.open(mode='w' if i == 0 else 'a') as result_file:
         writer = csv.writer(result_file, delimiter=',')
         writer.writerow(['I', 'PREDISPATCH', 'REGION_PRICE', '', 'PREDISPATCHSEQNO', 'RUNNO', 'REGIONID', 'PERIODID', 'INTERVENTION', 'RRP', 'RRP Record'])
         for region_id, region in regions.items():
             writer.writerow(['D',  # 0
                              'PREDISPATCH',
-                             'REGION_PRICE',  # 2
+                             'REGION_PRICES',  # 2
                              '', '', '',
                              region_id,  # 6
                              i + 1,
                              0,  # 8
                              prices[region_id],  # Column 9
                              region.rrp_record,
-                             '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '',
+                             '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '',
                              preprocess.get_interval_datetime(t)  # 28
                              ])
 
 
-def generate_p5min(start, t, regions, prices):
+def generate_p5min(start, t, i, regions, prices):
     p = preprocess.OUT_DIR / 'p5min' 
     p.mkdir(parents=True, exist_ok=True)
     result_dir = p / f'P5MIN_{preprocess.get_case_datetime(start)}.csv'
-    with result_dir.open(mode='a+') as result_file:
+    with result_dir.open(mode='w' if i == 0 else 'a') as result_file:
         writer = csv.writer(result_file, delimiter=',')
         writer.writerow(['I', 'P5MIN', 'REGIONSOLUTION', '', 'RUN_DATETIME', 'INTERVENTION', 'RUNNO', 'REGIONID', 'Price', 'RRP Record', 'ROP Record'])
         for region_id, region in regions.items():
@@ -70,9 +70,9 @@ def generate_p5min(start, t, regions, prices):
 def generate_dispatchload(units, t, start, process):
     interval_datetime = preprocess.get_case_datetime(t + preprocess.THIRTY_MIN) if process == 'predispatch' else preprocess.get_case_datetime(t + preprocess.FIVE_MIN)
     if process == 'dispatch':
-        p = preprocess.OUT_DIR / f'{process}_{preprocess.get_case_datetime(start)}'
+        p = preprocess.OUT_DIR / f'{process}'
     else:
-        p = preprocess.OUT_DIR / process / f'{process}_{preprocess.get_case_datetime(start)}'
+        p = preprocess.OUT_DIR / process / f'{process}load_{preprocess.get_case_datetime(start)}'
     p.mkdir(parents=True, exist_ok=True)
     result_dir = p / f'dispatchload_{interval_datetime}.csv'
     with result_dir.open(mode='w') as result_file:
@@ -103,9 +103,9 @@ def generate_dispatchload(units, t, start, process):
 
 def add_prices(process, start, t, prices):
     if process == 'dispatch':
-        result_dir = preprocess.OUT_DIR / f'{process}_{preprocess.get_case_datetime(start)}' / f'{process}_{preprocess.get_case_datetime(t)}.csv'
+        result_dir = preprocess.OUT_DIR / process / f'dispatchis_{preprocess.get_case_datetime(t)}.csv'
     else:
-        result_dir = preprocess.OUT_DIR / process / f'{process}_{preprocess.get_case_datetime(start)}_{preprocess.get_case_datetime(t)}.csv'
+        result_dir = preprocess.OUT_DIR / process / f'{process}_{preprocess.get_case_datetime(start)}' / f'dispatchis_{preprocess.get_case_datetime(t)}.csv'
     with result_dir.open(mode='a') as result_file:
         writer = csv.writer(result_file, delimiter=',')
         writer.writerow(['Region ID', 'Differece of Costs'])
@@ -128,9 +128,11 @@ def generate_result_csv(process, start, t, obj_value, solution, penalty, interco
 
     """
     if process == 'dispatch':
-        result_dir = preprocess.OUT_DIR / f'{process}_{preprocess.get_case_datetime(start)}' / f'{process}_{preprocess.get_case_datetime(t)}.csv'
+        p = preprocess.OUT_DIR / process
     else:
-        result_dir = preprocess.OUT_DIR / process / f'{process}_{preprocess.get_case_datetime(start)}_{preprocess.get_case_datetime(t)}.csv'
+        p = preprocess.OUT_DIR / process / f'{process}_{preprocess.get_case_datetime(start)}'
+    p.mkdir(parents=True, exist_ok=True)
+    result_dir = p / f'{process}_{preprocess.get_case_datetime(t)}.csv'
     with result_dir.open(mode='w') as result_file:
         writer = csv.writer(result_file, delimiter=',')
 
@@ -235,3 +237,10 @@ def generate_result_csv(process, start, t, obj_value, solution, penalty, interco
     #                              genrator.total_cleared.getValue(),
     #                              genrator.total_cleared_record,
     #                              genrator.total_cleared.getValue() - genrator.total_cleared_record])
+
+
+def record_cutom_unit(t, unit, prices):
+    unit.dir = preprocess.OUT_DIR / f'Battery_{preprocess.get_case_datetime(t)}.csv'
+    with unit.dir.open('a') as f:
+        writer = csv.writer(f)
+        writer.writerow([unit.Emax, unit.max_capacity, unit.dispatch_type, unit.energy.band_avail[0]] + [prices[r] for r in ['NSW1', 'QLD1', 'SA1', 'TAS1', 'VIC1']])
