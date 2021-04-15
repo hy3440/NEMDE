@@ -4,7 +4,7 @@
 
 # Date files
 # *.csv
-*.png
+# *.png
 data/
 # out/
 raw/
