@@ -1,25 +1,24 @@
 import csv
+import datetime
 # import dask.dataframe as dd
-from default import *
+import default
 import logging
-import numpy as np
 import io
-import pandas as pd
 import re
 import requests
 import zipfile
 
+
 csv.field_size_limit(1000000000)
 log = logging.getLogger(__name__)
 
-BASE_DIR = pathlib.Path(__file__).resolve().parent.parent  # Base directory
-all_dir = DATA_DIR / 'all'  # all directory in data directory
+all_dir = default.DATA_DIR / 'all'  # all directory in data directory
 all_dir.mkdir(parents=True, exist_ok=True)
-dvd_dir = DATA_DIR / 'dvd'
+dvd_dir = default.DATA_DIR / 'dvd'
 dvd_dir.mkdir(parents=True, exist_ok=True)
-p5min_dir = DATA_DIR / 'p5min'
+p5min_dir = default.DATA_DIR / 'p5min'
 p5min_dir.mkdir(parents=True, exist_ok=True)
-NEMSPDOutputs_dir = DATA_DIR / 'NEMSPDOutputs'
+NEMSPDOutputs_dir = default.DATA_DIR / 'NEMSPDOutputs'
 NEMSPDOutputs_dir.mkdir(parents=True, exist_ok=True)
 
 CURRENT_URL = 'http://nemweb.com.au/Reports/Current'  # Base URL to download files
@@ -28,93 +27,36 @@ DVD_URL = 'http://www.nemweb.com.au/Data_Archive/Wholesale_Electricity/MMSDM/{}/
 
 
 def new_dir(t):
-    case_date = get_case_date(t)
-    date_dir = DATA_DIR / case_date
+    case_date = default.get_case_date(t)
+    date_dir = default.DATA_DIR / case_date
     date_dir.mkdir(parents=True, exist_ok=True)
     return date_dir
 
 
-def early_morning(t: datetime.datetime) -> bool:
-    start = datetime.datetime(t.year, t.month, t.day, 0, 0, 0)
-    return t - start <= FOUR_HOUR
-
-
-def extract_datetime(s: str) -> datetime.datetime:
-    return datetime.datetime.strptime(s, '%Y/%m/%d %H:%M:%S')
-
-
-def get_case_date(t: datetime.datetime) -> str:
-    if early_morning(t):
-        return (t - ONE_DAY).strftime('%Y%m%d')  # YYmmdd
-    else:
-        return t.strftime('%Y%m%d')  # YYmmdd
-
-
-def get_current_date(t: datetime.datetime) -> str:
-    if t.hour == 0 and t.minute == 0 and t.second == 0:
-        return (t - ONE_DAY).strftime('%Y%m%d')  # YYmmdd
-    else:
-        return t.strftime('%Y%m%d')  # YYmmdd
-
-
-def get_report_date(t: datetime.datetime) -> str:
-    if early_morning(t):
-        return t.strftime('%Y%m%d')
-    else:
-        return (t + ONE_DAY).strftime('%Y%m%d')
-
-
-def get_case_datetime(t: datetime.datetime) -> str:
-    return t.strftime('%Y%m%d%H%M')  # YYmmddHHMM
-
-
-def get_interval_datetime(t: datetime.datetime) -> str:
-    return t.strftime('%Y/%m/%d %H:%M:%S')  # YY/mm/dd HH:MM:SS
-
-
-def get_result_datetime(t):
-    return t.strftime('%Y-%m-%d %H-%M-%S')  # YY-mm-dd HH:MM:SS
-
-
-def datetime_to_interval(t):
-    last = t - ONE_DAY if early_morning(t) else t
-    start = datetime.datetime(last.year, last.month, last.day, 4, 0)
-    no = int((t - start) / FIVE_MIN)
-    return last, no
-
-
-def get_first_datetime(t):
-    if early_morning(t):
-        yesterday = t - ONE_DAY
-        return datetime.datetime(yesterday.year, yesterday.month, yesterday.day, 4, 5, 0)
-    else:
-        return datetime.datetime(t.year, t.month, t.day, 4, 5, 0)
-
-
 def read_p5min_unit_solution(start):
-    p = p5min_dir / f'DVD_P5MIN_UNITSOLUTION_{get_case_datetime(start)}.csv'
+    # TODO: Not implement auto-downloading function yet.
+    p = p5min_dir / f'DVD_P5MIN_UNITSOLUTION_{default.get_case_datetime(start)}.csv'
     if p.is_file():
         return p
     else:
         print(f'P5MIN unit sollution for {start} is missing.')
+        return process_p5min_unit_solution(start)
 
 
-def preprocess_p5min_unit_solution():
+def preprocess_p5min_unit_solution(current):
     section = 'P5MIN_UNITSOLUTION'
-    from_path = dvd_dir / 'PUBLIC_DVD_P5MIN_UNITSOLUTION_202009010000.CSV'
+    from_path = dvd_dir / f'PUBLIC_DVD_{section}_{current.year}{current.month:02d}010000.CSV'
     with from_path.open('r') as infile:
         reader = csv.reader(infile)
         for row in reader:
             if row[0] == 'I':
                 head = row
             elif row[0] == 'D':
-                t = extract_datetime(row[4])
-                to_path = p5min_dir / f'DVD_{section}_{get_case_datetime(t)}.csv'
+                t = default.extract_datetime(row[4])
+                to_path = p5min_dir / f'DVD_{section}_{default.get_case_datetime(t)}.csv'
                 with to_path.open('a+') as f:
                     writer = csv.writer(f, delimiter=',')
                     writer.writerow(row)
-                # if t > datetime.datetime(2020, 9, 2, 4, 0, 0):
-                #     return None
 
 
 def process_p5min_unit_solution(current):
@@ -122,8 +64,10 @@ def process_p5min_unit_solution(current):
     section = 'P5MIN_UNITSOLUTION'
     year = current.year
     month = current.month
-    to_path = dvd_dir / f'DVD_{section}_{get_case_datetime(current)}.csv'
-    from_path = dvd_dir / 'PUBLIC_DVD_P5MIN_UNITSOLUTION_202009010000.CSV'
+    to_path = dvd_dir / f'DVD_{section}_{default.get_case_datetime(current)}.csv'
+    from_path = dvd_dir / f'PUBLIC_DVD_{section}_{year}{month:02d}010000.CSV'
+    if not from_path.is_file():
+        print(f'PUBLIC_DVD_{section}_{year}{month:02d}010000.CSV not downloaded.')
     with to_path.open('w') as f:
         writer = csv.writer(f, delimiter=',')
         with from_path.open('r') as infile:
@@ -132,44 +76,44 @@ def process_p5min_unit_solution(current):
                 if row[0] == 'I':
                     writer.writerow(row)
                 elif row[0] == 'D':
-                    t = extract_datetime(row[4])
-                    print(t)
+                    t = default.extract_datetime(row[4])
                     if t == current:
                         writer.writerow(row)
                         flag = True
                     elif t > current and flag:
                         return None
+    return to_path
 
 
 def download_p5min_unit_solution(current):
+    # TODO: Doesn't work.
     section = 'P5MIN_UNITSOLUTION'
     year = current.year
     month = current.month
-    p = dvd_dir / f'DVD_{section}_{get_case_datetime(current)}.csv'
+    p = dvd_dir / f'PUBLIC_DVD_{section}_{year}{month:02d}010000.CSV'
     if not p.is_file():
         url = (DVD_URL + '/PUBLIC_DVD_{}_{}{:02d}010000.zip').format(year, year, month, section, year, month)
         result = requests.get(url)
         if result.ok:
-            print('start')
             with zipfile.ZipFile(io.BytesIO(result.content)) as zf:
                 csv_name = zf.namelist()[0]
                 # logging.info(f'Download {csv_name}')
                 with p.open('w') as f:
-                    print('ok')
                     writer = csv.writer(f, delimiter=',')
                     with zf.open(csv_name, 'r') as infile:
                         reader = csv.reader(io.TextIOWrapper(infile))
                         for row in reader:
-                            print(row)
-                            if row[0] == 'I':
-                                writer.writerow(row)
-                            elif row[0] == 'D':
-                                t = extract_datetime(row[4])
-                                if t == current:
-                                    print(t)
-                                    writer.writerow(row)
-                                elif t > current:
-                                    return None
+                            writer.writerow(row)
+                            # print(row)
+                            # if row[0] == 'I':
+                            #     writer.writerow(row)
+                            # elif row[0] == 'D':
+                            #     t = default.extract_datetime(row[4])
+                            #     if t == current:
+                            #         print(t)
+                            #         writer.writerow(row)
+                            #     elif t > current:
+                            #         return None
 
                     # df = pd.read_csv(zf.open(csv_name, 'r'), sep=',', usecols=[0, 1, 2, 3])
                     # print(df.head())
@@ -210,7 +154,15 @@ def download_from_url(url, file):
 
 
 def download_xml(t):
-    last, no = datetime_to_interval(t)
+    """ Download XML file.
+
+    Args:
+        t (datetime.datetime): current datetime
+
+    Returns:
+        Path to the downloaded file
+    """
+    last, no = default.datetime_to_interval(t)
     f = NEMSPDOutputs_dir / f'NEMSPDOutputs_{last.year}{last.month:02d}{last.day:02d}{no:03d}00.loaded'
     if not f.is_file():
         url = f'https://www.nemweb.com.au/Data_Archive/Wholesale_Electricity/NEMDE/{last.year}/NEMDE_{last.year}_{last.month:02d}/NEMDE_Market_Data/NEMDE_Files/NemSpdOutputs_{last.year}{last.month:02d}{last.day:02d}_loaded.zip'
@@ -265,7 +217,7 @@ def download_file(section, file_pattern, date_pattern, file, t, archive_pattern=
     regex = re.compile(f'{file_pattern}_{date_pattern}<')
     matches = regex.findall(page.text)
     if len(matches) == 0:
-        current_date = get_current_date(t)
+        current_date = default.get_current_date(t)
         p = requests.get(f'{ARCHIVE_URL}/{section}')
         r = re.compile(f'{file_pattern if archive_pattern is None else archive_pattern}_{current_date}.zip<')
         match = r.findall(p.text)[0]
@@ -285,7 +237,7 @@ def download_file(section, file_pattern, date_pattern, file, t, archive_pattern=
         download(f'{CURRENT_URL}/{section}/{match[:-1]}', file)
 
 
-def download_trading(t: datetime.datetime) -> None:
+def download_trading(t):
     """Download trading summary of the given datetime from
     <#VISIBILITY_ID>_TRADINGIS_<#CASE_DATETIME>_<#EVENT_QUEUE_ID>.zip
 
@@ -298,7 +250,7 @@ def download_trading(t: datetime.datetime) -> None:
         Path to the downloaded file
 
     """
-    case_datetime = get_case_datetime(t)
+    case_datetime = default.get_case_datetime(t)
     trading_dir = new_dir(t) / f'PUBLIC_TRADINGIS_{case_datetime}.csv'
     if not trading_dir.is_file():
         section = 'TradingIS_Reports'
@@ -310,7 +262,7 @@ def download_trading(t: datetime.datetime) -> None:
     return trading_dir
 
 
-def download_intermittent(t: datetime.datetime) -> None:
+def download_intermittent(t):
     """Download intermittent generation forecast of the given report date from
     <#CURRENT_URL>/<#SECTION>/<#VISIBILITY_ID>_NEXT_DAY_INTERMITTENT_DS_<#REPORT_DATETIME>.zip
 
@@ -323,7 +275,7 @@ def download_intermittent(t: datetime.datetime) -> None:
         Path to the downloaded file
 
     """
-    case_date = get_case_date(t)
+    case_date = default.get_case_date(t)
     intermittent_dir = new_dir(t) / f'PUBLIC_NEXT_DAY_INTERMITTENT_DS_{case_date}.csv'
     if not intermittent_dir.is_file():
         section = 'Next_Day_Intermittent_DS'
@@ -335,7 +287,7 @@ def download_intermittent(t: datetime.datetime) -> None:
     return intermittent_dir
 
 
-def download_next_day_dispatch(t: datetime.datetime) -> None:
+def download_next_day_dispatch(t):
     """Download next day dispatch of the given date from
     <#CURRENT_URL>/<#SECTION>/<#VISIBILITY_ID>_NEXT_DAY_DISPATCH_<#CASE_DATE>_<#EVENT_QUEUE_ID>.zip
 
@@ -348,7 +300,7 @@ def download_next_day_dispatch(t: datetime.datetime) -> None:
         Path to the downloaded file
 
     """
-    case_date = get_case_date(t)
+    case_date = default.get_case_date(t)
     record_dir = new_dir(t) / f'PUBLIC_NEXT_DAY_DISPATCH_{case_date}.csv'
     if not record_dir.is_file():
         section = 'Next_Day_Dispatch'
@@ -360,7 +312,7 @@ def download_next_day_dispatch(t: datetime.datetime) -> None:
     return record_dir
 
 
-def download_bidmove_summary(t: datetime.datetime) -> None:
+def download_bidmove_summary(t):
     """Download bidmove summary of the given date from
     <#CURRENT_URL>/<#SECTION>/<#VISIBILITY_ID>_BIDMOVE_SUMMARY_<#CASE_DATE>_<#EVENT_QUEUE_ID>.zip
 
@@ -373,7 +325,7 @@ def download_bidmove_summary(t: datetime.datetime) -> None:
         path to the downloaded file
 
     """
-    case_date = get_case_date(t)
+    case_date = default.get_case_date(t)
     bids_dir = new_dir(t) / f'PUBLIC_BIDMOVE_SUMMARY_{case_date}.csv'
     if not bids_dir.is_file():
         section = 'Bidmove_Summary'
@@ -385,7 +337,7 @@ def download_bidmove_summary(t: datetime.datetime) -> None:
     return bids_dir
 
 
-def download_bidmove_complete(t: datetime.datetime) -> None:
+def download_bidmove_complete(t):
     """Download bidmove complete of the given date from
     <#CURRENT_URL>/<#SECTION>/<#VISIBILITY_ID>_BIDMOVE_COMPLETE_<#CASE_DATE>_<#EVENT_QUEUE_ID>.zip
 
@@ -398,7 +350,7 @@ def download_bidmove_complete(t: datetime.datetime) -> None:
         Path to the downloaded file
 
     """
-    case_date = get_case_date(t)
+    case_date = default.get_case_date(t)
     bids_dir = new_dir(t) / f'PUBLIC_BIDMOVE_COMPLETE_{case_date}.csv'
     if not bids_dir.is_file():
         section = 'Bidmove_Complete'
@@ -423,7 +375,7 @@ def download_mnsp_bids(t):
         path to the downloaded file
 
     """
-    case_date = get_case_date(t)
+    case_date = default.get_case_date(t)
     mnsp_dir = new_dir(t) / f'PUBLIC_YESTBIDMNSP_{case_date}.csv'
     if not mnsp_dir.is_file():
         section = 'Yesterdays_MNSPBids_Reports'
@@ -435,7 +387,7 @@ def download_mnsp_bids(t):
     return mnsp_dir
 
 
-def download_5min_predispatch(t: datetime.datetime) -> None:
+def download_5min_predispatch(t):
     """Download 5-minute predispatch summary of the given datetime from
     <#CURRENT_URL>/<#SECTION>/<#VISIBILITY_ID>_P5MIN_<#CASE_DATETIME>_<#REPORT_DATETIME>.zip
     e.g. http://nemweb.com.au/Reports/Current/P5_Reports/PUBLIC_P5MIN_201904301445_20190430144045.zip
@@ -447,7 +399,7 @@ def download_5min_predispatch(t: datetime.datetime) -> None:
         Path to the downloaded file
 
     """
-    case_datetime = get_case_datetime(t)
+    case_datetime = default.get_case_datetime(t)
     p5_dir = new_dir(t) / f'PUBLIC_P5MIN_{case_datetime}.csv'
     if not p5_dir.is_file():
         section = 'P5_Reports'
@@ -459,7 +411,7 @@ def download_5min_predispatch(t: datetime.datetime) -> None:
     return p5_dir
 
 
-def download_predispatch(t: datetime.datetime) -> None:
+def download_predispatch(t):
     """Download predispatch summary of the given datetime from
     <#CURRENT_URL>/<#SECTION>/<#VISIBILITY_ID>_PREDISPATCHIS_<#CASE_DATETIME>_<#REPORT_DATETIME>.zip
 
@@ -472,7 +424,7 @@ def download_predispatch(t: datetime.datetime) -> None:
         Path to the downloaded file
 
     """
-    case_datetime = get_case_datetime(t)
+    case_datetime = default.get_case_datetime(t)
     predispatch_dir = new_dir(t) / f'PUBLIC_PREDISPATCHIS_{case_datetime}.csv'
     if not predispatch_dir.is_file():
         section = 'PredispatchIS_Reports'
@@ -485,7 +437,7 @@ def download_predispatch(t: datetime.datetime) -> None:
 
 
 def download_next_day_predispatch(t):
-    case_date = get_case_date(t)
+    case_date = default.get_case_date(t)
     predispatch_dir = new_dir(t) / f'PUBLIC_NEXT_DAY_PREDISPATCH_{case_date}.csv'
     if not predispatch_dir.is_file():
         section = 'Next_Day_PreDispatch'
@@ -497,7 +449,7 @@ def download_next_day_predispatch(t):
     return predispatch_dir
 
 
-def download_network_outage(t: datetime.datetime) -> None:
+def download_network_outage(t):
     """Download network outage of the given datetime from
     <#CURRENT_URL>/<#SECTION>/<#VISIBILITY_ID>_NETWORK_<#REPORT_DATETIME>_<#EVENT_QUEUE_ID>.ZIP
     e.g. http://nemweb.com.au/Reports/Current/Network/PUBLIC_NETWORK_20190422133005_0000000307021827.zip
@@ -509,7 +461,7 @@ def download_network_outage(t: datetime.datetime) -> None:
         None
 
     """
-    case_datetime = get_case_datetime(t)
+    case_datetime = default.get_case_datetime(t)
     outage_dir = new_dir(t) / f'PUBLIC_NETWORK_{case_datetime}.csv'
     if not outage_dir.is_file():
         section = 'Network'
@@ -521,7 +473,7 @@ def download_network_outage(t: datetime.datetime) -> None:
     return outage_dir
 
 
-def download_dispatch_summary(t: datetime.datetime) -> None:
+def download_dispatch_summary(t):
     """Download dispatch summary of the given datetime from
     <#CURRENT_URL>/<#SECTION/<#VISIBILITY_ID>_DISPATCHIS_<#CASE_DATETIME>_<#EVENT_QUEUE_ID>.zip
 
@@ -534,7 +486,7 @@ def download_dispatch_summary(t: datetime.datetime) -> None:
         Path to the downloaded file
 
     """
-    case_datetime = get_case_datetime(t)
+    case_datetime = default.get_case_datetime(t)
     dispatch_dir = new_dir(t) / f'PUBLIC_DISPATCHIS_{case_datetime}.csv'
     if not dispatch_dir.is_file():
         section = 'DispatchIS_Reports'
@@ -546,7 +498,7 @@ def download_dispatch_summary(t: datetime.datetime) -> None:
     return dispatch_dir
 
 
-def download_dispatch_scada(t: datetime.datetime) -> None:
+def download_dispatch_scada(t):
     """Download real time scheduled, semi-scheduled and non-scheduled DUID SCADA data from
     <#CURRENT_URL>/<#SECTION>/<#VISIBILITY_ID>_DISPATCHSCADA_<#CASE_DATETIME>_<#EVENT_QUEUE_ID>.zip
     e.g. http://www.nemweb.com.au/REPORTS/CURRENT/Dispatch_SCADA/PUBLIC_DISPATCHSCADA_201904291630_0000000307295427.zip
@@ -558,7 +510,7 @@ def download_dispatch_scada(t: datetime.datetime) -> None:
         Path to the downloaded file
 
     """
-    case_datetime = get_case_datetime(t)
+    case_datetime = default.get_case_datetime(t)
     scada_dir = new_dir(t) / f'PUBLIC_DISPATCHSCADA_{case_datetime}.csv'
     if not scada_dir.is_file():
         section = 'Dispatch_SCADA'
@@ -609,11 +561,11 @@ def download_registration() -> None:
     return registration_file
 
 
-def download_mlf() -> None:
+def download_mlf():
     """Download NEM marginal loss factors.
 
     Returns:
-        None
+        Path to the downloaded file.
 
     """
     mlf_file = all_dir / 'MLF.xls'
@@ -638,7 +590,7 @@ def download_dvd_data(section, current=None):
         url = (DVD_URL + '/PUBLIC_DVD_{}_{}{:02d}010000.zip').format(year, year, month, section, year, month)
         download(url, f)
     if section == 'DISPATCHCONSTRAINT':
-        wf_dir = dvd_dir / f'{section}_{get_case_datetime(current)}.csv'
+        wf_dir = dvd_dir / f'{section}_{default.get_case_datetime(current)}.csv'
         if not wf_dir.is_file():
             # rows = []
             with f.open() as rf:
@@ -646,7 +598,7 @@ def download_dvd_data(section, current=None):
                 # for row in reader:
                 #     if row[0] == 'I' or current == extract_datetime(row[4]):
                 #         rows.append(row)
-                rows = [row for row in reader if row[0] == 'D' and current == extract_datetime(row[4])]
+                rows = [row for row in reader if row[0] == 'D' and current == default.extract_datetime(row[4])]
             with wf_dir.open(mode='w') as result_file:
                 writer = csv.writer(result_file, delimiter=',')
                 for row in rows:
@@ -655,17 +607,17 @@ def download_dvd_data(section, current=None):
     return f
 
 
-def download_interval(t: datetime.datetime) -> None:
+def download_interval(t):
     download_5min_predispatch(t)
     download_dispatch_summary(t)
 
 
-def download_period(t: datetime.datetime) -> None:
+def download_period(t):
     download_trading(t)
     download_predispatch(t)
 
 
-def download_all_day(t: datetime.datetime) -> None:
+def download_all_day(t):
     download_next_day_dispatch(t)
     download_bidmove_complete(t)
     download_mnsp_bids(t)
@@ -684,9 +636,6 @@ def main():
 
 
 if __name__ == '__main__':
-    # main()
-    # download_p5min_unit_solution(datetime.datetime(2020, 9, 1, 4, 5, 0))
+    download_p5min_unit_solution(datetime.datetime(2020, 10, 1, 4, 5, 0))
     # process_p5min_unit_solution(datetime.datetime(2020, 9, 1, 4, 5, 0))
     # preprocess_p5min_unit_solution()
-    t = get_first_datetime(datetime.datetime(2020, 9, 1, 0, 35, 0))
-    print(t)

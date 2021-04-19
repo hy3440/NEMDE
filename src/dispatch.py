@@ -2,17 +2,13 @@ import constrain
 import datetime
 import debug
 import default
-import fcas_constraints
 import gurobipy
 import helpers
-import ic_constraints
 import interconnect
 import logging
 import offer
 import result
 import xml_parser
-import preprocess
-import unit_constraints
 
 
 def add_regional_energy_demand_supply_balance_constr(model, region, region_id, hard_flag, slack_variables, penalty, voll, cvp):
@@ -36,25 +32,28 @@ def add_regional_energy_demand_supply_balance_constr(model, region, region_id, h
     return penalty
 
 
-def dispatch(cvp, start, interval, process,
-             custom_unit=None,
-             hard_flag=False,  # Apply hard constraints
-             fcas_flag=True,  # Calculate FCAS
-             constr_flag=True,  # Apply generic constraints
-             losses_flag=True,  # Calculate interconnectors losses
-             fixed_interflow_flag=False,  # Fix interflow
-             fixed_target_flag=False,  # Fix generator target
-             link_flag=True,  # Calculate links
+def dispatch(start, interval, process,
+             iteration=0,  # Price-taker iteration number
+             custom_unit=None,  # Custom unit
+             path_to_out=default.OUT_DIR,  # Out file path
+             hard_flag=False,  # Whether apply hard constraints or not
+             fcas_flag=True,  # Whether calculate FCAS or not
+             constr_flag=True,  # Whether apply generic constraints or not
+             losses_flag=True,  # Whether calculate interconnectors losses or not
+             fixed_interflow_flag=False,  # Whether fix interflow or not
+             fixed_target_flag=False,  # Whether fix generator target or not
+             link_flag=True,  # Whether calculate links or not
              dual_flag=True,  # Calculate dual var as price
-             ic_record_flag=False  # Apply interconnector import/export limit record
+             ic_record_flag=False  # Whether apply interconnector import/export limit record or not
              ):
     try:
+        cvp = helpers.read_cvp()
         total_obj = 0
         intervals = 30 if process == 'predispatch' else 5  # Length of the dispatch interval in minutes
         current = start + interval * datetime.timedelta(minutes=intervals)  # Current interval datetime
         logging.info('----------------------------------------------------------------------------------')
         logging.info(f'Current interval is {current} (No. {interval} starting at {start}) for {process}')
-        model = gurobipy.Model(f'{preprocess.get_case_datetime(current)}')
+        model = gurobipy.Model(f'{process}{default.get_case_datetime(current)}{interval}{iteration}')
         model.setParam("OutputFlag", 0)  # 0 if no log information; otherwise 1
         cost, penalty = 0, 0
         slack_variables = set()
@@ -67,7 +66,7 @@ def dispatch(cvp, start, interval, process,
         # Get regions, interconnectors, and case solution
         regions, interconnectors, solution, links = interconnect.get_regions_and_interconnectors(current, start, interval, process, fcas_flag, link_flag)
         # Get units and connection points
-        units, connection_points = offer.get_units(current, start, interval, process, fcas_flag)
+        units, connection_points = offer.get_units(current, start, interval, process, fcas_flag, k=iteration, path_to_out=path_to_out)
         # Add cutom unit
         if custom_unit is not None:
             units[custom_unit.duid] = custom_unit
@@ -78,10 +77,10 @@ def dispatch(cvp, start, interval, process,
             # Define interconnector MW flow
             ic.mw_flow = model.addVar(lb=-gurobipy.GRB.INFINITY, name=f'Mw_Flow_{ic_id}')
             # Add interconnector capacity constraint
-            penalty = ic_constraints.add_interconnector_capacity_constr(model, ic, ic_id, hard_flag, slack_variables, penalty, voll, cvp)
+            penalty = constrain.add_interconnector_capacity_constr(model, ic, ic_id, hard_flag, slack_variables, penalty, voll, cvp)
             # Add interconnector export/import limit constraint
             if ic_record_flag:
-                ic_constraints.add_interconnector_limit_constr(model, ic, ic_id)
+                constrain.add_interconnector_limit_constr(model, ic, ic_id)
             # Allocate inter-flow to regions
             if not link_flag or (link_flag and ic_id != 'T-V-MNSP1'):
                 regions[ic.region_to].net_mw_flow_record += ic.mw_flow_record
@@ -102,15 +101,15 @@ def dispatch(cvp, start, interval, process,
                 # Link flow
                 link.mw_flow = model.addVar(name=f'Link_Flow_{link_id}')
                 # Add MNSPInterconnector ramp rate constraint
-                penalty = ic_constraints.add_mnsp_ramp_constr(model, intervals, link, link_id, hard_flag, slack_variables, penalty, voll, cvp)
+                penalty = constrain.add_mnsp_ramp_constr(model, intervals, link, link_id, hard_flag, slack_variables, penalty, voll, cvp)
                 # Add total band MW offer constraint - MNSP only
-                penalty = ic_constraints.add_mnsp_total_band_constr(model, link, link_id, hard_flag, slack_variables, penalty, voll, cvp)
+                penalty = constrain.add_mnsp_total_band_constr(model, link, link_id, hard_flag, slack_variables, penalty, voll, cvp)
                 # MNSP Max Capacity
                 if link.max_capacity is not None:
                     if link.mw_flow_record is not None and link.mw_flow_record > link.max_capacity:
                         logging.warning(f'Link {link_id} mw flow record {link.mw_flow_record} above max capacity {link.max_capacity}')
                 # Add MNSP availability constraint
-                penalty = ic_constraints.add_mnsp_avail_constr(model, link, link_id, hard_flag, slack_variables, penalty, voll, cvp)
+                penalty = constrain.add_mnsp_avail_constr(model, link, link_id, hard_flag, slack_variables, penalty, voll, cvp)
 
                 link.from_cost = sum([o * (p / link.from_region_tlf) for o, p in zip(link.offers, link.price_band)])
                 link.to_cost = sum([o * (p / link.to_region_tlf) for o, p in zip(link.offers, link.price_band)])
@@ -155,43 +154,43 @@ def dispatch(cvp, start, interval, process,
                     model.addConstr(bid_offer <= avail, name=f'ENERGY_AVAIL{no}_{unit.duid}')
                 # Total dispatch total_cleared
                 unit.total_cleared = model.addVar(name=f'Total_Cleared_{unit.duid}')
-                # Unit max cap (not included yet)
+                # TODO: Unit max cap (not included yet)
                 if unit.max_capacity is not None:
                     # model.addConstr(unit.total_cleared <= unit.max_capacity, name='MAX_CAPACITY_{}'.format(unit.duid))
                     if unit.total_cleared_record is not None and unit.total_cleared_record > unit.max_capacity:
                         logging.warning(f'{unit.dispatch_type} {unit.duid} total cleared record {unit.total_cleared_record} above max capacity {unit.max_capacity}')
                 # Add Unit MaxAvail constraint
                 if unit.energy.max_avail is not None:
-                    penalty = unit_constraints.add_max_avail_constr(model, unit, hard_flag, slack_variables, penalty, voll, cvp)
+                    penalty = constrain.add_max_avail_constr(model, unit, hard_flag, slack_variables, penalty, voll, cvp)
                 # Daily Energy Constraint (only for 30min Pre-dispatch)
                 if process == 'predispatch' and unit.energy.daily_energy_limit != 0:
-                    penalty = unit_constraints.add_daily_energy_constr(model, unit, hard_flag, slack_variables, penalty, voll, cvp)
+                    penalty = constrain.add_daily_energy_constr(model, unit, hard_flag, slack_variables, penalty, voll, cvp)
                 # Add total band MW offer constraint
-                penalty = unit_constraints.add_total_band_constr(model, unit, hard_flag, slack_variables, penalty, voll, cvp)
+                penalty = constrain.add_total_band_constr(model, unit, hard_flag, slack_variables, penalty, voll, cvp)
                 # Add Unconstrained Intermittent Generation Forecasts (UIGF) constraint
                 if process != 'predispatch':
-                    penalty = unit_constraints.add_uigf_constr(model, unit, regions, hard_flag, slack_variables, penalty, voll, cvp)
+                    penalty = constrain.add_uigf_constr(model, unit, regions, hard_flag, slack_variables, penalty, voll, cvp)
                 elif process == 'predispatch' and unit.total_cleared_record is not None and unit.forecast_poe50 is not None:
                     model.addConstr(unit.total_cleared <= unit.total_cleared_record)
                     # print(f'{unit.duid} record {unit.total_cleared_record} forecast {unit.forecast_poe50} capacity {unit.max_capacity} avail {unit.energy.max_avail} sum {sum(unit.energy.band_avail)}')
                 # Add on-line dispatch fast start inflexibility profile constraint
                 if process == 'dispatch':
-                    penalty = unit_constraints.add_fast_start_inflexibility_profile_constr(model, unit, hard_flag, slack_variables, penalty, voll, cvp)
+                    penalty = constrain.add_fast_start_inflexibility_profile_constr(model, unit, hard_flag, slack_variables, penalty, voll, cvp)
                 # Add unit ramp rate constraint
                 # If the total MW value of its bid/offer bands is zero or the unit is a fast start unit and it is
                 # targeted to be in mode 0, 1, or 2, its ramp rate constraints will be ignored.
                 if sum(unit.energy.band_avail) > 0 and (process != 'dispatch' or unit.start_type != 'FAST' or unit.dispatch_mode > 2):
-                    penalty = unit_constraints.add_unit_ramp_constr(process, model, intervals, unit, hard_flag, slack_variables, penalty, voll, cvp)
+                    penalty = constrain.add_unit_ramp_constr(process, model, intervals, unit, hard_flag, slack_variables, penalty, voll, cvp)
                 # Add fixed loading constraint
-                penalty = unit_constraints.add_fixed_loading_constr(model, unit, hard_flag, slack_variables, penalty, voll, cvp)
+                penalty = constrain.add_fixed_loading_constr(model, unit, hard_flag, slack_variables, penalty, voll, cvp)
                 # Marginal loss factor
                 if unit.transmission_loss_factor is None:
                     logging.error(f'{unit.dispatch_type} {unit.duid} has no MLF.')
                     unit.transmission_loss_factor = 1.0
                 # Calculate cost
-                cost = unit_constraints.add_cost(unit, regions, cost, process)
+                cost = constrain.add_cost(unit, regions, cost, process)
                 # Add Tie-Break constraint
-                unit_constraints.add_tie_break_constr(model, unit, energy_bands[unit.dispatch_type][unit.region_id], hard_flag, slack_variables, penalty, voll, cvp)
+                constrain.add_tie_break_constr(model, unit, energy_bands[unit.dispatch_type][unit.region_id], hard_flag, slack_variables, penalty, voll, cvp)
                 # Fix unit dispatch target (custom flag for testing the model)
                 # if fixed_target_flag and unit.dispatch_type == 'GENERATOR':
                 if fixed_target_flag:
@@ -206,33 +205,33 @@ def dispatch(cvp, start, interval, process,
                 # Bid for energy and FCAS
                 if unit.energy is not None:
                     # Preprocess
-                    fcas_constraints.preprocess_fcas(model, unit, process, interval, intervals)
+                    constrain.preprocess_fcas(model, unit, process, interval, intervals)
                     # Co-optimise
                     for bid_type, fcas in unit.fcas_bids.items():
                         regions[unit.region_id].fcas_local_dispatch_record_temp[bid_type] += 0 if not unit.target_record else unit.target_record[bid_type]  # Add FCAS record to region
                         if fcas.enablement_status == 1:
-                            cost, penalty = fcas_constraints.process_fcas_bid(model, unit, fcas, bid_type, hard_flag, slack_variables, penalty, voll, cvp, cost, regions)
+                            cost, penalty = constrain.process_fcas_bid(model, unit, fcas, bid_type, hard_flag, slack_variables, penalty, voll, cvp, cost, regions)
                             # Add FCAS EnablementMin constr
-                            penalty = fcas_constraints.add_enablement_min_constr(model, unit, fcas, bid_type, hard_flag, slack_variables, penalty, voll, cvp)
+                            penalty = constrain.add_enablement_min_constr(model, unit, fcas, bid_type, hard_flag, slack_variables, penalty, voll, cvp)
                             # Add FCAS EnablementMax constr
-                            penalty = fcas_constraints.add_enablement_max_constr(model, unit, fcas, bid_type, hard_flag, slack_variables, penalty, voll, cvp)
+                            penalty = constrain.add_enablement_max_constr(model, unit, fcas, bid_type, hard_flag, slack_variables, penalty, voll, cvp)
                             if bid_type == 'RAISEREG' or bid_type == 'LOWERREG':
                                 # Add joint ramping constraint
                                 if helpers.condition2(process, interval):
-                                    penalty = fcas_constraints.add_joint_ramping_constr(model, intervals, unit, fcas, bid_type, hard_flag,
-                                                                       slack_variables, penalty, voll, cvp)
+                                    penalty = constrain.add_joint_ramping_constr(model, intervals, unit, fcas, bid_type, hard_flag,
+                                                                                     slack_variables, penalty, voll, cvp)
                                 # Add energy and regulating FCAS capacity constraint
-                                fcas_constraints.add_energy_and_fcas_capacity_constr(model, unit, fcas, bid_type)
+                                constrain.add_energy_and_fcas_capacity_constr(model, unit, fcas, bid_type)
                             else:
-                                penalty = fcas_constraints.add_joint_capacity_constr(model, unit, fcas, bid_type, hard_flag, slack_variables,
-                                                          penalty, voll, cvp)
+                                penalty = constrain.add_joint_capacity_constr(model, unit, fcas, bid_type, hard_flag, slack_variables,
+                                                                                  penalty, voll, cvp)
                         else:
                             if unit.target_record and unit.target_record[bid_type] != 0:
                                 logging.warning(f'{unit.dispatch_type} {unit.duid} {bid_type} is not enable but record {unit.target_record[bid_type]}')
                 # Only bid for FCAS
                 else:
                     for bid_type, fcas in unit.fcas_bids.items():
-                        cost, penalty = fcas_constraints.process_fcas_bid(model, unit, fcas, bid_type, hard_flag, slack_variables, penalty, voll, cvp, cost, regions)
+                        cost, penalty = constrain.process_fcas_bid(model, unit, fcas, bid_type, hard_flag, slack_variables, penalty, voll, cvp, cost, regions)
                         regions[unit.region_id].fcas_local_dispatch_record_temp[bid_type] += 0 if not unit.target_record else unit.target_record[bid_type]  # Add FCAS record to region
 
                 # # Fix unit dispatch target (custom flag for testing the model)
@@ -332,9 +331,9 @@ def dispatch(cvp, start, interval, process,
                 # debug.compare_total_cleared(units)
 
                 # Generate result csv
-                result.generate_dispatchload(units, current + datetime.timedelta(minutes=25) if process == 'predispatch' else current, start, process)
-                result.generate_result_csv(process, start, current + datetime.timedelta(minutes=25) if process == 'predispatch' else current, model.objVal, solution, penalty.getValue(),
-                                           interconnectors, regions, units, fcas_flag)
+                result.write_dispatchload(units, current + datetime.timedelta(minutes=25) if process == 'predispatch' else current, start, process, k=iteration, path_to_out=path_to_out)
+                result.write_result_csv(process, start, current + datetime.timedelta(minutes=25) if process == 'predispatch' else current, model.objVal, solution, penalty.getValue(),
+                                        interconnectors, regions, units, fcas_flag, k=iteration, path_to_out=path_to_out)
 
         # Calculate difference of objectives by increasing demand by 1 as marginal price
         else:
@@ -360,39 +359,38 @@ def dispatch(cvp, start, interval, process,
                     # debug.verify_binding_constr(model, constraints)
                     base = cost.getValue()
                     # Generate result csv
-                    result.generate_dispatchload(units, current + datetime.timedelta(minutes=25) if process == 'predispatch' else current, start, process)
-                    result.generate_result_csv(process, start, current + datetime.timedelta(minutes=25) if process == 'predispatch' else current, model.objVal, solution, penalty.getValue(),
-                                               interconnectors, regions, units, fcas_flag)
+                    result.write_dispatchload(units, current + datetime.timedelta(minutes=25) if process == 'predispatch' else current, start, process, k=iteration, path_to_out=path_to_out)
+                    result.write_result_csv(process, start, current + datetime.timedelta(minutes=25) if process == 'predispatch' else current, model.objVal, solution, penalty.getValue(),
+                                            interconnectors, regions, units, fcas_flag, k=iteration, path_to_out=path_to_out)
                 else:
                     prices[region_name] = cost.getValue() - base
             result.add_prices(process, start, current, prices)
         if process == 'dispatch':
-            result.generate_dispatchis(start, current, regions, prices)
+            result.write_dispatchis(start, current, regions, prices, k=iteration, path_to_out=path_to_out)
         elif process == 'predispatch':
-            result.generate_predispatchis(start, current + datetime.timedelta(minutes=25), interval, regions, prices)
+            result.write_predispatchis(start, current + datetime.timedelta(minutes=25), interval, regions, prices, k=iteration, path_to_out=path_to_out)
         else:
-            result.generate_p5min(start, current, interval, regions, prices)
-        if custom_unit is not None:
+            result.write_p5min(start, current, interval, regions, prices, k=iteration, path_to_out=path_to_out)
+        if custom_unit is not None and iteration == 0:
             # print(custom_unit.total_cleared)
             result.record_cutom_unit(current, custom_unit, prices)
         return prices
 
-    except gurobipy.GurobiError as e:
-        print('Error code ' + str(e.errno) + ": " + str(e))
-    # except AttributeError as e:
-    #     print('Encountered an attribute error: ' + str(e))
+    # except gurobipy.GurobiError as e:
+    #     print('Error code ' + str(e.errno) + ": " + str(e))
+    except AttributeError as e:
+        print('Encountered an attribute error: ' + str(e))
 
 
-def get_dispatch(start, process, custom_unit=None):
-    cvp = helpers.read_cvp()
+def get_all_dispatch(start, process, custom_unit=None):
     total = helpers.get_total_intervals(process, start)
     for i in range(total):
-        prices = dispatch(cvp, start, i, process, custom_unit)
+        prices = dispatch(start=start, interval=i, process=process, custom_unit=custom_unit)
     return prices
 
 
 if __name__ == '__main__':
-    cvp = helpers.read_cvp()
+
     # process_type = 'dispatch'
     process_type = 'p5min'
     # process_type = 'predispatch'
@@ -400,10 +398,10 @@ if __name__ == '__main__':
     # start_time = datetime.datetime(2020, 9, 1, 4, 30 if process_type == 'predispatch' else 5, 0)
     end_time = datetime.datetime(2020, 9, 2, 4, 0, 0)
 
-    path_to_log = preprocess.LOG_DIR / f'{process_type}_{preprocess.get_case_datetime(start_time)}.log'
+    path_to_log = default.LOG_DIR / f'{process_type}_{default.get_case_datetime(start_time)}.log'
     logging.basicConfig(filename=path_to_log, filemode='w', format='%(levelname)s: %(asctime)s %(message)s', level=logging.DEBUG)
     total_intervals = helpers.get_total_intervals(process_type, start_time)
     # for interval in range(int((end_time-start_time) / preprocess.FIVE_MIN + 1)):
     # for interval in range(32, total_intervals, 1):
     for interval in range(total_intervals):
-        prices = dispatch(cvp, start_time, interval, process_type)
+        prices = dispatch(start=start_time, interval=interval, process=process_type)

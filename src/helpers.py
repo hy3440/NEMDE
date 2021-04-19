@@ -1,5 +1,5 @@
 import json
-import preprocess
+import default
 
 
 def condition1(process, i):
@@ -36,19 +36,19 @@ def condition3(process, dis, pre, rhs):
 
 
 def read_cvp():
-    input_dir = preprocess.DATA_DIR / 'CVP.json'
+    input_dir = default.DATA_DIR / 'CVP.json'
     with input_dir.open() as f:
         return json.load(f)
 
 
-def get_total_intervals(process, start_time):
-    dispatch_intervals = 1
+def get_total_intervals(process, start_time=None):
+    dispatch_intervals = 288
     p5min_intervals = 12
-    if process == 'dispatch':
+    if process == 'dispatch' or process == 'DISPATCH':
         return dispatch_intervals
-    elif process == 'p5min':
+    elif process == 'p5min' or process == 'P5MIN':
         return p5min_intervals
     else:
-        pre_dir = preprocess.DATA_DIR / 'predispatch_intervals.json'
+        pre_dir = default.DATA_DIR / 'predispatch_intervals.json'
         with pre_dir.open() as f:
             return json.load(f)[start_time.strftime('%H:%M')]

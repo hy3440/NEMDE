@@ -1,3 +1,4 @@
+import default
 import logging
 
 
@@ -100,7 +101,7 @@ def calculate_marginal_prices_by_definition(units, regions, prices):
     # for dic, type, reverse_flag in zip([generators, loads], ['GENERATORS', 'LOADS'], [True, False]):
     #     for region_id, list in dic.items():
     #         list.sort(key=getKey, reverse=reverse_flag)
-    #         dir = preprocess.OUT_DIR / f'{type}_{region_id}.csv'
+    #         dir = default.OUT_DIR / f'{type}_{region_id}.csv'
     #         with dir.open(mode='w') as result_file:
     #             writer = csv.writer(result_file, delimiter=',')
     #             writer.writerow(['DUID', 'Var Name', 'Dispatch Target', 'Avail', 'RRP', 'Price', 'Loss Factor'])
@@ -108,7 +109,7 @@ def calculate_marginal_prices_by_definition(units, regions, prices):
     #                 writer.writerow([band.duid, band.target.VarName, band.target.x, band.avail, band.rrp, band.price, band.mlf])
 
     for region_id in generators.keys():
-        dir = preprocess.OUT_DIR / f'{region_id}.csv'
+        dir = default.OUT_DIR / f'{region_id}.csv'
         with dir.open(mode='w') as result_file:
             writer = csv.writer(result_file, delimiter=',')
             for dic, dispatch_type, reverse_flag in zip([generators, loads], ['GENERATOR', 'LOAD'], [True, False]):

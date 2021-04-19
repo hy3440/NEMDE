@@ -2,6 +2,7 @@
 
 import csv
 import datetime
+import default
 import gurobipy
 import json
 import logging
@@ -186,11 +187,11 @@ def extract_trading(t, region):
 
 
 def get_dir(t, start, process):
-    interval_datetime = preprocess.get_case_datetime(t + preprocess.THIRTY_MIN) if process == 'predispatch' else preprocess.get_case_datetime(t + preprocess.FIVE_MIN)
+    interval_datetime = default.get_case_datetime(t + preprocess.THIRTY_MIN) if process == 'predispatch' else default.get_case_datetime(t + preprocess.FIVE_MIN)
     if process == 'dispatch':
-        p = preprocess.OUT_DIR / f'{process}_{preprocess.get_case_datetime(start)}'
+        p = default.OUT_DIR / f'{process}_{default.get_case_datetime(start)}'
     else:
-        p = preprocess.OUT_DIR / process / f'{process}_{preprocess.get_case_datetime(start)}'
+        p = default.OUT_DIR / process / f'{process}_{default.get_case_datetime(start)}'
     return p / f'dispatchload_{interval_datetime}.csv'
 
 
@@ -277,11 +278,11 @@ def extract_5min_predispatch(t, region):
     dispatch_dir = preprocess.download_5min_predispatch(t)
     with dispatch_dir.open() as f:
         reader = csv.reader(f)
-        current = preprocess.get_interval_datetime(t)
+        current = default.get_interval_datetime(t)
         # return [float(row[8]) for row in reader if row[0] == 'D' and row[2] == 'REGIONSOLUTION' and row[7] == region and row[6] != current]  # RRP
         for row in reader:
             if row[0] == 'D' and row[2] == 'REGIONSOLUTION' and row[7] == region and row[5] == intervention:
-                p5min_times.append(preprocess.extract_datetime(row[6]))
+                p5min_times.append(default.extract_datetime(row[6]))
                 p5min_energy_prices.append(float(row[8]))
                 # raise6sec_prices.append(float(row[11]))
                 # raise60sec_prices.append(float(row[13]))
@@ -306,8 +307,8 @@ def extract_predispatch(k, t, region):
     with dispatch_dir.open() as f:
         reader = csv.reader(f)
         for row in reader:
-            if row[0] == 'D' and row[2] == 'REGION_PRICES' and row[6] == region and preprocess.extract_datetime(row[28]) > p5_datetime and row[8] == intervention:
-                predispatch_times.append(preprocess.extract_datetime(row[28]))
+            if row[0] == 'D' and row[2] == 'REGION_PRICES' and row[6] == region and default.extract_datetime(row[28]) > p5_datetime and row[8] == intervention:
+                predispatch_times.append(default.extract_datetime(row[28]))
                 predispatch_energy_prices.append(float(row[9]))
                 # raise6sec_prices.append(float(row[29]))
                 # raise60sec_prices.append(float(row[30]))
@@ -468,7 +469,7 @@ def schedule(i, t, battery):
 
 def generate_csv(time, battery):
     result_dir = battery.bat_dir / 'price_taker_{}_{}.csv'.format('forecast' if forecast_flag else 'predispatch',
-                                                                  preprocess.get_case_date(time))
+                                                                  default.get_case_date(time))
     with result_dir.open(mode='w') as f:
         writer = csv.writer(f, delimiter=',')
         writer.writerow(['No.',
@@ -527,7 +528,7 @@ def plot_power(time, gen, load, gen_record, load_record, prices, name, results_d
     plt.xlabel('Interval')
     plt.ylabel('Power (MW)')
     plt.legend()
-    plt.savefig(results_dir / f'{name}_{preprocess.get_case_date(time)}_{DAYS}')
+    plt.savefig(results_dir / f'{name}_{default.get_case_date(time)}_{DAYS}')
 
 
 def plot_revenue(time, results_dir):
@@ -547,7 +548,7 @@ def plot_revenue(time, results_dir):
     plt.xlabel('Interval')
     plt.ylabel('Revenue')
     plt.legend()
-    plt.savefig(results_dir / f'revenue_{preprocess.get_case_date(time)}_{DAYS}')
+    plt.savefig(results_dir / f'revenue_{default.get_case_date(time)}_{DAYS}')
 
 
 def plot_charge_level(time, results_dir):
@@ -560,7 +561,7 @@ def plot_charge_level(time, results_dir):
     plt.xlabel('Interval')
     plt.ylabel('Battery Charge Level (MWh)')
     plt.legend()
-    plt.savefig(results_dir / f'battery_charge_level_{preprocess.get_case_date(time)}_{DAYS}')
+    plt.savefig(results_dir / f'battery_charge_level_{default.get_case_date(time)}_{DAYS}')
 
 
 def plot_forecasts(time, Epred, energy_prices, energy_times, p5min_energy_prices, p5min_times, predispatch_energy_prices, predispatch_times, battery):
@@ -589,14 +590,14 @@ def plot_forecasts(time, Epred, energy_prices, energy_times, p5min_energy_prices
     plt.legend()
     forecast_dir = battery.bat_dir / 'forecast'
     forecast_dir.mkdir(parents=True, exist_ok=True)
-    plt.savefig(forecast_dir / preprocess.get_result_datetime(time + FIVE_MIN))
+    plt.savefig(forecast_dir / default.get_result_datetime(time + FIVE_MIN))
     plt.close(fig)
 
 
 def generate_forecasts(time, Epred, energy_prices, energy_times, p5min_energy_prices, p5min_times, predispatch_energy_prices, predispatch_times, battery):
     forecast_csv = battery.bat_dir / 'forecast_csv'
     forecast_csv.mkdir(parents=True, exist_ok=True)
-    with (forecast_csv / f'{preprocess.get_result_datetime(time + FIVE_MIN)}.csv').open(mode='w') as f:
+    with (forecast_csv / f'{default.get_result_datetime(time + FIVE_MIN)}.csv').open(mode='w') as f:
         writer = csv.writer(f, delimiter=',')
         writer.writerow(['Datetime',
                          'Charge Level (MWh)',
@@ -664,11 +665,11 @@ def plot_results(time, battery):
     ax4.tick_params(axis='y', labelcolor=col3)
 
     plt.legend()
-    print(preprocess.get_case_date(time))
+    print(default.get_case_date(time))
     plt.savefig(battery.bat_dir / '{}_eff={}_{}_{}'.format(battery.name,
                                                            int(battery.eff * 100),
                                                            'forecast' if forecast_flag else 'predispatch',
-                                                           preprocess.get_case_date(time)))
+                                                           default.get_case_date(time)))
     plt.close(fig)
 
 

@@ -1,5 +1,6 @@
 import constrain
 import datetime
+import default
 import gurobipy
 import json
 import interconnect
@@ -653,18 +654,18 @@ def dispatch(cvp, start, i, process,
                     # for region in regions.values():
                     #     region.rrp = 0 if link_flag else region.rrp_constr.pi
                     # Generate result csv
-                    result.generate_dispatchload(units, current, start, process)
-                    result.generate_result_csv(process, start, current, model.objVal, solution.total_objective,
-                                               interconnectors, regions, units, fcas_flag)
+                    result.write_dispatchload(units, current, start, process)
+                    result.write_result_csv(process, start, current, model.objVal, solution.total_objective,
+                                            interconnectors, regions, units, fcas_flag)
                 else:
                     prices[region_name] = cost.getValue() - base
         result.add_prices(process, start, current, prices)
         if process == 'dispatch':
-            result.generate_dispatchis(start, current, regions, prices)
+            result.write_dispatchis(start, current, regions, prices)
         elif process == 'predispatch':
-            result.generate_predispatchis(start, current, interval, regions, prices)
+            result.write_predispatchis(start, current, interval, regions, prices)
         else:
-            result.generate_p5min(start, current, regions, prices)
+            result.write_p5min(start, current, regions, prices)
         return prices
 
     # except gurobipy.GurobiError as e:
@@ -674,7 +675,7 @@ def dispatch(cvp, start, i, process,
 
 
 def read_cvp():
-    input_dir = preprocess.DATA_DIR / 'CVP.json'
+    input_dir = default.DATA_DIR / 'CVP.json'
     with input_dir.open() as f:
         return json.load(f)
 
@@ -687,7 +688,7 @@ def get_intervals(process):
     elif process == 'p5min':
         return p5min_intervals
     else:
-        pre_dir = preprocess.DATA_DIR / 'predispatch_intervals.json'
+        pre_dir = default.DATA_DIR / 'predispatch_intervals.json'
         with pre_dir.open() as f:
             return json.load(f)[start_time.strftime('%H:%M')]
 
@@ -697,7 +698,7 @@ if __name__ == '__main__':
     start_time = datetime.datetime(2020, 6, 1, 4, 5, 0)
     process_type = 'dispatch'
     # process_type = 'p5min'
-    path_to_log = preprocess.LOG_DIR / '{}_{}.log'.format(process_type, preprocess.get_case_datetime(start_time))
+    path_to_log = default.LOG_DIR / '{}_{}.log'.format(process_type, default.get_case_datetime(start_time))
     logging.basicConfig(filename=path_to_log, filemode='w', format='%(levelname)s: %(asctime)s %(message)s', level=logging.DEBUG)
     intervals = get_intervals(process_type)
     flag = True

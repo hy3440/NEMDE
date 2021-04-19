@@ -1,6 +1,7 @@
 # import bid
 import csv
 import datetime
+import default
 # import dispatch
 import gurobipy
 import interconnect
@@ -16,9 +17,6 @@ import offer
 import price_taker_2
 import logging
 
-
-FIVE_MIN = datetime.timedelta(minutes=5)
-THIRTY_MIN = datetime.timedelta(minutes=30)
 
 class Link:
     """ MNSP link class.
@@ -110,7 +108,7 @@ def test_regional_energy_balance_equation(t):
             regions[interconnector.to_region].net_mw_flow_record += interconnector.mw_flow_record
             regions[interconnector.from_region].net_mw_flow_record -= interconnector.mw_flow_record
 
-        result_dir = preprocess.OUT_DIR.joinpath('equations.csv')
+        result_dir = default.OUT_DIR.joinpath('equations.csv')
         with result_dir.open(mode='w') as result_file:
             writer = csv.writer(result_file, delimiter=',')
 
@@ -239,7 +237,7 @@ def test_basslink_losses(t):
 
 
 def test_losses(t):
-    result_dir = preprocess.OUT_DIR.joinpath('basslink_losses.csv')
+    result_dir = default.OUT_DIR.joinpath('basslink_losses.csv')
     with result_dir.open(mode='w') as f:
         writer = csv.writer(f, delimiter=',')
         writer.writerow(['Datetime',
@@ -249,7 +247,7 @@ def test_losses(t):
                          'Record',
                          'Difference'])
         for tt, flow, total_losses, guess, losses_record in test_basslink_losses(t):
-            writer.writerow([preprocess.get_case_datetime(t),
+            writer.writerow([default.get_case_datetime(t),
                              flow,
                              total_losses,
                              guess,
@@ -388,14 +386,14 @@ def test_dvd_download():
 
 
 def test_log():
-    p = preprocess.LOG_DIR / 'test.log'
+    p = default.LOG_DIR / 'test.log'
     logging.basicConfig(filename=p, filemode='w', format='%(levelname)s: %(asctime)s %(message)s', level=logging.DEBUG)
     logging.debug('test')
 
 
 def read_record(units, current):
-    interval_datetime = preprocess.get_case_datetime(current + datetime.timedelta(minutes=5))
-    record_dir = preprocess.OUT_DIR / 'dispatch' / f'dispatch_{interval_datetime}.csv'
+    interval_datetime = default.get_case_datetime(current + datetime.timedelta(minutes=5))
+    record_dir = default.OUT_DIR / 'dispatch' / f'dispatch_{interval_datetime}.csv'
     with record_dir.open() as f:
         reader = csv.reader(f)
         for row in reader:
@@ -421,13 +419,13 @@ def compare_dispatch_and_predispatch_result():
     units = {}
     for process in ('dispatch', 'p5min', 'predispatch'):
         t = datetime.datetime(2020, 9, 1, 4, 30 if process == 'predispatch' else 5, 0)
-        interval_datetime = preprocess.get_case_datetime(
-            t + preprocess.THIRTY_MIN) if process == 'predispatch' else preprocess.get_case_datetime(
+        interval_datetime = default.get_case_datetime(
+            t + preprocess.THIRTY_MIN) if process == 'predispatch' else default.get_case_datetime(
             t + preprocess.FIVE_MIN)
         if process == 'dispatch':
-            p = preprocess.OUT_DIR / f'{process}_{preprocess.get_case_datetime(t)}'
+            p = default.OUT_DIR / f'{process}_{default.get_case_datetime(t)}'
         else:
-            p = preprocess.OUT_DIR / process / f'{process}_{preprocess.get_case_datetime(t)}'
+            p = default.OUT_DIR / process / f'{process}_{default.get_case_datetime(t)}'
         result_dir = p / f'dispatchload_{interval_datetime}.csv'
         with result_dir.open(mode='r') as result_file:
             reader = csv.reader(result_file)

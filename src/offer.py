@@ -3,11 +3,6 @@ import datetime
 import default
 import logging
 import preprocess
-# import xlrd
-
-
-log = logging.getLogger(__name__)
-intervention = '0'
 
 
 class Bid:
@@ -20,6 +15,7 @@ class Bid:
         band_avail (int): Availability at price bands
 
     """
+
     def __init__(self, row):
         self.bid_type = row[6]
         # Daily bids
@@ -46,6 +42,7 @@ class EnergyBid(Bid):
         roc_down (int): MW/min for lower
 
     """
+
     def __init__(self, row):
         if row != []:
             super().__init__(row)
@@ -80,6 +77,7 @@ class FcasBid(Bid):
         high_breakpoint (int): Maximum Energy Output (MW) at which the unit can provide the full availability (MAXAVAIL) for this ancillary service
         flag (int): A flag exists for each ancillary service type such that a unit trapped or stranded in one or more service type can be immediately identified
     """
+
     def __init__(self, row):
         super().__init__(row)
         self.value = 0.0
@@ -143,6 +141,7 @@ class Unit:
         scada_value (float): AEMO actual generation SCADA value
 
     """
+
     def __init__(self, duid):
         self.duid = duid
         # DU detail
@@ -236,6 +235,12 @@ class Unit:
         # SCADA
         self.scada_value = None
 
+    def set_duid(self, duid):
+        self.duid = duid
+
+    def set_initial_mw(self, initial_mw):
+        self.initial_mw = initial_mw
+
 
 # class Generator(Unit):
 #     def __init__(self, duid, region_id, classification, station, reg_cap, max_cap, max_roc, source=None):
@@ -251,14 +256,14 @@ class Unit:
 def add_unit_bids(units, t, fcas_flag):
     """ Add unit bids.
     Args:
-        units (dict): a dictionary of units
-        t (datetime.datetime): i datetime
+        units (dict): the dictionary of units
+        t (datetime.datetime): current datetime
 
     Returns:
         None
     """
     bids_dir = preprocess.download_bidmove_complete(t)
-    interval_datetime = preprocess.get_interval_datetime(t)
+    interval_datetime = default.get_interval_datetime(t)
     with bids_dir.open() as f:
         reader = csv.reader(f)
         # logging.info('Read bid day offer.')
@@ -314,8 +319,8 @@ def add_du_detail(units, t):
     """ Add DU detail.
 
     Args:
-        units (dict): a dictionary of units
-        t (datetime.datetime): i datetime
+        units (dict): the dictionary of units
+        t (datetime.datetime): current datetime
 
     Returns:
         None
@@ -326,11 +331,11 @@ def add_du_detail(units, t):
     with dd_dir.open() as f:
         reader = csv.reader(f)
         for row in reader:
-            if row[0] == 'D' and preprocess.extract_datetime(row[4]) <= t:
+            if row[0] == 'D' and default.extract_datetime(row[4]) <= t:
                 unit = units.get(row[5])
                 if unit:
                     if row[7] in connection_points and row[5] != connection_points[row[7]]:
-                        log.error(f'Connection point ID {row[7]} has more than one unit.')
+                        logging.error(f'Connection point ID {row[7]} has more than one unit.')
                     connection_points[row[7]] = row[5]
                     unit.connection_point_id = row[7]
                     unit.volt_level = row[8]
@@ -351,8 +356,8 @@ def add_du_detail_summary(units, t):
     """ Add DU detail summary.
 
     Args:
-        units (dict): a dictionary of units
-        t (datetime.datetime): i datetime
+        units (dict): the dictionary of units
+        t (datetime.datetime): current datetime
 
     Returns:
         None
@@ -362,7 +367,7 @@ def add_du_detail_summary(units, t):
     with dds_dir.open() as f:
         reader = csv.reader(f)
         for row in reader:
-            if row[0] == 'D' and preprocess.extract_datetime(row[5]) <= t < preprocess.extract_datetime(row[6]):
+            if row[0] == 'D' and default.extract_datetime(row[5]) <= t < default.extract_datetime(row[6]):
                 unit = units.get(row[4])
                 if unit:
                     unit.region_id = row[9]
@@ -443,17 +448,18 @@ def add_intermittent_forecast(units, t):
 
     Args:
         units (dict): a dictionary of units
-        t (datetime.datetime): i datetime
+        t (datetime.datetime): current datetime
 
     Returns:
         None
     """
     intermittent_dir = preprocess.download_intermittent(t)
-    interval_datetime = preprocess.get_interval_datetime(t)
+    interval_datetime = default.get_interval_datetime(t)
     with intermittent_dir.open() as f:
         reader = csv.reader(f)
         for row in reader:
-            if row[0] == 'D' and row[2] == 'INTERMITTENT_FORECAST_TRK' and row[4] == interval_datetime:  # 4: SETTLEMENTDATE
+            if row[0] == 'D' and row[2] == 'INTERMITTENT_FORECAST_TRK' and row[
+                4] == interval_datetime:  # 4: SETTLEMENTDATE
                 unit = units[row[5]]  # 5: DUID
                 unit.origin = row[6]
                 unit.forecast_priority = row[7]
@@ -472,13 +478,14 @@ def add_dispatchload_record(units, t, fcas_flag):
 
     Args:
         units (dict): the dictionary of units
-        t (datetime.datetime): i datetime
+        t (datetime.datetime): current datetime
 
     Returns:
         None
+
     """
     record_dir = preprocess.download_next_day_dispatch(t)
-    interval_datetime = preprocess.get_interval_datetime(t)
+    interval_datetime = default.get_interval_datetime(t)
     with record_dir.open() as f:
         reader = csv.reader(f)
         # logging.info('Read next day dispatch.')
@@ -544,8 +551,20 @@ def add_dispatchload_record(units, t, fcas_flag):
 
 
 def add_unit_solution(units, t, start, fcas_flag):
+    """ Add AEMO P5MIN DISPATCHLOAD information.
+
+    Args:
+        units (dict): the dictionary of units
+        t (datetime.datetime): current datetime
+        start (datetime.datetime): start datetime
+        fcas_flag (bool): whether consider FCAS or not
+
+    Returns:
+        None
+
+    """
     record_dir = preprocess.read_p5min_unit_solution(start)
-    interval_datetime = preprocess.get_interval_datetime(t)
+    interval_datetime = default.get_interval_datetime(t)
     with record_dir.open() as f:
         reader = csv.reader(f)
         for row in reader:
@@ -581,8 +600,21 @@ def add_unit_solution(units, t, start, fcas_flag):
 
 
 def add_predispatchload(units, t, start, i, fcas_flag):
+    """ Add AEMO PREDISPATCH DISPACHLOAD information.
+
+    Args:
+        units (dict): the dictionary of units
+        t (datetime.datetime): current datetime
+        start (datetime.datetime): start datetime
+        i (int): interval number
+        fcas_flag (bool): whether consider FCAS or not
+
+    Returns:
+        None
+
+    """
     record_dir = preprocess.download_next_day_predispatch(start)
-    period_datetime = preprocess.get_interval_datetime(start)
+    period_datetime = default.get_interval_datetime(start)
     with record_dir.open() as f:
         reader = csv.reader(f)
         for row in reader:
@@ -632,23 +664,23 @@ def add_predispatchload(units, t, start, i, fcas_flag):
                         unit.actual_availability_record['LOWERREG'] = float(row[53])
 
 
-def add_dispatchload(units, t, start, process):
-    """ Add the dispatch load record generated by our model
+def add_dispatchload(units, t, start, process, k=0, path_to_out=default.OUT_DIR):
+    """ Add the dispatch load record generated by our model.
 
     Args:
         units (dict): the dictionary of units
-        t (datetime.datetime): i datetime
+        t (datetime.datetime): current datetime
         start (datetime.datetime): start datetime of the process
         process (str): 'dispatch', 'predispatch', or 'p5min'
 
     Returns:
         None
     """
-    interval_datetime = preprocess.get_case_datetime(t)
+    interval_datetime = default.get_case_datetime(t)
     if process == 'dispatch':
-        record_dir = preprocess.OUT_DIR / process / f'dispatchload_{interval_datetime}.csv'
+        record_dir = path_to_out / (process if k == 0 else f'{process}_{k}') / f'dispatchload_{interval_datetime}.csv'
     else:
-        record_dir = preprocess.OUT_DIR / process / f'{process}load_{preprocess.get_case_datetime(start)}' / f'dispatchload_{interval_datetime}.csv'
+        record_dir = path_to_out / (process if k == 0 else f'{process}_{k}') / f'{process}load_{default.get_case_datetime(start)}' / f'dispatchload_{interval_datetime}.csv'
     with record_dir.open() as f:
         reader = csv.reader(f)
         # logging.info('Read next day dispatch.')
@@ -663,11 +695,20 @@ def add_dispatchload(units, t, start, process):
 
 
 def add_agc(units, t):
+    """ Add AGC information.
+
+    Args:
+        units (dict): the dictionary of units
+        t (datetime.datetime): current datetime
+
+    Returns:
+        None
+
+    """
     record_dir = preprocess.download_next_day_dispatch(t)
-    interval_datetime = preprocess.get_interval_datetime(t)
+    interval_datetime = default.get_interval_datetime(t)
     with record_dir.open() as f:
         reader = csv.reader(f)
-        # logging.info('Read next day dispatch.')
         for row in reader:
             if row[0] == 'D' and row[2] == 'UNIT_SOLUTION' and row[4] == interval_datetime:
                 duid = row[6]
@@ -702,13 +743,22 @@ def add_scada_value(units, t):
 
 
 def calculate_daily_energy(units, t):
-    start = preprocess.get_first_datetime(t)
+    """ Calculate daily energy sum for PREDISPATCH.
+
+    Args:
+        units (dict): the dictionary of units
+        t (datetime.datetime): current datetime
+
+    Returns:
+        None
+
+    """
+    start = default.get_first_datetime(t)
     while start < t:
         record_dir = preprocess.download_next_day_dispatch(start)
-        interval_datetime = preprocess.get_interval_datetime(start)
+        interval_datetime = default.get_interval_datetime(start)
         with record_dir.open() as f:
             reader = csv.reader(f)
-            # logging.info('Read next day dispatch.')
             for row in reader:
                 if row[0] == 'D' and row[2] == 'UNIT_SOLUTION' and row[4] == interval_datetime:
                     duid = row[6]
@@ -717,27 +767,9 @@ def calculate_daily_energy(units, t):
                         unit.daily_energy += float(row[14]) / 12.0
                         unit.daily_energy_record += float(row[14]) / 12.0
         start += default.FIVE_MIN
-    return None
 
 
-def add_custom_units(units):
-    generator1 = Unit('G')
-    generator1.dispatch_type = 'GENERATOR'
-    generator1.dispatch_mode = 0
-    generator1.region_id = 'SA1'
-    generator1.transmission_loss_factor = 0.9045
-    generator1.ramp_up_rate = 100
-    generator1.ramp_down_rate = 100
-    generator1.energy = EnergyBid([])
-    generator1.energy.price_band = [0]
-    generator1.energy.max_avail = 30
-    generator1.energy.band_avail = [30]
-    generator1.initial_mw = 0
-    generator1.energy.fixed_load = 0
-    units['G'] = generator1
-
-
-def get_units(t, start, i, process, fcas_flag):
+def get_units(t, start, i, process, fcas_flag, k=0, path_to_out=default.OUT_DIR):
     """Get units.
 
     Args:
@@ -761,7 +793,6 @@ def get_units(t, start, i, process, fcas_flag):
 
     if process == 'dispatch':
         add_dispatchload_record(units, t, fcas_flag)
-        # add_custom_units(units)
     elif process == 'p5min':
         add_unit_solution(units, t, start, fcas_flag)
     elif process == 'predispatch':
@@ -774,34 +805,5 @@ def get_units(t, start, i, process, fcas_flag):
             add_agc(units, t)
     elif i > 0:
         import datetime
-        add_dispatchload(units, t + datetime.timedelta(minutes=25) if process == 'predispatch' else t, start, process)
+        add_dispatchload(units, t + default.TWENTYFIVE_MIN if process == 'predispatch' else t, start, process, k=k, path_to_out=path_to_out)
     return units, connection_points
-
-
-def test_forecast():
-    import datetime
-    t = datetime.datetime(2019, 9, 29, 7, 45, 0)
-    units, connection_points = get_units(t, t, 0, 'dispatch', True)
-    for unit in units.values():
-        if unit.forecast_priority is not None and unit.forecast_poe50 is None:
-            print('BAD')
-        elif unit.forecast_poe50 is not None:
-            print('GOOD')
-
-
-# def verify_fcas_availability():
-#     import datetime
-#     t = datetime.datetime(2020, 1, 31, 4, 5, 0)
-#     units, _ = get_units(t, t, 0, 'dispatch', True)
-#     for duid, unit in units.items():
-#        for fcas_type, avail in unit.actual_availability_record.items():
-#             if avail != 0 and unit.total_cleared_record != 0:
-#                 if fcas_type == 'RAISEREG':
-#                     a = unit.fcas_bids['RAISEREG'].max_avail
-
-
-if __name__ == "__main__":
-    # verify_fcas_availability()
-    # test_forecast()
-    a = add_custom_units()
-    print(a)

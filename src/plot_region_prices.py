@@ -4,6 +4,7 @@ import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import pathlib
 import preprocess
+import default
 from price_taker_2 import extract_trading
 from pandas.plotting import register_matplotlib_converters
 register_matplotlib_converters()
@@ -45,7 +46,7 @@ def extract_predispatch(t):
         reader = csv.reader(f)
         for row in reader:
             if row[0] == 'D' and row[2] == 'REGION_PRICES' and row[6] == region and row[8] == intervention:
-                predispatch_time.append(preprocess.extract_datetime(row[28]))
+                predispatch_time.append(default.extract_datetime(row[28]))
                 predispatch_prices.append(float(row[9]))
     return predispatch_time, predispatch_prices
 
@@ -58,7 +59,7 @@ def extract_5min_predispatch(t):
         reader = csv.reader(f)
         for row in reader:
             if row[0] == 'D' and row[2] == 'REGIONSOLUTION' and row[7] == region and row[5] == intervention:
-                fivemin_time.append(preprocess.extract_datetime(row[6]))
+                fivemin_time.append(default.extract_datetime(row[6]))
                 fivemin_prices.append(float(row[8]))
     return fivemin_time, fivemin_prices
 
@@ -87,7 +88,7 @@ def plot_prices(i, current, predispatch_time, predispatch_prices, fivemin_time, 
     plt.xlabel('Datetime')
     plt.ylabel('Price')
     plt.legend()
-    plt.savefig(result_dir / preprocess.get_result_datetime(current))
+    plt.savefig(result_dir / default.get_result_datetime(current))
     plt.close()
 
 

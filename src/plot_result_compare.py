@@ -1,13 +1,15 @@
 import csv
 import datetime
+import default
 # import gurobipy
 import logging
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 # import pandas as pd
 import pathlib
-import preprocess
 from pandas.plotting import register_matplotlib_converters
+
+
 register_matplotlib_converters()
 
 times = []
@@ -60,8 +62,8 @@ region_price_record = {
 def read_dispatch(start, current):
     # current = start + interval * preprocess.FIVE_MIN
     times.append(current)
-    interval_datetime = preprocess.get_case_datetime(current)
-    record_dir = preprocess.OUT_DIR / f'dispatch_{preprocess.get_case_datetime(start)}-result' / f'dispatch_{interval_datetime}.csv'
+    interval_datetime = default.get_case_datetime(current)
+    record_dir = default.OUT_DIR / f'dispatch_{default.get_case_datetime(start)}-result' / f'dispatch_{interval_datetime}.csv'
     with record_dir.open() as f:
         reader = csv.reader(f)
         for row in reader:
@@ -76,8 +78,8 @@ def read_dispatch(start, current):
 def read_dispatchis(start, current):
     # current = start + interval * preprocess.FIVE_MIN
     times.append(current)
-    interval_datetime = preprocess.get_case_datetime(current)
-    record_dir = preprocess.OUT_DIR / f'dispatch_{preprocess.get_case_datetime(start)}' / f'DISPATCHIS_{interval_datetime}.csv'
+    interval_datetime = default.get_case_datetime(current)
+    record_dir = default.OUT_DIR / f'dispatch_{default.get_case_datetime(start)}' / f'DISPATCHIS_{interval_datetime}.csv'
     with record_dir.open() as f:
         reader = csv.reader(f)
         for row in reader:
@@ -98,7 +100,7 @@ def main():
     current = start
     while current < end:
         read_dispatchis(start, current)
-        current += preprocess.FIVE_MIN
+        current += default.FIVE_MIN
 
     for index, region in enumerate(region_gen):
         fig = plt.figure()
@@ -115,7 +117,7 @@ def main():
         plt.ylabel("Price ($/MW)")
         # plt.show()
         # axs[index].set_title(region)
-        path_to_save = preprocess.OUT_DIR / f'prices_{preprocess.get_case_datetime(start)}'
+        path_to_save = default.OUT_DIR / f'prices_{default.get_case_datetime(start)}'
         path_to_save.mkdir(parents=True, exist_ok=True)
         plt.savefig(path_to_save / f'{region}.png')
         plt.close()
@@ -129,7 +131,7 @@ def main():
     #     # plt.ylabel("Dispatch Target")
     #     # plt.show()
     #     axs[index].set_title(region)
-    # plt.savefig(preprocess.OUT_DIR / 'plots' / 'regions')
+    # plt.savefig(default.OUT_DIR / 'plots' / 'regions')
     # plt.close()
     #
     # for ic in interconnector_target.keys():
@@ -139,7 +141,7 @@ def main():
     #     plt.xlabel("Interval")
     #     plt.ylabel("Dispatch Target")
     #     # plt.show()
-    #     plt.savefig(preprocess.OUT_DIR / 'plots' / ic)
+    #     plt.savefig(default.OUT_DIR / 'plots' / ic)
     #     plt.close()
 
 

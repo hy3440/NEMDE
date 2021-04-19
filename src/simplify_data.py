@@ -1,5 +1,6 @@
 import csv
 import datetime
+import default
 import preprocess
 
 
@@ -11,7 +12,7 @@ def simplify_bid(t):
     with bids_dir.open() as f:
         reader = csv.reader(f)
         rows = [row for row in reader if len(row) > 5 and row[5] in labels]
-    result_dir = preprocess.DATA_DIR / f"BIDS_{t.strftime('%Y%m%d')}.csv"
+    result_dir = default.DATA_DIR / f"BIDS_{t.strftime('%Y%m%d')}.csv"
     with result_dir.open(mode='w') as f:
         writer = csv.writer(f, delimiter=',')
         for row in rows:
@@ -23,7 +24,7 @@ def simplify_next_day_dispatch(t):
     with record_dir.open() as f:
         reader = csv.reader(f)
         rows = [row for row in reader if len(row) > 6 and row[6] in labels]
-    result_dir = preprocess.DATA_DIR / f"NEXT_DAY_DISPATCH_{t.strftime('%Y%m%d')}.csv"
+    result_dir = default.DATA_DIR / f"NEXT_DAY_DISPATCH_{t.strftime('%Y%m%d')}.csv"
     with result_dir.open(mode='w') as f:
         writer = csv.writer(f, delimiter=',')
         for row in rows:

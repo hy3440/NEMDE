@@ -1,5 +1,6 @@
 import csv
 import datetime
+import default
 import gurobipy
 import logging
 import pathlib
@@ -264,7 +265,7 @@ def add_interconnector_constraint(interconnectors, t):
     with ic_dir.open() as f:
         reader = csv.reader(f)
         for row in reader:
-            if row[0] == 'D' and preprocess.extract_datetime(row[6]) <= t:
+            if row[0] == 'D' and default.extract_datetime(row[6]) <= t:
                 ic = interconnectors.get(row[8])
                 if ic:
                     ic.from_region_loss_share = float(row[5])
@@ -284,7 +285,7 @@ def add_loss_factor_model(interconnectors, t):
     with lfm_dir.open() as f:
         reader = csv.reader(f)
         for row in reader:
-            if row[0] == 'D' and preprocess.extract_datetime(row[4]) <= t:
+            if row[0] == 'D' and default.extract_datetime(row[4]) <= t:
                 ic = interconnectors.get(row[6])
                 if ic:
                     ic.demand_coefficient[row[7]] = float(row[8])
@@ -296,7 +297,7 @@ def add_loss_model(interconnectors, t):
     with lm_dir.open() as f:
         reader = csv.reader(f)
         for row in reader:
-            if row[0] == 'D' and preprocess.extract_datetime(row[4]) <= t:
+            if row[0] == 'D' and default.extract_datetime(row[4]) <= t:
                 ic = interconnectors.get(row[6])
                 if ic:
                     ic.mw_breakpoint[int(row[8])] = float(row[9])
@@ -362,7 +363,7 @@ def add_mnsp_interconnector(links, t):
     with mnsp_dir.open() as f:
         reader = csv.reader(f)
         for row in reader:
-            if row[0] == 'D' and preprocess.extract_datetime(row[5]) <= t:
+            if row[0] == 'D' and default.extract_datetime(row[5]) <= t:
                 link = links.get(row[4])
                 if link:
                     link.interconnector_id = row[7]
@@ -384,7 +385,7 @@ def add_mnsp_bids(links, t):
                 if row[2] == 'DAILY':
                     link = links[row[4]]
                     link.price_band = [float(price) for price in row[12:22]]
-                elif row[2] == 'PERIOD' and preprocess.ZERO <= preprocess.extract_datetime(row[9]) - t < preprocess.THIRTY_MIN:
+                elif row[2] == 'PERIOD' and default.ZERO <= default.extract_datetime(row[9]) - t < default.THIRTY_MIN:
                     link = links[row[4]]
                     link.max_avail = int(row[10])
                     link.band_avail = [int(avail) for avail in row[12:22]]
@@ -715,7 +716,7 @@ def add_p5min_record(regions, interconnectors, t, start):
     with dispatch_dir.open() as f:
         reader = csv.reader(f)
         for row in reader:
-            if row[0] == 'D' and row[2] == 'REGIONSOLUTION' and preprocess.extract_datetime(row[6]) == t and row[5] == intervention:
+            if row[0] == 'D' and row[2] == 'REGIONSOLUTION' and default.extract_datetime(row[6]) == t and row[5] == intervention:
                 region = regions[row[7]]
                 region.rrp_record = float(row[8])
                 region.rop_record = float(row[9])
@@ -761,7 +762,7 @@ def add_p5min_record(regions, interconnectors, t, start):
                 solution.violations['total_energy_offer_violation'] = float(row[19])
                 solution.violations['total_energy_constr_violation'] = float(row[18])
                 solution.total_violation = sum(solution.violations.values())
-            elif row[0] == 'D' and row[2] == 'INTERCONNECTORSOLN' and preprocess.extract_datetime(row[7]) == t and row[5] == intervention:
+            elif row[0] == 'D' and row[2] == 'INTERCONNECTORSOLN' and default.extract_datetime(row[7]) == t and row[5] == intervention:
                 ic = interconnectors[row[6]]
                 ic.metered_mw_flow = float(row[8])
                 ic.mw_flow_record = float(row[9])

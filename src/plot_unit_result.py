@@ -1,12 +1,7 @@
 import csv
 import datetime
-# import gurobipy
-import logging
+import default
 import matplotlib.pyplot as plt
-# import pandas as pd
-import pathlib
-import preprocess
-
 
 units = {}
 
@@ -19,9 +14,9 @@ def all_zeros(l):
 
 
 def read_results(start, interval):
-    current = start + interval * preprocess.FIVE_MIN
-    interval_datetime = preprocess.get_case_datetime(current)
-    record_dir = preprocess.OUT_DIR / 'dispatch' / f'dispatch_{interval_datetime}.csv'
+    current = start + interval * default.FIVE_MIN
+    interval_datetime = default.get_case_datetime(current)
+    record_dir = default.OUT_DIR / 'dispatch' / f'dispatch_{interval_datetime}.csv'
     with record_dir.open() as f:
         reader = csv.reader(f)
         for row in reader:
@@ -47,7 +42,7 @@ def main():
             plt.xlabel("Interval No.")
             plt.ylabel("Dispatch Target")
             # plt.show()
-            plt.savefig(preprocess.OUT_DIR / 'plots' / duid)
+            plt.savefig(default.OUT_DIR / 'plots' / duid)
             plt.close()
 
 
