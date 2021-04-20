@@ -1,63 +1,10 @@
-# import bid
+import offer
 import csv
 import datetime
 import default
-# import dispatch
 import gurobipy
 import interconnect
-# import logging
-# import matplotlib.pyplot as plt
-# import pandas as pd
-import pathlib
 import preprocess
-import requests
-import zipfile
-import io
-import offer
-import price_taker_2
-import logging
-
-
-class Link:
-    """ MNSP link class.
-
-    Attributes:
-        link_id (str): Identifier for each of the two MNSP Interconnector Links
-        from_region (str): Nominated source region for interconnector
-        to_region (str): Nominated destination region for interconnector
-        max_cap (float): Maximum capacity
-        from_region_tlf (float): Transmission loss factor for link "From Region" end
-        to_region_tlf (float): Transmission loss factor for link at "To Region" end
-
-    """
-    def __init__(self,
-                 link_id,
-                 from_region,
-                 to_region,
-                 max_cap,
-                 from_region_tlf,
-                 to_region_tlf):
-        self.link_id = link_id
-        self.from_region = from_region
-        self.to_region = to_region
-        self.max_cap = max_cap
-        self.from_region_tlf = from_region_tlf
-        self.to_region_tlf = to_region_tlf
-        self.value = None
-
-    def calculate_losses(self):
-        return -3.92E-03 * self.value + 1.0393E-04 * (self.value ** 2) + 4
-
-
-def init_links():
-    """Initiate the dictionary for links.
-
-    Returns:
-        dict: A dictionary of links
-
-    """
-    return {'BLNKTAS': Link('BLNKTAS', 'VIC1', 'TAS1', 478, 0.9789, 1.0),
-            'BLNKVIC': Link('BLNKVIC', 'TAS1', 'VIC1', 594, 1.0, 0.9728)}
 
 
 def test_regional_energy_balance_equation(t):
@@ -130,43 +77,6 @@ def test_regional_energy_balance_equation(t):
             writer.writerow([interconnectors['T-V-MNSP1'].mw_flow_record])
         t += preprocess.FIVE_MIN
     # print(error)
-
-
-def test_model():
-    m = gurobipy.Model('test')
-    N = 3
-    l1 = [m.addVar(ub=2) for i in range(N)]
-    l2 = [m.addVar(ub=4) for i in range(N)]
-    for i in range(N):
-        m.addSOS(type=gurobipy.GRB.SOS_TYPE1, vars=[l1[i], l2[i]])
-    m.addConstr(l1[0] == 1)
-    m.addConstr(l2[1] == 0)
-    obj = sum(l1) + sum(l2)
-    m.setObjective(obj, gurobipy.GRB.MAXIMIZE)
-    m.optimize()
-    for i in range(N):
-        print(f'{i} l1:{l1[i].x} l2:{l2[i].x}')
-
-
-def test_download_zip():
-    start = datetime.datetime(2019, 7, 10, 0, 0, 0)
-    preprocess.download_5min_predispatch(start)
-    # url = 'http://nemweb.com.au/Reports/Archive/P5_Reports/PUBLIC_P5MIN_20190709.zip'
-    # result = requests.get(url)
-    # file = OUT_DIR.joinpath('lala.csv')
-    # if result.ok:
-    #     with zipfile.ZipFile(io.BytesIO(result.content)) as zf:
-    #         # zzf = zipfile.ZipFile(zf.read('PUBLIC_P5MIN_201907090400_20190709035532.zip'))
-    #         zzf = zipfile.ZipFile(io.BytesIO(zf.read('PUBLIC_P5MIN_201907090400_20190709035532.zip')))
-    #         csv_name = zzf.namelist()[0]
-    #         with file.open('wb') as f:
-    #             f.write(zzf.read(csv_name))
-
-
-def test_extract_e_record():
-    time = datetime.datetime(2019, 7, 9, 4, 0, 0)
-    price_taker_2.extract_e_record(time)
-    print(price_taker_2.E_record)
 
 
 def test_mnsp_losses():
@@ -270,193 +180,48 @@ def negative_basslink():
                         return None
 
 
-def test_ramp_rate(t):
-    units = bid.get_units(t)
-    for duid, unit in units.items():
-        if unit.energy is not None:
-            if unit.total_cleared_record > unit.initial_mw + 5 * unit.energy.roc_up:
-                print(f'{duid} overflow')
-            if unit.total_cleared_record < unit.initial_mw - 5 * unit.energy.roc_down:
-                print(f'{duid} underflow')
+def compare_initial_mw():
+    # Compare initial MW of dispatch, p5min and predispatch
+    t1 = datetime.datetime(2020, 9, 1, 4, 5, 0)
+    t2 = datetime.datetime(2020, 9, 1, 4, 30, 0)
+    d, _ = offer.get_units(t1, t1, 0, 'dispatch')
+    p5, _ = offer.get_units(t1, t1, 0, 'p5min')
+    pre, _ = offer.get_units(t1, t2, 0, 'predispatch')
+    print('DUID DISPATCH P5MIN PREDISPATCH')
+    for duid in d.keys():
+        a = d[duid].initial_mw
+        b = p5[duid].initial_mw
+        c = pre[duid].initial_mw
+        if not a == b == c:
+            print(duid, a, b, c)
 
 
-def test_max_avail(t):
-    units = bid.get_units(t)
-    for duid, unit in units.items():
-        if unit.energy is not None:
-            if unit.total_cleared_record > unit.energy.max_avail:
-                print(duid)
-                print(f'{unit.total_cleared_record} {unit.energy.max_avail}')
-
-
-def test_fcas_local_dispatch(t):
-    regions, interconnectors, obj_record = interconnect.get_regions_and_interconnectors(t)
-    units = bid.get_units(t)
-    for unit in units.values():
-        if unit.region is None:
-            print(f'{unit.duid} without region')
-        else:
-            regions[unit.region].lower60sec_local_dispatch_temp += unit.lower60sec_record
-            regions[unit.region].raise60sec_local_dispatch_temp += unit.raise60sec_record
-    for name, region in regions.items():
-        print(f'{name} record: {region.lower60sec_local_dispatch_record} our: {region.lower60sec_local_dispatch_temp}')
-
-
-def test_fcas_only(t):
-    units = bid.get_units(t)
-    for name, unit in units.items():
-        if unit.energy is None:
-            print(name)
-
-
-def test_p5min_predispatch_times():
-    ttimes = []
-    time = datetime.datetime(2019, 7, 19, 4, 0, 0)
-    for i in range(12):
-        print(f'i = {i}')
-        print(time)
-        price_taker_2.calculate_energy_prices(i, time, ttimes)
-        ttimes.append(time + FIVE_MIN)
-        time += FIVE_MIN
-
-    # k = i % 6
-    # print('i: {}, k: {}'.format(i, k))
-    # print(time)
-    # p5min_times, _ = price_taker.extract_5min_predispatch(time + FIVE_MIN)
-    # print(p5min_times)
-    # predispatch_times, _ = price_taker.extract_predispatch(k, time)
-    # print(predispatch_times)
-    
-
-def test_energy_prices_calculator(i, k, ttimes):
-    p5min_energy_prices, p5min_times = price_taker_2.extract_5min_predispatch(t + FIVE_MIN)
-    predispatch_energy_prices, predispatch_times = price_taker_2.extract_predispatch(k, t)
-    print('Dispatch: ')
-    if k == 0:
-        print(0)
-    else:
-        print(ttimes[-k:])
-    print('5min: ')
-    print(p5min_times[:6-k])
-    print('---------------------------------------')
-    print('5min: ')
-    print(p5min_times[6-k:12-k])
-    print('---------------------------------------')
-    print('5min: ')
-    if k == 0:
-        print(0)
-    else:
-        print(p5min_times[12-k:])
-    print('30min: ')
-    print([predispatch_times[0] for _ in range(6-k)])
-
-
-def test_trading_prices(t):
-    records = []
-    for i in range(288):
-        price_taker_2.extract_dispatch(t + FIVE_MIN, records)
-        if i % 6 == 0:
-            rrp = price_taker_2.extract_trading(t + THIRTY_MIN)  # Get spot price for period
-        elif i % 6 == 5:
-            period_price = sum(records[-6:]) / 6
-            if abs(period_price - rrp) > 0.01:
-                print(t + FIVE_MIN)
-                print(f'Trading: {rrp}')
-                print(f'Calculating: {period_price}')
-        t += FIVE_MIN
-
-
-def test_telemetered_ramp_rate(t):
-    for _ in range(288):
-        units = {}
-        bid.add_unit_bids(units, t)
-        bid.add_dispatch_record(units, t)
-        for unit in units.values():
-            if unit.energy is not None:
-                if unit.energy.roc_up == unit.ramp_up_rate:
-                    print(f'{unit.duid} at {t} up rate warning.')
-                if unit.energy.roc_down == unit.ramp_down_rate:
-                    print(f'{unit.duid} at {t} down rate warning.')
-        t += FIVE_MIN
-
-
-def test_dvd_download():
-    p = preprocess.download_interconnector_constraint()
-    print(p)
-
-
-def test_log():
-    p = default.LOG_DIR / 'test.log'
-    logging.basicConfig(filename=p, filemode='w', format='%(levelname)s: %(asctime)s %(message)s', level=logging.DEBUG)
-    logging.debug('test')
-
-
-def read_record(units, current):
-    interval_datetime = default.get_case_datetime(current + datetime.timedelta(minutes=5))
-    record_dir = default.OUT_DIR / 'dispatch' / f'dispatch_{interval_datetime}.csv'
-    with record_dir.open() as f:
-        reader = csv.reader(f)
-        for row in reader:
-            if row[0] == 'D':
-                duid = row[1]
-                if duid in units:
-                    unit = units[duid]
-                    unit.temp = float(row[2])
-
-
-def test_ramp_rate_constr(start, interval):
-    current = start + interval * datetime.timedelta(minutes=5)
-    units, connection_points = offer.get_units(current, start, interval, 'dispatch', True)
-    read_record(units, current)
-    for duid, unit in units.items():
-        down_rate = unit.energy.roc_down if unit.ramp_down_rate is None else unit.ramp_down_rate / 60
-        if unit.temp < unit.initial_mw - 5 * down_rate and abs(unit.temp - unit.initial_mw + 5 * down_rate) > 1:
-            print(f'{unit.dispatch_type} {unit.duid} below down ramp rate constraint')
-            print(f'{unit.dispatch_type} {unit.duid} energy target {unit.temp} initial {unit.initial_mw} rate {down_rate}')
-
-
-def compare_dispatch_and_predispatch_result():
-    units = {}
-    for process in ('dispatch', 'p5min', 'predispatch'):
-        t = datetime.datetime(2020, 9, 1, 4, 30 if process == 'predispatch' else 5, 0)
-        interval_datetime = default.get_case_datetime(
-            t + preprocess.THIRTY_MIN) if process == 'predispatch' else default.get_case_datetime(
-            t + preprocess.FIVE_MIN)
-        if process == 'dispatch':
-            p = default.OUT_DIR / f'{process}_{default.get_case_datetime(t)}'
-        else:
-            p = default.OUT_DIR / process / f'{process}_{default.get_case_datetime(t)}'
-        result_dir = p / f'dispatchload_{interval_datetime}.csv'
-        with result_dir.open(mode='r') as result_file:
-            reader = csv.reader(result_file)
-            for row in reader:
-                if row[0] == 'D':
-                    if row[1] not in units:
-                        units[row[1]] = []
-                    units[row[1]].append(float(row[3]))
-    for duid, l in units.items():
-        def different(l):
-            return l[0] != l[1] or l[1] != l[2] or l[0] != l[2]
-        if different(l):
-            print(f'{duid} {l}')
-    print(units)
+def test_predispatchload():
+    # Compare initial MW and total cleared record
+    start = datetime.datetime(2020, 9, 1, 13, 0, 0)
+    process = 'predispatch'
+    print('Datetime Initial MW  Total Cleared')
+    for i in range(30, 35):
+        intervals = 30 if process == 'predispatch' else 5
+        current = start + i * datetime.timedelta(minutes=intervals)
+        if process == 'predispatch':
+            pt = current
+            current -= datetime.timedelta(minutes=25)
+        units, _ = offer.get_units(t=current, start=start, i=i, process=process, dispatchload_flag=False, daily_energy_flag=False)
+        if i == 30:
+            import random
+            duid = random.choice(list(units.keys()))
+            while units[duid].total_cleared_record == 0:
+                duid = random.choice(list(units.keys()))
+            print(duid)
+        unit = units[duid]
+        print(f'{current} {unit.initial_mw} {unit.total_cleared_record}')
 
 
 if __name__ == '__main__':
-    # test_mnsp_losses()
-    start = datetime.datetime(2020, 6, 1, 14, 5, 0)
-    # test_losses(t)
-    # test_regional_energy_balance_equation(t)
-    # negative_basslink()
-    # test_max_avail(t)
-    # test_fcas_local_dispatch(t)
-    # test_fcas_only(t)
-    # test_p5min_predispatch_times()
-    # test_trading_prices(t)
-    # test_telemetered_ramp_rate(t+FIVE_MIN)
-    # test_dvd_download()
-    # test_log()
-    # test_ramp_rate_constr(start, 2)
-    compare_dispatch_and_predispatch_result()
-
-
+    start = datetime.datetime(2020, 9, 1, 4, 30, 0)
+    t = datetime.datetime(2020, 9, 1, 13, 0, 0)
+    i = 0
+    d, n = default.extract_from_interval_no('2020090108', True)
+    print(d)
+    print(n)

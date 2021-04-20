@@ -32,10 +32,16 @@ def add_regional_energy_demand_supply_balance_constr(model, region, region_id, h
     return penalty
 
 
+def prepare():
+    cvp = helpers.read_cvp()
+
+
 def dispatch(start, interval, process,
+             cvp=helpers.read_cvp(),
              iteration=0,  # Price-taker iteration number
              custom_unit=None,  # Custom unit
              path_to_out=default.OUT_DIR,  # Out file path
+             dispatchload_flag=True,  # Whether use our DISPATCHLOAD or AEMO's record
              hard_flag=False,  # Whether apply hard constraints or not
              fcas_flag=True,  # Whether calculate FCAS or not
              constr_flag=True,  # Whether apply generic constraints or not
@@ -47,10 +53,14 @@ def dispatch(start, interval, process,
              ic_record_flag=False  # Whether apply interconnector import/export limit record or not
              ):
     try:
-        cvp = helpers.read_cvp()
         total_obj = 0
         intervals = 30 if process == 'predispatch' else 5  # Length of the dispatch interval in minutes
         current = start + interval * datetime.timedelta(minutes=intervals)  # Current interval datetime
+        if process == 'predispatch':
+            predispatch_current = current
+            current -= default.TWENTYFIVE_MIN
+        else:
+            predispatch_current = None
         logging.info('----------------------------------------------------------------------------------')
         logging.info(f'Current interval is {current} (No. {interval} starting at {start}) for {process}')
         model = gurobipy.Model(f'{process}{default.get_case_datetime(current)}{interval}{iteration}')
@@ -59,14 +69,13 @@ def dispatch(start, interval, process,
         slack_variables = set()
         energy_bands = {'GENERATOR': {'NSW1': {}, 'SA1': {}, 'VIC1': {}, 'QLD1': {}, 'TAS1': {}},
                         'LOAD': {'NSW1': {}, 'SA1': {}, 'VIC1': {}, 'QLD1': {}, 'TAS1': {}}}
-        if process == 'predispatch':
-            current -= datetime.timedelta(minutes=25)
+
         # Get market price cap (MPC) and floor
         voll, market_price_floor = constrain.get_market_price(current)
         # Get regions, interconnectors, and case solution
         regions, interconnectors, solution, links = interconnect.get_regions_and_interconnectors(current, start, interval, process, fcas_flag, link_flag)
         # Get units and connection points
-        units, connection_points = offer.get_units(current, start, interval, process, fcas_flag, k=iteration, path_to_out=path_to_out)
+        units, connection_points = offer.get_units(current, start, interval, process, fcas_flag=fcas_flag, dispatchload_flag=dispatchload_flag, predispatch_t=predispatch_current, k=iteration, path_to_out=path_to_out)
         # Add cutom unit
         if custom_unit is not None:
             units[custom_unit.duid] = custom_unit
@@ -331,8 +340,8 @@ def dispatch(start, interval, process,
                 # debug.compare_total_cleared(units)
 
                 # Generate result csv
-                result.write_dispatchload(units, current + datetime.timedelta(minutes=25) if process == 'predispatch' else current, start, process, k=iteration, path_to_out=path_to_out)
-                result.write_result_csv(process, start, current + datetime.timedelta(minutes=25) if process == 'predispatch' else current, model.objVal, solution, penalty.getValue(),
+                result.write_dispatchload(units, predispatch_current if process == 'predispatch' else current, start, process, k=iteration, path_to_out=path_to_out)
+                result.write_result_csv(process, start, predispatch_current if process == 'predispatch' else current, model.objVal, solution, penalty.getValue(),
                                         interconnectors, regions, units, fcas_flag, k=iteration, path_to_out=path_to_out)
 
         # Calculate difference of objectives by increasing demand by 1 as marginal price
@@ -359,8 +368,8 @@ def dispatch(start, interval, process,
                     # debug.verify_binding_constr(model, constraints)
                     base = cost.getValue()
                     # Generate result csv
-                    result.write_dispatchload(units, current + datetime.timedelta(minutes=25) if process == 'predispatch' else current, start, process, k=iteration, path_to_out=path_to_out)
-                    result.write_result_csv(process, start, current + datetime.timedelta(minutes=25) if process == 'predispatch' else current, model.objVal, solution, penalty.getValue(),
+                    result.write_dispatchload(units, predispatch_current if process == 'predispatch' else current, start, process, k=iteration, path_to_out=path_to_out)
+                    result.write_result_csv(process, start, predispatch_current if process == 'predispatch' else current, model.objVal, solution, penalty.getValue(),
                                             interconnectors, regions, units, fcas_flag, k=iteration, path_to_out=path_to_out)
                 else:
                     prices[region_name] = cost.getValue() - base
@@ -368,7 +377,7 @@ def dispatch(start, interval, process,
         if process == 'dispatch':
             result.write_dispatchis(start, current, regions, prices, k=iteration, path_to_out=path_to_out)
         elif process == 'predispatch':
-            result.write_predispatchis(start, current + datetime.timedelta(minutes=25), interval, regions, prices, k=iteration, path_to_out=path_to_out)
+            result.write_predispatchis(start, predispatch_current, interval, regions, prices, k=iteration, path_to_out=path_to_out)
         else:
             result.write_p5min(start, current, interval, regions, prices, k=iteration, path_to_out=path_to_out)
         if custom_unit is not None and iteration == 0:
@@ -390,18 +399,18 @@ def get_all_dispatch(start, process, custom_unit=None):
 
 
 if __name__ == '__main__':
-
     # process_type = 'dispatch'
-    process_type = 'p5min'
-    # process_type = 'predispatch'
-    start_time = datetime.datetime(2020, 9, 1, 14, 5, 0)
-    # start_time = datetime.datetime(2020, 9, 1, 4, 30 if process_type == 'predispatch' else 5, 0)
+    # process_type = 'p5min'
+    process_type = 'predispatch'
+    # start_time = datetime.datetime(2020, 9, 1, 4, 5, 0)
+    start_time = datetime.datetime(2020, 9, 1, 4, 30 if process_type == 'predispatch' else 5, 0)
     end_time = datetime.datetime(2020, 9, 2, 4, 0, 0)
 
     path_to_log = default.LOG_DIR / f'{process_type}_{default.get_case_datetime(start_time)}.log'
     logging.basicConfig(filename=path_to_log, filemode='w', format='%(levelname)s: %(asctime)s %(message)s', level=logging.DEBUG)
     total_intervals = helpers.get_total_intervals(process_type, start_time)
+    cvp = helpers.read_cvp()
     # for interval in range(int((end_time-start_time) / preprocess.FIVE_MIN + 1)):
     # for interval in range(32, total_intervals, 1):
     for interval in range(total_intervals):
-        prices = dispatch(start=start_time, interval=interval, process=process_type)
+        prices = dispatch(start=start_time, interval=interval, process=process_type, cvp=cvp)

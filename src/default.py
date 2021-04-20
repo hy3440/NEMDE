@@ -14,6 +14,9 @@ THIRTY_MIN = datetime.timedelta(minutes=30)
 FOUR_HOUR = datetime.timedelta(hours=4)
 ONE_DAY = datetime.timedelta(days=1)
 
+PERIODS = 48
+INTERVALS = 288
+
 
 def early_morning(t):
     """ Check if t is early morning (before 4am).
@@ -121,32 +124,56 @@ def get_result_datetime(t):
     return t.strftime('%Y-%m-%d %H-%M-%S')  # YY-mm-dd HH:MM:SS
 
 
-def datetime_to_interval(t):
+def datetime_to_interval(t, process_type='dispatch'):
     """ Calculate interval number by datetime.
 
     Args:
          t (datetime.datetime): datetime
+         process_type (str)： dispatch, p5min or predispatch
 
     Returns:
         (Start datetime, Interval number)
     """
     last = t - ONE_DAY if early_morning(t) else t
     start = datetime.datetime(last.year, last.month, last.day, 4, 0)
-    no = int((t - start) / FIVE_MIN)
+    no = int((t - start) / (THIRTY_MIN if process_type == 'predispatch' else FIVE_MIN))
     return last, no
 
 
-def get_first_datetime(t):
+def get_first_datetime(t, process='dispatch'):
     """ Get the first interval datetime.
 
     Args:
          t (datetime.datetime): datetime
+         process (str): 'dispatch', 'p5min', or 'predispatch'
 
     Returns:
         The first interval datetime.datetime
     """
     if early_morning(t):
         yesterday = t - ONE_DAY
-        return datetime.datetime(yesterday.year, yesterday.month, yesterday.day, 4, 5, 0)
+        return datetime.datetime(yesterday.year, yesterday.month, yesterday.day, 4, 30 if process == 'predispatch' else 5, 0)
     else:
-        return datetime.datetime(t.year, t.month, t.day, 4, 5, 0)
+        return datetime.datetime(t.year, t.month, t.day, 4, 30 if process == 'predispatch' else 5, 0)
+
+
+def get_interval_no(t, process_type='predispatch'):
+    """ Get the interval number
+
+    Args:
+        t (datetime.datetime): current datetime
+        process_type (str): dispatch, p5min, or predispatch
+
+    Returns:
+        A string represent the interval number of current datetime
+    """
+    last, no = datetime_to_interval(t, process_type)
+    return f'{last.year}{last.month:02d}{last.day:02d}{no:02d}' if process_type == 'predispatch' else f'{last.year}{last.month:02d}{last.day:02d}{no:03d}'
+
+
+def extract_from_interval_no(interval_no, period_flag=True):
+    year = int(interval_no[:4])
+    month = int(interval_no[4:6])
+    day = int(interval_no[6:8])
+    no = int(interval_no[-(2 if period_flag else 3):])
+    return datetime.datetime(year, month, day, 4, 30), no

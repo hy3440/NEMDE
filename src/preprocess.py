@@ -1,6 +1,5 @@
 import csv
 import datetime
-# import dask.dataframe as dd
 import default
 import logging
 import io
@@ -134,6 +133,30 @@ def download_p5min_unit_solution(current):
                     # print(df.head())
     else:
         print('File exists.')
+
+
+def process_predispatchload(start):
+    first_period = default.get_first_datetime(start, 'predispatch')
+    for date in [first_period, first_period + default.ONE_DAY]:
+        record_dir = download_next_day_predispatch(date)
+        with record_dir.open() as f:
+            reader = csv.reader(f)
+            for row in reader:
+                if row[0] == 'D' and row[2] == 'UNIT_SOLUTION':
+                    t, no = default.extract_from_interval_no(interval_no=row[4], period_flag=True)
+                    if t.month == first_period.month and t.day == first_period.day:
+                        current = first_period + (no - 1) * default.THIRTY_MIN
+                        to_path = new_dir(first_period) / f'PREDISPATCHLOAD_{default.get_case_datetime(current)}.csv'
+                        with to_path.open(mode='a+') as f:
+                            writer = csv.writer(f)
+                            writer.writerow(row)
+
+
+def read_predispatchload(start):
+    p = new_dir(start) / f'PREDISPATCHLOAD_{default.get_case_datetime(start)}.csv'
+    if not p.is_file():
+        process_predispatchload(start)
+    return p
 
 
 def download_from_url(url, file):
@@ -636,6 +659,7 @@ def main():
 
 
 if __name__ == '__main__':
-    download_p5min_unit_solution(datetime.datetime(2020, 10, 1, 4, 5, 0))
+    # download_p5min_unit_solution(datetime.datetime(2020, 10, 1, 4, 5, 0))
     # process_p5min_unit_solution(datetime.datetime(2020, 9, 1, 4, 5, 0))
     # preprocess_p5min_unit_solution()
+    read_predispatchload(datetime.datetime(2020, 9, 1, 4, 30))

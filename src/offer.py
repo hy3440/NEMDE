@@ -253,16 +253,18 @@ class Unit:
 #     pass
 
 
-def add_unit_bids(units, t, fcas_flag):
+def add_unit_bids(units, t, process, fcas_flag=True):
     """ Add unit bids.
     Args:
         units (dict): the dictionary of units
         t (datetime.datetime): current datetime
+        process (str): 'dispatch', 'p5min', or 'predispatch
+        fcas_flag (bool): whether to consider FCAS bids or not
 
     Returns:
         None
     """
-    bids_dir = preprocess.download_bidmove_complete(t)
+    bids_dir = preprocess.download_bidmove_summary(t) if process == 'predispatch' else preprocess.download_bidmove_complete(t)
     interval_datetime = default.get_interval_datetime(t)
     with bids_dir.open() as f:
         reader = csv.reader(f)
@@ -323,7 +325,7 @@ def add_du_detail(units, t):
         t (datetime.datetime): current datetime
 
     Returns:
-        None
+        A dictionary of connection points
     """
     connection_points = {}
     dd_dir = preprocess.download_dvd_data('DUDETAIL', t)
@@ -613,12 +615,13 @@ def add_predispatchload(units, t, start, i, fcas_flag):
         None
 
     """
-    record_dir = preprocess.download_next_day_predispatch(start)
-    period_datetime = default.get_interval_datetime(start)
+    # TODO: Add explanation comment
+    interval_no = default.get_interval_no(start)
+    record_dir = preprocess.read_predispatchload( start)
     with record_dir.open() as f:
         reader = csv.reader(f)
         for row in reader:
-            if row[0] == 'D' and row[2] == 'UNIT_SOLUTION' and int(row[8]) == i + 1 and row[34] == period_datetime:
+            if row[0] == 'D' and row[2] == 'UNIT_SOLUTION' and int(row[8]) == i + 1 and row[4] == interval_no:
                 duid = row[6]
                 if duid in units:
                     unit = units[duid]
@@ -672,6 +675,8 @@ def add_dispatchload(units, t, start, process, k=0, path_to_out=default.OUT_DIR)
         t (datetime.datetime): current datetime
         start (datetime.datetime): start datetime of the process
         process (str): 'dispatch', 'predispatch', or 'p5min'
+        k (int): price-taker iteration number
+        path_to_out (Path): path to the out directory
 
     Returns:
         None
@@ -690,8 +695,9 @@ def add_dispatchload(units, t, start, process, k=0, path_to_out=default.OUT_DIR)
                 if duid in units:
                     unit = units[duid]
                     unit.initial_mw = float(row[2])
-                    unit.daily_energy = float(row[4])
-                    unit.daily_energy_record = float(row[5])
+                    if unit.energy is not None and unit.energy.daily_energy_limit != 0:
+                        unit.energy.daily_energy = float(row[4])
+                        unit.energy.daily_energy_record = float(row[5])
 
 
 def add_agc(units, t):
@@ -753,7 +759,7 @@ def calculate_daily_energy(units, t):
         None
 
     """
-    start = default.get_first_datetime(t)
+    start = default.get_first_datetime(t, 'dispatch')
     while start < t:
         record_dir = preprocess.download_next_day_dispatch(start)
         interval_datetime = default.get_interval_datetime(start)
@@ -764,24 +770,38 @@ def calculate_daily_energy(units, t):
                     duid = row[6]
                     if duid in units:
                         unit = units[duid]
-                        unit.daily_energy += float(row[14]) / 12.0
-                        unit.daily_energy_record += float(row[14]) / 12.0
+                        if unit.energy is not None and unit.energy.daily_energy_limit != 0:
+                            unit.energy.daily_energy += float(row[14]) / 12.0
+                            unit.energy.daily_energy_record += float(row[14]) / 12.0
         start += default.FIVE_MIN
 
 
-def get_units(t, start, i, process, fcas_flag, k=0, path_to_out=default.OUT_DIR):
+def get_units(t, start, i, process, fcas_flag=True, dispatchload_flag=True, daily_energy_flag=True, predispatch_t=None, k=0, path_to_out=default.OUT_DIR):
     """Get units.
 
     Args:
-        t (datetime.datetime): Interval datetime
+        t (datetime.datetime): Current datetime (Note special case for Predispatch)
+        start (datetime.datetime): Start datetime
+        i (int): Interval number
+        process (str): 'dispatch', 'p5min' or 'predispatch'
         fcas_flag (bool): Consider FCAS or not
+        dispatchload_flag (bool): True if use our DISPATCHLOAD; False if use AEMO'S DISPATCHLOAD record
+        predispatch_t (datetime.datetime): Current Predispatch datetime
+        k (int): Price-taker iteration number
+        path_to_out (Path): Path to the out directory
 
     Returns:
-        dict: A dictionary of units
+        dict: A dictionary of units and a dictionary of connection points
 
     """
+    # Pre-process t and predispatch_t for PREDISPATCH
+    if process == 'predispatch':
+        if predispatch_t is None:
+            predispatch_t = start + i * default.THIRTY_MIN
+            t = predispatch_t - default.TWENTYFIVE_MIN
+
     units = {}
-    add_unit_bids(units, t, fcas_flag)
+    add_unit_bids(units, predispatch_t if process == 'predispatch' else t, process, fcas_flag)
     add_intermittent_forecast(units, t)
 
     # add_registration_information(units)
@@ -796,14 +816,13 @@ def get_units(t, start, i, process, fcas_flag, k=0, path_to_out=default.OUT_DIR)
     elif process == 'p5min':
         add_unit_solution(units, t, start, fcas_flag)
     elif process == 'predispatch':
-        import datetime
-        add_predispatchload(units, t + datetime.timedelta(minutes=25), start, i, fcas_flag)
-        if i == 0:
+        add_predispatchload(units, predispatch_t, start, i, fcas_flag)
+        if i == 0 and daily_energy_flag:
             calculate_daily_energy(units, t)
     if i == 0 and fcas_flag:
         if process != 'dispatch':
             add_agc(units, t)
-    elif i > 0:
+    elif i > 0 and dispatchload_flag:
         import datetime
-        add_dispatchload(units, t + default.TWENTYFIVE_MIN if process == 'predispatch' else t, start, process, k=k, path_to_out=path_to_out)
+        add_dispatchload(units, predispatch_t if process == 'predispatch' else t, start, process, k=k, path_to_out=path_to_out)
     return units, connection_points
