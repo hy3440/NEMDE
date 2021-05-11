@@ -14,3 +14,6 @@ Transmission Node Identities
 
 Regional Reference Node
 
+#### VoLL
+
+Value of Lost Load (in $/MWh). This is the price cap for the spot price calculated by the NEMDE algorithm.
