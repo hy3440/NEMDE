@@ -30,8 +30,11 @@ def verify_binding_constr(model, constraints):
         if constr.slack is not None and constr.slack != 0 and constr.constrName in constraints and constraints[
             constr.constrName].bind_flag:
             logging.warning(f'Constraint {constr.constrName} is not binding but record is')
-        # elif constr.slack is not None and constr.slack == 0 and not constr.bind_flag:
-        #     logging.info(f'Constraint {constr.constrName} is binding but record not.')
+        elif constr.slack is not None and constr.slack == 0 and constr.constrName in constraints and not constraints[constr.constrName].bind_flag:
+            logging.warning(f'Constraint {constr.constrName} is binding but record not.')
+        elif constr.slack is not None and constr.slack == 0 and constr.constrName in constraints and constraints[constr.constrName].bind_flag:
+            continue
+            print('yes')
 
 
 def debug_infeasible_model(model):
@@ -46,116 +49,32 @@ def debug_infeasible_model(model):
             logging.debug(f'Constraint rhs: {c.rhs}')
 
 
-def calculate_marginal_prices_by_definition(units, regions, prices):
-    # Calculate marginal price
-    for unit in units.values():
-        if unit.energy is not None and unit.total_cleared.x > 0:
-            for target, price in zip(unit.offers, unit.energy.price_band):
-                if target.x > 0 and (prices[unit.region_id] is None or prices[
-                    unit.region_id] < price / unit.transmission_loss_factor):
-                    prices[unit.region_id] = price / unit.transmission_loss_factor
-                    regions[unit.region_id].debug_duid = unit.duid
-
-    # Verify marginal price for debugging
-    # for region in regions.values():
-    #     region.rrp = get_prices[region.region_id]
-    #     unit = units[region.debug_duid]
-    #     print(f'{region.region_id} {unit.dispatch_type} {region.debug_duid}')
-    #     print(f'target {unit.total_cleared.x} record {unit.total_cleared_record} MLF {unit.transmission_loss_factor}')
-    #     for t, p, a in zip(unit.offers, unit.energy.price_band, unit.energy.band_avail):
-    #         print(f'Dispatch Target {t.x} Avail {a} at Price {p / unit.transmission_loss_factor}')
-    # Sort by band price
-    class Band:
-        def __init__(self, target, avail, price, duid, mlf, bid_type, dispatch_type):
-            self.target = target
-            self.avail = avail
-            self.price = price
-            self.duid = duid
-            self.mlf = mlf
-            self.rrp = price / mlf
-            self.bid_type = bid_type
-            self.dispatch_type = dispatch_type
-
-    def getKey(band):
-        return band.rrp if band.bid_type == 'ENERGY' else band.price
-
-    generators = {'NSW1': [], 'VIC1': [], 'TAS1': [], 'SA1': [], 'QLD1': []}
-    loads = {'NSW1': [], 'VIC1': [], 'TAS1': [], 'SA1': [], 'QLD1': []}
-    for duid, unit in units.items():
-        if unit.energy is not None and unit.total_cleared.x > 0:
-            dic = generators if unit.dispatch_type == 'GENERATOR' else loads
-            for target, price, avail in zip(unit.offers, unit.energy.price_band, unit.energy.band_avail):
-                if target.x > 0:
-                    dic[unit.region_id].append(
-                        Band(target, avail, price, duid, unit.transmission_loss_factor, 'ENERGY', unit.dispatch_type))
-        if unit.fcas_bids != {}:
-            for bid_type, fcas in unit.fcas_bids.items():
-                if fcas.x > 0:
-                    for target, price, avail in zip(fcas.offers, fcas.price_band, fcas.band_avail):
-                        if target.x > 0:
-                            generators[unit.region_id].append(
-                                Band(target, avail, price, duid, unit.transmission_loss_factor, bid_type,
-                                     unit.dispatch_type))
-    import csv
-    import preprocess
-    # for dic, type, reverse_flag in zip([generators, loads], ['GENERATORS', 'LOADS'], [True, False]):
-    #     for region_id, list in dic.items():
-    #         list.sort(key=getKey, reverse=reverse_flag)
-    #         dir = default.OUT_DIR / f'{type}_{region_id}.csv'
-    #         with dir.open(mode='w') as result_file:
-    #             writer = csv.writer(result_file, delimiter=',')
-    #             writer.writerow(['DUID', 'Var Name', 'Dispatch Target', 'Avail', 'RRP', 'Price', 'Loss Factor'])
-    #             for band in list:
-    #                 writer.writerow([band.duid, band.target.VarName, band.target.x, band.avail, band.rrp, band.price, band.mlf])
-
-    for region_id in generators.keys():
-        dir = default.OUT_DIR / f'{region_id}.csv'
-        with dir.open(mode='w') as result_file:
-            writer = csv.writer(result_file, delimiter=',')
-            for dic, dispatch_type, reverse_flag in zip([generators, loads], ['GENERATOR', 'LOAD'], [True, False]):
-                row1 = ['Region ID', 'AEMO Regional Reference Price',
-                        'Total Generation' if dispatch_type == 'GENERATOR' else 'Total Load']
-                row2 = [region_id, regions[region_id].rrp_record,
-                        regions[region_id].dispatchable_generation_record if dispatch_type == 'GENERATOR' else regions[
-                            region_id].dispatchable_load_record]
-                for bid_type, record in regions[region_id].fcas_local_dispatch_record.items():
-                    row1.append(bid_type)
-                    row2.append(record)
-                l = dic[region_id]
-                l.sort(key=getKey, reverse=reverse_flag)
-                writer.writerow(['Bid Type', 'Dispatch Type', 'Unit ID', 'Var Name', 'Dispatch Target', 'Availability',
-                                 'Price/Loss Factor', 'Price', 'Loss Factor'])
-                for band in l:
-                    writer.writerow(
-                        [band.bid_type, band.dispatch_type, band.duid, band.target.VarName, band.target.x, band.avail,
-                         band.rrp, band.price, band.mlf])
-                writer.writerow([''])
-                writer.writerow([''])
-
-
-def debug(model, hard_flag, regions, slack_variables, generic_slack_variables):
+def check_violation(model, regions, slack_variables, generic_slack_variables):
     # Check slack variables for soft constraints
-    if not hard_flag:
-        for region_id, region in regions.items():
-            logging.debug('{} Deficit: {}'.format(region_id, region.deficit_gen.x))
-            logging.debug('{} Surplus: {}'.format(region_id, region.surplus_gen.x))
-        logging.debug('Slack variables:')
-        for name in slack_variables:
-            var = model.getVarByName(name)
-            if var.x != 0:
-                logging.debug('{}'.format(var))
-        logging.debug('Slack variables for generic constraints:')
-        for name in generic_slack_variables:
-            var = model.getVarByName(name)
-            if var.x != 0:
-                logging.debug('{}'.format(var))
+    for region_id, region in regions.items():
+        logging.debug('{} Deficit: {}'.format(region_id, region.deficit_gen.x))
+        logging.debug('{} Surplus: {}'.format(region_id, region.surplus_gen.x))
+    logging.debug('Slack variables:')
+    for name in slack_variables:
+        var = model.getVarByName(name)
+        if var is not None and var.x != 0:
+            logging.debug('{}'.format(var))
+    logging.debug('Slack variables for generic constraints:')
+    for name in generic_slack_variables:
+        var = model.getVarByName(name)
+        if var.x != 0:
+            logging.debug('{}'.format(var))
 
 
-def compare_total_cleared(units):
-    # Compare total cleared with record
+def compare_total_cleared_and_fcas(units):
+    # Compare total cleared and FCAS value with AEMO record
     for duid, unit in units.items():
         if unit.total_cleared_record is not None and abs(unit.total_cleared_record - (0 if type(unit.total_cleared) == float else unit.total_cleared.x)) > 1:
-            print(f'{duid} {unit.total_cleared.x} record {unit.total_cleared_record}')
+            logging.debug(f'ENERGY {unit.region_id} {duid} {unit.total_cleared.x} record {unit.total_cleared_record}')
+        if unit.fcas_bids != {}:
+            for bid_type, fcas in unit.fcas_bids.items():
+                if abs(unit.target_record[bid_type] - (0 if type(fcas.value) == float else fcas.value.x)) > 1:
+                    logging.debug(f'{bid_type} {unit.region_id} {duid} {0 if type(fcas.value) == float else fcas.value.x} record {unit.target_record[bid_type]}')
 
 
 def print_energy_bands(energy_bands):
@@ -165,3 +84,12 @@ def print_energy_bands(energy_bands):
                 if len(l) > 1:
                     print(p)
                     print(l)
+
+
+def check_binding_generic_fcas_constraints(regions, constraints):
+    for region_id, region in regions.items():
+        for bid_type, fcas_constraints in region.fcas_constraints.items():
+            for constr_name in fcas_constraints:
+                constr = constraints[constr_name]
+                if constr.bind_flag and constr.constr.pi != 0:
+                    logging.debug(f'{region_id} {bid_type} {constr.constr.pi}')

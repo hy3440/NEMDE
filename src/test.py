@@ -88,10 +88,10 @@ def test_mnsp_losses():
     x_s = range(link.max_cap + 1)
     y_s = [-3.92E-03 * x_i + 1.0393E-04 * (x_i ** 2) + 4 for x_i in x_s]
     lambda_s = [model.addVar(lb=0.0) for i in x_s]
-    model.addConstr(link.mw_flow == sum([x_i * lambda_i for x_i, lambda_i in zip(x_s, lambda_s)]))
+    model.addLConstr(link.mw_flow == sum([x_i * lambda_i for x_i, lambda_i in zip(x_s, lambda_s)]))
     link.losses = model.addVar(lb=-gurobipy.GRB.INFINITY)
-    model.addConstr(link.losses == sum([y_i * lambda_i for y_i, lambda_i in zip(y_s, lambda_s)]))
-    model.addConstr(sum(lambda_s) == 1)
+    model.addLConstr(link.losses == sum([y_i * lambda_i for y_i, lambda_i in zip(y_s, lambda_s)]))
+    model.addLConstr(sum(lambda_s) == 1)
     model.addSOS(gurobipy.GRB.SOS_TYPE2, lambda_s)
     link.total_losses = (1 - link.from_region_tlf) * (link.mw_flow + link.losses) + link.losses + (1 - link.to_region_tlf) * link.mw_flow
 
@@ -100,17 +100,17 @@ def test_mnsp_losses():
     # x_s = range(-link.max_cap, 0)
     # y_s = [-3.92E-03 * x_i + 1.0393E-04 * (x_i ** 2) + 4 for x_i in x_s]
     # lambda_s = [model.addVar(lb=0.0) for i in x_s]
-    # model.addConstr(-link.mw_flow == sum([x_i * lambda_i for x_i, lambda_i in zip(x_s, lambda_s)]))
+    # model.addLConstr(-link.mw_flow == sum([x_i * lambda_i for x_i, lambda_i in zip(x_s, lambda_s)]))
     # link.losses = model.addVar(lb=-gurobipy.GRB.INFINITY)
-    # model.addConstr(link.losses == sum([y_i * lambda_i for y_i, lambda_i in zip(y_s, lambda_s)]))
-    # model.addConstr(sum(lambda_s) == 1)
+    # model.addLConstr(link.losses == sum([y_i * lambda_i for y_i, lambda_i in zip(y_s, lambda_s)]))
+    # model.addLConstr(sum(lambda_s) == 1)
     # model.addSOS(gurobipy.GRB.SOS_TYPE2, lambda_s)
     # link.total_losses = (1 - link.from_region_tlf) * (-link.mw_flow + link.losses) + link.losses + (1 - link.to_region_tlf) * (-link.mw_flow)
 
     # model.addSOS(gurobipy.GRB.SOS_TYPE1, [links['BLNKVIC'].mw_flow, links['BLNKTAS'].mw_flow])
     # mw_losses = links['BLNKVIC'].total_losses + links['BLNKVIC'].total_losses - 4
-    # model.addConstr(-426.19289 == links['BLNKVIC'].mw_flow - links['BLNKTAS'].mw_flow)
-    model.addConstr(100 == links['BLNKVIC'].mw_flow)
+    # model.addLConstr(-426.19289 == links['BLNKVIC'].mw_flow - links['BLNKTAS'].mw_flow)
+    model.addLConstr(100 == links['BLNKVIC'].mw_flow)
     model.setObjective(1)
     model.optimize()
     print(f'loss: {link.total_losses.getValue()}')
@@ -218,10 +218,140 @@ def test_predispatchload():
         print(f'{current} {unit.initial_mw} {unit.total_cleared_record}')
 
 
+def test_objective(t):
+    #TODO: Calculate objective to verify
+    import constrain
+    all_cost = 0
+    total_energy, total_fcas, total_link = 0, 0, 0
+    model = gurobipy.Model()
+    regions, interconnectors, solution, links = interconnect.get_regions_and_interconnectors(t, t, 0, 'dispatch')
+    # model.addLConstr(interconnectors['T-V-MNSP1'].mw_flow_record == links['BLNKTAS'].mw_flow - links['BLNKVIC'].mw_flow, name='BASSLINK_CONSTR')
+
+    for link_id, link in links.items():
+        # Avail at each price band
+        link.offers = [model.addVar(ub=avail, name=f'Target{no}_{link_id}') for no, avail in enumerate(link.band_avail)]
+        # Link flow
+        link.mw_flow = model.addVar(name=f'Link_Flow_{link_id}')
+        model.addLConstr(link.mw_flow == sum(link.offers))
+
+        link.from_cost = sum([o * (p / link.from_region_tlf) for o, p in zip(link.offers, link.price_band)])
+        link.to_cost = sum([o * (p / link.to_region_tlf) for o, p in zip(link.offers, link.price_band)])
+        # Add cost to objective
+        total_link -= link.from_cost  # As load for from_region
+        total_link += link.to_cost  # As generator for to_region
+        all_cost -= link.from_cost
+        all_cost += link.to_cost
+
+        model.addLConstr(link.mw_flow == link.mw_flow_record)
+
+    units, connection_points = offer.get_units(t, t, 0, 'dispatch')
+    for unit in units.values():
+        if unit.energy is not None:
+            for no, avail in enumerate(unit.energy.band_avail):
+                bid_offer = model.addVar(name=f'Energy_Avail{no}_{unit.duid}')
+                unit.offers.append(bid_offer)
+                model.addLConstr(bid_offer <= avail, name=f'ENERGY_AVAIL{no}_{unit.duid}')
+            # Total dispatch total_cleared
+            unit.total_cleared = model.addVar(name=f'Total_Cleared_{unit.duid}')
+            model.addLConstr(unit.total_cleared, gurobipy.GRB.EQUAL, sum(unit.offers))
+            model.addLConstr(unit.total_cleared, gurobipy.GRB.EQUAL, unit.total_cleared_record)
+            unit.cost = sum(
+                [o * (p / unit.transmission_loss_factor) for o, p in zip(unit.offers, unit.energy.price_band)])
+            if unit.dispatch_type == 'GENERATOR':
+                total_energy += unit.cost
+                all_cost += unit.cost
+            elif unit.dispatch_type == 'LOAD':
+                total_energy -= unit.cost
+                all_cost += unit.cost
+            else:
+                print('Error!')
+
+        if unit.fcas_bids != {}:
+            for bid_type, fcas in unit.fcas_bids.items():
+                fcas.value = model.addVar(name=f'{fcas.bid_type}_Target_{unit.duid}')
+                for no, avail in enumerate(fcas.band_avail):
+                    bid_offer = model.addVar(name=f'{bid_type}_Avail{no}_{unit.duid}')
+                    fcas.offers.append(bid_offer)
+                    model.addLConstr(bid_offer <= avail, name=f'{bid_type}_AVAIL{no}_{unit.duid}')
+                model.addLConstr(fcas.value, sense=gurobipy.GRB.EQUAL, rhs=sum(fcas.offers),
+                                name=f'{bid_type}_SUM_{unit.duid}')
+                # Add cost to objective
+                fcas.cost = sum([o * p for o, p in zip(fcas.offers, fcas.price_band)])
+
+                total_fcas += fcas.cost
+                all_cost += fcas.cost
+
+                model.addLConstr(fcas.value == unit.target_record[bid_type])
+    model.setObjective(all_cost, gurobipy.GRB.MINIMIZE)
+    model.optimize()
+
+    total_cost = total_energy + total_fcas + total_link
+
+
+    print(f'value {total_cost.getValue()}')
+    print(f'total energy {total_energy.getValue()}')
+    print(f'total fcas {total_fcas.getValue()}')
+    print(f'total link {total_link.getValue()}')
+    # for link_id, link in links.items():
+    #     print(f'{link_id} {link.price_band} {link.offers}')
+    all_energy, all_fcas, all_link = 0, 0, 0
+    for index in range(all_cost.size()):
+        coeff = all_cost.getCoeff(index)
+        var = all_cost.getVar(index)
+        if var.x != 0:
+            if 'Energy' in var.varName:
+                all_energy += var.x * coeff
+            elif 'BLNK' in var.varName:
+                # print(var)
+                # print(coeff)
+                all_link += var.x * coeff
+            else:
+                all_fcas += var.x * coeff
+    print(f'all cost {all_cost.getValue()}')
+    print(f'all energy {all_energy}')
+    print(f'all fcas {all_fcas}')
+    print(f'all link {all_link}')
+
+
+def test_obj():
+    path_to_out = default.OUT_DIR / 'obj' / 'rate.csv'
+    start = datetime.datetime(2020, 9, 1, 4, 5, 0)
+    with path_to_out.open('w') as wf:
+        writer = csv.writer(wf)
+        writer.writerow(['Datetime', 'Our Obj', 'AEMO Obj', 'Rate (AEMO/Our)', '> 4?', 'Our Violation', 'AEMO Violation'])
+        for i in range(288):
+            current = start + i * default.FIVE_MIN
+            path_to_file = default.OUT_DIR / 'dispatch' / f'dispatch_{default.get_case_datetime(current)}.csv'
+            with path_to_file.open() as f:
+                reader = csv.reader(f)
+                for row in reader:
+                    if row[0] == 'Value':
+                        our = float(row[1])
+                        aemo = float(row[2])
+                        rate = aemo / our
+                        writer.writerow([current, our, aemo, rate, abs(rate - 4) > 1, row[3], row[4]])
+                        continue
+
+
+def test_trading_prices():
+    import read
+    region = 'NSW1'
+    start = datetime.datetime(2020, 9, 1, 4, 5, 0)
+    for i in range(288):
+        if i % 6 == 0:
+            ours = []
+            aemos = []
+        t = start + i * default.FIVE_MIN
+        our, aemo = read.read_dispatch_prices(t, 'dispatch', True, region)
+        ours.append(our)
+        aemos.append(aemo)
+        if i % 6 == 5:
+            trad = read.read_trading_prices(t, region)
+            print(f'{t} {sum(ours) / 6} {sum(aemos) / 6} {trad}')
+
+
 if __name__ == '__main__':
-    start = datetime.datetime(2020, 9, 1, 4, 30, 0)
-    t = datetime.datetime(2020, 9, 1, 13, 0, 0)
-    i = 0
-    d, n = default.extract_from_interval_no('2020090108', True)
-    print(d)
-    print(n)
+    start = datetime.datetime(2020, 9, 1, 9, 25, 0)
+    # test_objective(start)
+    # test_obj()
+    test_trading_prices()

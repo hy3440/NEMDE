@@ -207,8 +207,7 @@ def write_result_csv(process, start, t, obj_value, solution, penalty, interconne
                    region.rop_record]
             if fcas_flag:
                 for bid_type in FCAS_TYPES:
-                    # row.append(region.fcas_rrp[bid_type])
-                    row.append('')
+                    row.append('' if region.fcas_rrp == {} else region.fcas_rrp[bid_type])
                     row.append(region.fcas_rrp_record[bid_type])
             writer.writerow(row)
 

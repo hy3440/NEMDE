@@ -1,7 +1,7 @@
 import csv
 import datetime
 import default
-import gurobipy
+import gurobipy as gp
 import logging
 import pathlib
 import preprocess
@@ -97,7 +97,7 @@ class Region:
         self.total_demand = None
         self.dispatchable_generation_record = None
         self.dispatchable_load_record = None
-        self.fcas_local_dispatch = {}
+        self.fcas_local_dispatch = {}  # Used to formulate generic constraint
         self.fcas_local_dispatch_temp = {
             'RAISEREG': 0,
             'RAISE6SEC': 0,
@@ -107,7 +107,7 @@ class Region:
             'LOWER6SEC': 0,
             'LOWER60SEC': 0,
             'LOWER5MIN': 0
-        }
+        }  # Used to calculate the sum of our FCAS value
         self.fcas_local_dispatch_record_temp = {
             'RAISEREG': 0,
             'RAISE6SEC': 0,
@@ -117,8 +117,8 @@ class Region:
             'LOWER6SEC': 0,
             'LOWER60SEC': 0,
             'LOWER5MIN': 0
-        }
-        self.fcas_local_dispatch_record = {}
+        }  # Used to calculate the sum of each FCAS type
+        self.fcas_local_dispatch_record = {}  # AEMO's FCAS local dispatch record
         # self.lower5min_local_dispatch = 0.0
         # self.lower60sec_local_dispatch = 0.0
         # self.lower6sec_local_dispatch = 0.0
@@ -138,6 +138,17 @@ class Region:
         self.rrp = None
         self.rrp_record = None
         self.rop_record = None
+        self.fcas_constraints = {
+            'RAISEREG': set(),
+            'RAISE6SEC': set(),
+            'RAISE60SEC': set(),
+            'RAISE5MIN': set(),
+            'LOWERREG': set(),
+            'LOWER6SEC': set(),
+            'LOWER60SEC': set(),
+            'LOWER5MIN': set()
+        }
+        self.local_fcas_constr = {}
         self.fcas_rrp = {}
         self.fcas_rrp_record = {}
         # self.raise6sec_rrp = None
@@ -409,66 +420,66 @@ def nonlinear_calculate_interconnector_losses(model, regions, interconnectors, l
     x_s = range(-i.reverse_cap, i.forward_cap + 1)
     y_s = [(-0.0471 + 1.0044E-05 * qd - 3.5146E-07 * nd) * x_i + 9.8083E-05 * (x_i ** 2) for x_i in x_s]
     lambda_s = [model.addVar(lb=0.0) for i in x_s]
-    model.addConstr(i.mw_flow == sum([x_i * lambda_i for x_i, lambda_i in zip(x_s, lambda_s)]))
-    i.mw_losses = model.addVar(lb=-gurobipy.GRB.INFINITY)
-    model.addConstr(i.mw_losses == sum([y_i * lambda_i for y_i, lambda_i in zip(y_s, lambda_s)]))
-    model.addConstr(sum(lambda_s) == 1)
-    model.addSOS(gurobipy.GRB.SOS_TYPE2, lambda_s)
+    model.addLConstr(i.mw_flow == sum([x_i * lambda_i for x_i, lambda_i in zip(x_s, lambda_s)]))
+    i.mw_losses = model.addVar(lb=-gp.GRB.INFINITY)
+    model.addLConstr(i.mw_losses == sum([y_i * lambda_i for y_i, lambda_i in zip(y_s, lambda_s)]))
+    model.addLConstr(sum(lambda_s) == 1)
+    model.addSOS(gp.GRB.SOS_TYPE2, lambda_s)
 
     i = interconnectors['VIC1-NSW1']
     x_s = range(-i.reverse_cap, i.forward_cap + 1)
     y_s = [(0.0657 - 3.1523E-05 * vd + 2.1734E-05 * nd - 6.5967E-05 * sd) * x_i + 8.5133E-05 * (x_i ** 2) for x_i in x_s]
     lambda_s = [model.addVar(lb=0.0) for i in x_s]
-    model.addConstr(i.mw_flow == sum([x_i * lambda_i for x_i, lambda_i in zip(x_s, lambda_s)]))
-    i.mw_losses = model.addVar(lb=-gurobipy.GRB.INFINITY)
-    model.addConstr(i.mw_losses == sum([y_i * lambda_i for y_i, lambda_i in zip(y_s, lambda_s)]))
-    model.addConstr(sum(lambda_s) == 1)
-    model.addSOS(gurobipy.GRB.SOS_TYPE2, lambda_s)
+    model.addLConstr(i.mw_flow == sum([x_i * lambda_i for x_i, lambda_i in zip(x_s, lambda_s)]))
+    i.mw_losses = model.addVar(lb=-gp.GRB.INFINITY)
+    model.addLConstr(i.mw_losses == sum([y_i * lambda_i for y_i, lambda_i in zip(y_s, lambda_s)]))
+    model.addLConstr(sum(lambda_s) == 1)
+    model.addSOS(gp.GRB.SOS_TYPE2, lambda_s)
 
     i = interconnectors['V-SA']
     x_s = range(-i.reverse_cap, i.forward_cap + 1)
     y_s = [(0.0138 + 1.3598E-06 * vd - 1.3290E-05 * sd) * x_i + 1.4761E-04 * (x_i ** 2) for x_i in x_s]
     lambda_s = [model.addVar(lb=0.0) for i in x_s]
-    model.addConstr(i.mw_flow == sum([x_i * lambda_i for x_i, lambda_i in zip(x_s, lambda_s)]))
-    i.mw_losses = model.addVar(lb=-gurobipy.GRB.INFINITY)
-    model.addConstr(i.mw_losses == sum([y_i * lambda_i for y_i, lambda_i in zip(y_s, lambda_s)]))
-    model.addConstr(sum(lambda_s) == 1)
-    model.addSOS(gurobipy.GRB.SOS_TYPE2, lambda_s)
+    model.addLConstr(i.mw_flow == sum([x_i * lambda_i for x_i, lambda_i in zip(x_s, lambda_s)]))
+    i.mw_losses = model.addVar(lb=-gp.GRB.INFINITY)
+    model.addLConstr(i.mw_losses == sum([y_i * lambda_i for y_i, lambda_i in zip(y_s, lambda_s)]))
+    model.addLConstr(sum(lambda_s) == 1)
+    model.addSOS(gp.GRB.SOS_TYPE2, lambda_s)
 
     i = interconnectors['V-S-MNSP1']
     x_s = range(-i.reverse_cap, i.forward_cap + 1)
     y_s = [-0.1067 * x_i + 9.0595E-04 * (x_i ** 2) for x_i in x_s]
     lambda_s = [model.addVar(lb=0.0) for i in x_s]
-    model.addConstr(i.mw_flow == sum([x_i * lambda_i for x_i, lambda_i in zip(x_s, lambda_s)]))
-    i.mw_losses = model.addVar(lb=-gurobipy.GRB.INFINITY)
-    model.addConstr(i.mw_losses == sum([y_i * lambda_i for y_i, lambda_i in zip(y_s, lambda_s)]))
-    model.addConstr(sum(lambda_s) == 1)
-    model.addSOS(gurobipy.GRB.SOS_TYPE2, lambda_s)
+    model.addLConstr(i.mw_flow == sum([x_i * lambda_i for x_i, lambda_i in zip(x_s, lambda_s)]))
+    i.mw_losses = model.addVar(lb=-gp.GRB.INFINITY)
+    model.addLConstr(i.mw_losses == sum([y_i * lambda_i for y_i, lambda_i in zip(y_s, lambda_s)]))
+    model.addLConstr(sum(lambda_s) == 1)
+    model.addSOS(gp.GRB.SOS_TYPE2, lambda_s)
 
     i = interconnectors['N-Q-MNSP1']
     x_s = range(-i.reverse_cap, i.forward_cap + 1)
     y_s = [0.0331 * x_i + 1.3042E-03 * (x_i ** 2) for x_i in x_s]
     lambda_s = [model.addVar(lb=0.0) for i in x_s]
-    model.addConstr(i.mw_flow == sum([x_i * lambda_i for x_i, lambda_i in zip(x_s, lambda_s)]))
-    i.mw_losses = model.addVar(lb=-gurobipy.GRB.INFINITY)
-    model.addConstr(i.mw_losses == sum([y_i * lambda_i for y_i, lambda_i in zip(y_s, lambda_s)]))
-    model.addConstr(sum(lambda_s) == 1)
-    model.addSOS(gurobipy.GRB.SOS_TYPE2, lambda_s)
+    model.addLConstr(i.mw_flow == sum([x_i * lambda_i for x_i, lambda_i in zip(x_s, lambda_s)]))
+    i.mw_losses = model.addVar(lb=-gp.GRB.INFINITY)
+    model.addLConstr(i.mw_losses == sum([y_i * lambda_i for y_i, lambda_i in zip(y_s, lambda_s)]))
+    model.addLConstr(sum(lambda_s) == 1)
+    model.addSOS(gp.GRB.SOS_TYPE2, lambda_s)
 
     i = interconnectors['T-V-MNSP1']
-    model.addConstr(i.mw_flow == links['BLNKVIC'].mw_flow + links['BLNKTAS'].mw_flow)
+    model.addLConstr(i.mw_flow == links['BLNKVIC'].mw_flow + links['BLNKTAS'].mw_flow)
 
-    # model.addConstr(i.mw_flow == i.mw_flow_record)
+    # model.addLConstr(i.mw_flow == i.mw_flow_record)
 
     link = links['BLNKVIC']
     x_s = range(link.max_cap + 1)
     y_s = [-3.92E-03 * x_i + 1.0393E-04 * (x_i ** 2) + 4 for x_i in x_s]
     lambda_s = [model.addVar(lb=0.0) for i in x_s]
-    model.addConstr(link.mw_flow == sum([x_i * lambda_i for x_i, lambda_i in zip(x_s, lambda_s)]))
-    link.losses = model.addVar(lb=-gurobipy.GRB.INFINITY)
-    model.addConstr(link.losses == sum([y_i * lambda_i for y_i, lambda_i in zip(y_s, lambda_s)]))
-    model.addConstr(sum(lambda_s) == 1)
-    model.addSOS(gurobipy.GRB.SOS_TYPE2, lambda_s)
+    model.addLConstr(link.mw_flow == sum([x_i * lambda_i for x_i, lambda_i in zip(x_s, lambda_s)]))
+    link.losses = model.addVar(lb=-gp.GRB.INFINITY)
+    model.addLConstr(link.losses == sum([y_i * lambda_i for y_i, lambda_i in zip(y_s, lambda_s)]))
+    model.addLConstr(sum(lambda_s) == 1)
+    model.addSOS(gp.GRB.SOS_TYPE2, lambda_s)
     regions[link.from_region].losses += (1 - link.from_region_tlf) * (link.mw_flow + link.losses)
     regions[link.to_region].losses += (1 - link.to_region_tlf) * link.mw_flow
 
@@ -476,17 +487,17 @@ def nonlinear_calculate_interconnector_losses(model, regions, interconnectors, l
     x_s = range(-link.max_cap, 1)
     y_s = [-3.92E-03 * x_i + 1.0393E-04 * (x_i ** 2) + 4 for x_i in x_s]
     lambda_s = [model.addVar(lb=0.0) for i in x_s]
-    model.addConstr(link.mw_flow == sum([x_i * lambda_i for x_i, lambda_i in zip(x_s, lambda_s)]))
-    link.losses = model.addVar(lb=-gurobipy.GRB.INFINITY)
-    model.addConstr(link.losses == sum([y_i * lambda_i for y_i, lambda_i in zip(y_s, lambda_s)]))
-    model.addConstr(sum(lambda_s) == 1)
-    model.addSOS(gurobipy.GRB.SOS_TYPE2, lambda_s)
+    model.addLConstr(link.mw_flow == sum([x_i * lambda_i for x_i, lambda_i in zip(x_s, lambda_s)]))
+    link.losses = model.addVar(lb=-gp.GRB.INFINITY)
+    model.addLConstr(link.losses == sum([y_i * lambda_i for y_i, lambda_i in zip(y_s, lambda_s)]))
+    model.addLConstr(sum(lambda_s) == 1)
+    model.addSOS(gp.GRB.SOS_TYPE2, lambda_s)
     regions[link.from_region].losses += (1 - link.from_region_tlf) * (link.mw_flow + link.losses)
     regions[link.to_region].losses += (1 - link.to_region_tlf) * link.mw_flow
 
-    model.addSOS(gurobipy.GRB.SOS_TYPE1, [links['BLNKVIC'].mw_flow, links['BLNKTAS'].mw_flow])
-    i.mw_losses = model.addVar(lb=-gurobipy.GRB.INFINITY)
-    model.addConstr(i.mw_losses == links['BLNKVIC'].losses + links['BLNKTAS'].losses - 8)
+    model.addSOS(gp.GRB.SOS_TYPE1, [links['BLNKVIC'].mw_flow, links['BLNKTAS'].mw_flow])
+    i.mw_losses = model.addVar(lb=-gp.GRB.INFINITY)
+    model.addLConstr(i.mw_losses == links['BLNKVIC'].losses + links['BLNKTAS'].losses - 8)
 
     for interconnector in interconnectors.values():
         if interconnector.interconnector_id == 'T-V-MNSP1':
@@ -507,13 +518,13 @@ def sos_calculate_interconnector_losses(model, regions, interconnectors, links=N
 
         x_s = sorted(ic.mw_breakpoint.values())
         y_s = [0.5 * ic.loss_flow_coefficient * x * x + coefficient * x for x in x_s]
-        ic.mw_losses = model.addVar(lb=-gurobipy.GRB.INFINITY, name=f'Mw_Losses_{ic_id}')
+        ic.mw_losses = model.addVar(lb=-gp.GRB.INFINITY, name=f'Mw_Losses_{ic_id}')
 
         lambda_s = [model.addVar(name=f'Lambda{i}_{ic_id}') for i in x_s]
-        model.addConstr(ic.mw_flow == sum([x_i * lambda_i for x_i, lambda_i in zip(x_s, lambda_s)]), f'SOS_MW_FLOW_{ic_id}')
-        model.addConstr(ic.mw_losses == sum([y_i * lambda_i for y_i, lambda_i in zip(y_s, lambda_s)]), f'SOS_MW_LOSSES_{ic_id}')
-        model.addConstr(sum(lambda_s) == 1, f'SOS_LAMBDA_{ic_id}')
-        model.addSOS(gurobipy.GRB.SOS_TYPE2, lambda_s)
+        model.addLConstr(ic.mw_flow == sum([x_i * lambda_i for x_i, lambda_i in zip(x_s, lambda_s)]), f'SOS_MW_FLOW_{ic_id}')
+        model.addLConstr(ic.mw_losses == sum([y_i * lambda_i for y_i, lambda_i in zip(y_s, lambda_s)]), f'SOS_MW_LOSSES_{ic_id}')
+        model.addLConstr(sum(lambda_s) == 1, f'SOS_LAMBDA_{ic_id}')
+        model.addSOS(gp.GRB.SOS_TYPE2, lambda_s)
         share_losses(regions, ic)
 
 
@@ -525,9 +536,9 @@ def calculate_interconnector_losses(model, regions, interconnectors):
 
         x_s = sorted(ic.mw_breakpoint.values())
         y_s = [0.5 * ic.loss_flow_coefficient * x * x + coefficient * x for x in x_s]
-        ic.mw_losses = model.addVar(lb=-gurobipy.GRB.INFINITY, name=f'Mw_Losses_{ic.interconnector_id}')
+        ic.mw_losses = model.addVar(lb=-gp.GRB.INFINITY, name=f'Mw_Losses_{ic.interconnector_id}')
         for i in range(len(x_s) - 1):
-            model.addConstr((ic.mw_losses - y_s[i]) * (x_s[i + 1] - x_s[i]) >= (y_s[i + 1] - y_s[i]) * (ic.mw_flow - x_s[i]), f'LOSSES_{ic.interconnector_id}')
+            model.addLConstr((ic.mw_losses - y_s[i]) * (x_s[i + 1] - x_s[i]) >= (y_s[i + 1] - y_s[i]) * (ic.mw_flow - x_s[i]), f'LOSSES_{ic.interconnector_id}')
             if (ic.mw_losses_record - y_s[i]) * (x_s[i + 1] - x_s[i]) < (y_s[i + 1] - y_s[i]) * (ic.mw_flow_record - x_s[i]):
                 logging.warning(f'IC {ic.interconnector_id} violate losses constraint')
                 logging.debug(f'lhs = {(ic.mw_losses_record - y_s[i]) * (x_s[i + 1] - x_s[i])} rhs = {(y_s[i + 1] - y_s[i]) * (ic.mw_flow_record - x_s[i])}')
@@ -790,7 +801,7 @@ def add_link_record(ic, blnktas, blnkvic):
         blnkvic.metered_mw_flow = - ic.metered_mw_flow
 
 
-def get_regions_and_interconnectors(t, start, i, process, fcas_flag, link_flag):
+def get_regions_and_interconnectors(t, start, i, process, fcas_flag=True, link_flag=True):
     """Extract required information from dispatch summary file.
 
     Args:
@@ -821,14 +832,14 @@ def main():
     logging.basicConfig(format='%(levelname)s: %(asctime)s %(message)s', level=logging.DEBUG)
     t = datetime.datetime(2020, 9, 1, 18, 5, 0)
     regions, interconnectors, solution, links = get_regions_and_interconnectors(t, t, 0, 'dispatch', True, True)
-    model = gurobipy.Model('losses')
+    model = gp.Model('losses')
 
     for ic_id, ic in interconnectors.items():
         # Define interconnector MW flow
-        ic.mw_flow = model.addVar(lb=-gurobipy.GRB.INFINITY, name=f'Mw_Flow_{ic_id}')
+        ic.mw_flow = model.addVar(lb=-gp.GRB.INFINITY, name=f'Mw_Flow_{ic_id}')
 
-        ic.import_limit_constr = model.addConstr(ic.mw_flow >= -ic.import_limit, f'IMPORT_LIMIT_{ic_id}')
-        ic.export_limit_constr = model.addConstr(ic.mw_flow <= ic.export_limit, f'EXPORT_LIMIT_{ic_id}')
+        ic.import_limit_constr = model.addLConstr(ic.mw_flow >= -ic.import_limit, f'IMPORT_LIMIT_{ic_id}')
+        ic.export_limit_constr = model.addLConstr(ic.mw_flow <= ic.export_limit, f'EXPORT_LIMIT_{ic_id}')
 
         # Allocate inter-flow to regions
         regions[ic.region_to].net_mw_flow_record += ic.mw_flow_record
@@ -836,7 +847,7 @@ def main():
         regions[ic.region_to].net_mw_flow += ic.mw_flow
         regions[ic.region_from].net_mw_flow -= ic.mw_flow
 
-        model.addConstr(ic.mw_flow == ic.mw_flow_record, f'FIXED_INTERFLOW_{ic_id}')
+        model.addLConstr(ic.mw_flow == ic.mw_flow_record, f'FIXED_INTERFLOW_{ic_id}')
 
     calculate_interconnector_losses(model, regions, interconnectors)
     model.optimize()

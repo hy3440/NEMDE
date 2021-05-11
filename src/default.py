@@ -11,6 +11,7 @@ ZERO = datetime.timedelta(seconds=0)
 FIVE_MIN = datetime.timedelta(minutes=5)
 TWENTYFIVE_MIN = datetime.timedelta(minutes=25)
 THIRTY_MIN = datetime.timedelta(minutes=30)
+ONE_HOUR = datetime.timedelta(hours=1)
 FOUR_HOUR = datetime.timedelta(hours=4)
 ONE_DAY = datetime.timedelta(days=1)
 
@@ -41,6 +42,18 @@ def extract_datetime(s):
         Extracted datetime.datetime
     """
     return datetime.datetime.strptime(s, '%Y/%m/%d %H:%M:%S')
+
+
+def extract_default_datetime(s):
+    """ Extract datetime.datetime from string.
+
+        Args:
+            s (str): string to extract
+
+        Returns:
+            Extracted datetime.datetime
+        """
+    return datetime.datetime.strptime(s, '%Y-%m-%d %H:%M:%S')
 
 
 def get_case_date(t) :
@@ -172,6 +185,15 @@ def get_interval_no(t, process_type='predispatch'):
 
 
 def extract_from_interval_no(interval_no, period_flag=True):
+    """ Extract datetime and number from interval no (e.g. 2020090102 or 2020090102)
+
+    Args:
+        interval_no (str): interval number e.g. 2020090102 or 2020090102
+        period_flag (bool): whether it is 48 periods or 288 intervals
+
+    Returns:
+        datetime, period or interval number
+    """
     year = int(interval_no[:4])
     month = int(interval_no[4:6])
     day = int(interval_no[6:8])

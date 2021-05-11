@@ -68,8 +68,8 @@ class FcasBid(Bid):
     Attributes:
         value (float): Dispatch value
         offers (list): Dispatch target for each band
-        upper_slope_coeff (float)
-        lower_slop_coeff (float)
+        upper_slope_coeff (float): Upper slope coefficient
+        lower_slop_coeff (float): Lower slope coefficient
         enablement_status (int): 1 if the FCAS service is enabled for the unit, otherwise 0
         enablement_min (int): Minimum Energy Output (MW) at which this ancillary service becomes available
         enablement_max (int): Maximum Energy Output (MW) at which this ancillary service becomes available
@@ -136,7 +136,20 @@ class Unit:
         dispatch_mode (int): Dispatch mode for fast start plant (0 to 4)
         initial_mw (float): AEMO actual initial MW at START of period
         marginal_value (float): Marginal $ value for energy
-        marginal_value_record (float): AEMO record for marginal value
+        marginal_value_record (float): AEMO record of marginal value
+
+        violation_degree_record (dict): AEMO record of violation
+        lowerreg_record (float): AEMO record of Lower Regulation reserve target
+        raisereg_record (float): AEMO record of Raise Regulation reserve target
+        availability (float): AEMO record of bid energy availability
+        flags (dict): AEMO record of FCAS status flag
+        raisereg_availability (float): AEMO record of RaiseReg availability
+        raisereg_enablement_max (float): AEMO record of RaiseReg Enablement Max point
+        raisereg_enablement_min (float): AEMO record of RaiseReg Enablemnt Min point
+        lowerreg_availability (float): AEMO record of LowerReg availability
+        lowerreg_enablement_max (float): AEMO record of LowerReg Enablement Max point
+        lowerreg_enablement_min (float): AEMO record of LowerReg Enablement Min point
+        actual_availability_record (dict): AEMO record of trapezium adjusted FCAS availability
 
         scada_value (float): AEMO actual generation SCADA value
 
@@ -258,7 +271,7 @@ def add_unit_bids(units, t, process, fcas_flag=True):
     Args:
         units (dict): the dictionary of units
         t (datetime.datetime): current datetime
-        process (str): 'dispatch', 'p5min', or 'predispatch
+        process (str): 'dispatch', 'p5min', or 'predispatch'
         fcas_flag (bool): whether to consider FCAS bids or not
 
     Returns:
@@ -268,7 +281,6 @@ def add_unit_bids(units, t, process, fcas_flag=True):
     interval_datetime = default.get_interval_datetime(t)
     with bids_dir.open() as f:
         reader = csv.reader(f)
-        # logging.info('Read bid day offer.')
         for row in reader:
             if row[0] == 'D' and row[2] == 'BIDDAYOFFER_D':
                 duid = row[5]
@@ -280,15 +292,6 @@ def add_unit_bids(units, t, process, fcas_flag=True):
                     unit.energy = EnergyBid(row)
                 elif fcas_flag:
                     unit.fcas_bids[row[6]] = FcasBid(row)
-                    # if row[6] == 'RAISEREG':
-                    #     unit.raise_reg_fcas = Fcas(row)
-                    # elif row[6] == 'LOWERREG':
-                    #     unit.lower_reg_fcas = Fcas(row)
-                    # elif row[6][:5] == 'RAISE':
-                    #     unit.raise_con_fcas[row[6]] = Fcas(row)
-                    # elif row[6][:5] == 'LOWER':
-                    #     unit.lower_con_fcas[row[6]] = Fcas(row)
-
             elif row[0] == 'D' and row[2] == 'BIDPEROFFER_D' and row[31] == interval_datetime:
                 if row[6] == 'ENERGY':
                     energy = units[row[5]].energy
@@ -298,16 +301,6 @@ def add_unit_bids(units, t, process, fcas_flag=True):
                     energy.roc_down = int(row[14])
                     energy.band_avail = [int(avail) for avail in row[19:29]]
                 elif fcas_flag:
-                    # if row[6] == 'RAISEREG':
-                    #     bid = units[row[5]].raise_reg_fcas
-                    # elif row[6] == 'LOWERREG':
-                    #     bid = units[row[5]].lower_reg_fcas
-                    # elif row[6][:5] == 'RAISE':
-                    #     bid = units[row[5]].raise_con_fcas[row[6]]
-                    # elif row[6][:5] == 'LOWER':
-                    #     bid = units[row[5]].lower_con_fcas[row[6]]
-                    # else:
-                    #     logging.warning('{} {} bid warning'.format(row[5], row[6]))
                     bid = units[row[5]].fcas_bids[row[6]]
                     bid.max_avail = float(row[11])
                     bid.enablement_min = int(row[15])
@@ -329,7 +322,6 @@ def add_du_detail(units, t):
     """
     connection_points = {}
     dd_dir = preprocess.download_dvd_data('DUDETAIL', t)
-    # logging.info('Read du detail.')
     with dd_dir.open() as f:
         reader = csv.reader(f)
         for row in reader:
@@ -389,7 +381,7 @@ def add_du_detail_summary(units, t):
 #     """ Add registration information.
 #
 #     Args:
-#         units (dict): a dictionary of units
+#         units (dict): The dictionary of units
 #
 #     Returns:
 #         None
@@ -615,9 +607,8 @@ def add_predispatchload(units, t, start, i, fcas_flag):
         None
 
     """
-    # TODO: Add explanation comment
     interval_no = default.get_interval_no(start)
-    record_dir = preprocess.read_predispatchload( start)
+    record_dir = preprocess.read_predispatchload(start)
     with record_dir.open() as f:
         reader = csv.reader(f)
         for row in reader:
@@ -741,7 +732,6 @@ def add_scada_value(units, t):
     scada_dir = preprocess.download_dispatch_scada(t)
     with scada_dir.open() as f:
         reader = csv.reader(f)
-        # logging.info('Read SCADA value.')
         for row in reader:
             if row[0] == 'D':
                 if row[5] in units:

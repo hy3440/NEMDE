@@ -35,11 +35,9 @@ def new_dir(t):
 def read_p5min_unit_solution(start):
     # TODO: Not implement auto-downloading function yet.
     p = p5min_dir / f'DVD_P5MIN_UNITSOLUTION_{default.get_case_datetime(start)}.csv'
-    if p.is_file():
-        return p
-    else:
-        print(f'P5MIN unit sollution for {start} is missing.')
-        return process_p5min_unit_solution(start)
+    if not p.is_file():
+        preprocess_p5min_unit_solution(start)
+    return p
 
 
 def preprocess_p5min_unit_solution(current):
@@ -59,6 +57,7 @@ def preprocess_p5min_unit_solution(current):
 
 
 def process_p5min_unit_solution(current):
+    # TODO: Doesn't work?
     flag = False
     section = 'P5MIN_UNITSOLUTION'
     year = current.year
@@ -135,7 +134,20 @@ def download_p5min_unit_solution(current):
         print('File exists.')
 
 
-def process_predispatchload(start):
+def preprocess_predispatchload(start):
+    """ Preprocess PREDISPATCHLOAD. The original file covers all data for one day and hence is too large and costly to
+        process everytime.
+
+        Note: PREDISPATCHLOAD for one period might have been split into two files.
+        E.g. 2020-09-01 13:00 (202009018)'s Period 1~31 are in 20200901 while Period 32~79 are in 20200902
+        NEXT_DAY_PREDISPATCH file.
+
+    Args:
+        start(datetime.datetime): start datetime
+
+    Returns:
+        None
+    """
     first_period = default.get_first_datetime(start, 'predispatch')
     for date in [first_period, first_period + default.ONE_DAY]:
         record_dir = download_next_day_predispatch(date)
@@ -153,9 +165,17 @@ def process_predispatchload(start):
 
 
 def read_predispatchload(start):
+    """ Read preprocessed PREDISPATCHLOAD.
+
+    Args:
+        start (datetime.datetime): start datetime
+
+    Returns:
+        Path to the file
+    """
     p = new_dir(start) / f'PREDISPATCHLOAD_{default.get_case_datetime(start)}.csv'
     if not p.is_file():
-        process_predispatchload(start)
+        preprocess_predispatchload(start)
     return p
 
 
@@ -244,7 +264,6 @@ def download_file(section, file_pattern, date_pattern, file, t, archive_pattern=
         p = requests.get(f'{ARCHIVE_URL}/{section}')
         r = re.compile(f'{file_pattern if archive_pattern is None else archive_pattern}_{current_date}.zip<')
         match = r.findall(p.text)[0]
-
         url = f'{ARCHIVE_URL}/{section}/{match[:-1]}'
         result = requests.get(url)
         if result.ok:
@@ -260,7 +279,7 @@ def download_file(section, file_pattern, date_pattern, file, t, archive_pattern=
         download(f'{CURRENT_URL}/{section}/{match[:-1]}', file)
 
 
-def download_trading(t):
+def download_tradingis(t):
     """Download trading summary of the given datetime from
     <#VISIBILITY_ID>_TRADINGIS_<#CASE_DATETIME>_<#EVENT_QUEUE_ID>.zip
 
@@ -448,7 +467,7 @@ def download_predispatch(t):
 
     """
     case_datetime = default.get_case_datetime(t)
-    predispatch_dir = new_dir(t) / f'PUBLIC_PREDISPATCHIS_{case_datetime}.csv'
+    predispatch_dir = new_dir(t) / f'PUBLIC_PREDISPATCHIS_{case_datetime}.CSV'
     if not predispatch_dir.is_file():
         section = 'PredispatchIS_Reports'
         visibility_id = 'PUBLIC'
@@ -546,7 +565,7 @@ def download_dispatch_scada(t):
     return scada_dir
 
 
-def download_altlimits() -> None:
+def download_altlimits():
     """Download the complete list of ratings used in AEMO's EMS (energy management system)
 
     Returns:
@@ -558,7 +577,7 @@ def download_altlimits() -> None:
     download('http://nemweb.com.au/Reports/Current/Alt_Limits/altlimits.zip', file)
 
 
-def download_transmission_equipment_ratings() -> None:
+def download_transmission_equipment_ratings():
     """Download the daily transmission equipment ratings used in constraint equations and the ID used in the right-hand of the constraint equations
 
     Returns:
@@ -569,7 +588,7 @@ def download_transmission_equipment_ratings() -> None:
     download('http://nemweb.com.au/Reports/Current/Alt_Limits/PUBLIC_TER_DAILY.zip', file)
 
 
-def download_registration() -> None:
+def download_registration():
     """Download NEM regeistration and exemption list.
 
     Returns:
@@ -636,7 +655,7 @@ def download_interval(t):
 
 
 def download_period(t):
-    download_trading(t)
+    download_tradingis(t)
     download_predispatch(t)
 
 
@@ -661,5 +680,4 @@ def main():
 if __name__ == '__main__':
     # download_p5min_unit_solution(datetime.datetime(2020, 10, 1, 4, 5, 0))
     # process_p5min_unit_solution(datetime.datetime(2020, 9, 1, 4, 5, 0))
-    # preprocess_p5min_unit_solution()
-    read_predispatchload(datetime.datetime(2020, 9, 1, 4, 30))
+    preprocess_p5min_unit_solution()

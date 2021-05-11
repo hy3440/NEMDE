@@ -13,6 +13,13 @@ from pandas.plotting import register_matplotlib_converters
 register_matplotlib_converters()
 
 times = []
+region_times = {
+    'NSW1': [],
+    'QLD1': [],
+    'SA1': [],
+    'TAS1': [],
+    'VIC1': []
+}
 region_gen = {
     'NSW1': [],
     'QLD1': [],
@@ -76,27 +83,26 @@ def read_dispatch(start, current):
 
 
 def read_dispatchis(start, current):
-    # current = start + interval * preprocess.FIVE_MIN
     times.append(current)
+    # current = start + interval * preprocess.FIVE_MIN
     interval_datetime = default.get_case_datetime(current)
-    record_dir = default.OUT_DIR / f'dispatch_{default.get_case_datetime(start)}' / f'DISPATCHIS_{interval_datetime}.csv'
+    record_dir = default.OUT_DIR / 'dispatch' / f'DISPATCHIS_{interval_datetime}.csv'
     with record_dir.open() as f:
         reader = csv.reader(f)
         for row in reader:
             if row[0] == 'D':
-                price = float(row[8])
-                record = float(row[9])
-                if abs(price) > 2000:
-                    print(current)
-                region_price[row[6]].append(price if abs(price) < 3000 else 0)
-                region_price_record[row[6]].append(float(row[9]))
-                if abs(record) > 100:
-                    print(current)
+                price = float(row[9])
+                record = float(row[10])
+                if abs(price - record) > 10:
+                    # print(f'{current} {price} AEMO: {record}')
+                    region_times[row[6]].append(current)
+                    region_price[row[6]].append(price)
+                    region_price_record[row[6]].append(float(record))
 
 
 def main():
-    start = datetime.datetime(2020, 6, 1, 4, 5, 0)
-    end = datetime.datetime(2020, 6, 2, 4, 5, 0)
+    start = datetime.datetime(2020, 9, 1, 4, 5, 0)
+    end = datetime.datetime(2020, 9, 2, 4, 5, 0)
     current = start
     while current < end:
         read_dispatchis(start, current)
@@ -108,8 +114,8 @@ def main():
         plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
         plt.gca().xaxis.set_major_locator(mdates.HourLocator(interval=4))
         plt.gca().xaxis.set_minor_locator(mdates.HourLocator(byhour=range(0, 24, 4)))
-        plt.plot(times, region_price[region], color='red', label='Simulator Result')
-        plt.plot(times, region_price_record[region], color='blue', label='AEMO Record')
+        plt.scatter(region_times[region], region_price[region], color='red', label='Simulator Result')
+        plt.scatter(region_times[region], region_price_record[region], color='blue', label='AEMO Record')
         # axs[index].plot(times, region_price[region], color='red', label='Result')
         # axs[index].plot(times, region_price_record[region], color='blue', label='Record')
         plt.legend()
