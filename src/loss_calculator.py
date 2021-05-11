@@ -22,15 +22,15 @@ def calculate_losses():
             for link_id, link in links.items():
                 link.mw_flow = model.addVar()
             model.addSOS(gurobipy.GRB.SOS_TYPE1, [links['BLNKTAS'].mw_flow, links['BLNKVIC'].mw_flow])
-            model.addConstr(links['BLNKTAS'].mw_flow - links['BLNKVIC'].mw_flow == ic.mw_flow)
+            model.addLConstr(links['BLNKTAS'].mw_flow - links['BLNKVIC'].mw_flow == ic.mw_flow)
 
         for i in range(len(x_s) - 1):
             if ic.interconnector_id == 'T-V-MNSP1':
-                model.addConstr((ic.mw_losses - y_s[i]) * (x_s[i + 1] - x_s[i]) >= (y_s[i + 1] - y_s[i]) * (links['BLNKTAS'].mw_flow - x_s[i]))
-                model.addConstr((ic.mw_losses - y_s[i]) * (x_s[i + 1] - x_s[i]) >= (y_s[i + 1] - y_s[i]) * (links['BLNKVIC'].mw_flow - x_s[i]))
+                model.addLConstr((ic.mw_losses - y_s[i]) * (x_s[i + 1] - x_s[i]) >= (y_s[i + 1] - y_s[i]) * (links['BLNKTAS'].mw_flow - x_s[i]))
+                model.addLConstr((ic.mw_losses - y_s[i]) * (x_s[i + 1] - x_s[i]) >= (y_s[i + 1] - y_s[i]) * (links['BLNKVIC'].mw_flow - x_s[i]))
             else:
-                model.addConstr((ic.mw_losses - y_s[i]) * (x_s[i + 1] - x_s[i]) >= (y_s[i + 1] - y_s[i]) * (ic.mw_flow - x_s[i]))
-        model.addConstr(ic.mw_flow == ic.mw_flow_record)
+                model.addLConstr((ic.mw_losses - y_s[i]) * (x_s[i + 1] - x_s[i]) >= (y_s[i + 1] - y_s[i]) * (ic.mw_flow - x_s[i]))
+        model.addLConstr(ic.mw_flow == ic.mw_flow_record)
 
         model.setObjective(0)
         model.optimize()

@@ -11,7 +11,7 @@ from gurobipy import *
 def test(m, x, y):
     # add constraint: x + y >= 1
     l = [x, y]
-    m.addConstr(sum(l) >= 1, "c1")
+    m.addLConstr(sum(l) >= 1, "c1")
 
 
 try:
@@ -28,7 +28,7 @@ try:
     m.setObjective(x + y + 2 * z, GRB.MAXIMIZE)
 
     # add constraint: x + 2 y + 3 z <= 4
-    m.addConstr(x + 2 * y + 3 * z <= 4, "c0")
+    m.addLConstr(x + 2 * y + 3 * z <= 4, "c0")
 
     test(m, x, y)
 

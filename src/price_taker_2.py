@@ -44,7 +44,7 @@ E = []
 E_record = []
 # Price
 price_dict = {}
-period_rrp_record = []  # Average get_prices over 6 intervals as period price record
+period_rrp_record = []  # Average read_prices over 6 intervals as period price record
 interval_rrp_record = []  # Regional reference price record at each interval
 interval_prices_dict = {}
 # raise6sec_rrp_record = []
@@ -178,7 +178,7 @@ def extract_e_record(start):
 
 
 def extract_trading(t, region):
-    trading_dir = preprocess.download_trading(t)
+    trading_dir = preprocess.download_tradingis(t)
     with trading_dir.open() as f:
         reader = csv.reader(f)
         for row in reader:
@@ -393,7 +393,7 @@ def schedule(i, t, battery):
     obj = 0
     for j in range(T):
         if energy_times[j].hour == 4 and energy_times[j].minute == 0:
-            model.addConstr(Epred[j] >= battery.Emax * 0.5)
+            model.addLConstr(Epred[j] >= battery.Emax * 0.5)
         tstep = tsteps[0] if j < n else tsteps[1]
         model.addSOS(type=gurobipy.GRB.SOS_TYPE1, vars=[energy_pgen[j], energy_pload[j]])
         # model.addSOS(type=gurobipy.GRB.SOS_TYPE1, vars=[raise6sec_pgen[j], raise6sec_pload[j]])
@@ -418,28 +418,28 @@ def schedule(i, t, battery):
             current_gen = energy_pgen[j - 1]
             current_load = energy_pload[j - 1]
             current_E = Epred[j - 1]
-        model.addConstr(energy_pgen[j] <= current_gen + tstep * battery.gen_roc_up)
-        model.addConstr(energy_pgen[j] >= current_gen - tstep * battery.gen_roc_down)
-        model.addConstr(energy_pload[j] <= current_load + tstep * battery.load_roc_up)
-        model.addConstr(energy_pload[j] >= current_load - tstep * battery.load_roc_down)
-        # model.addConstr(raise6sec_pgen[j] <= max_cap - energy_pgen[j])
-        # model.addConstr(raise60sec_pgen[j] <= max_cap - energy_pgen[j])
-        # model.addConstr(raise5min_pgen[j] <= max_cap - energy_pgen[j])
-        # model.addConstr(raisereg_pgen[j] <= max_cap - energy_pgen[j])
-        # model.addConstr(lower6sec_pgen[j] <= energy_pgen[j])
-        # model.addConstr(lower60sec_pgen[j] <= energy_pgen[j])
-        # model.addConstr(lower5min_pgen[j] <= energy_pgen[j])
-        # model.addConstr(lowerreg_pgen[j] <= energy_pgen[j])
-        # model.addConstr(raise6sec_pload[j] <= energy_pload[j])
-        # model.addConstr(raise60sec_pload[j] <= energy_pload[j])
-        # model.addConstr(raise5min_pload[j] <= energy_pload[j])
-        # model.addConstr(raisereg_pload[j] <= energy_pload[j])
-        # model.addConstr(lower6sec_pload[j] >= max_cap - energy_pload[j])
-        # model.addConstr(lower60sec_pload[j] >= max_cap - energy_pload[j])
-        # model.addConstr(lower5min_pload[j] >= max_cap - energy_pload[j])
-        # model.addConstr(lowerreg_pload[j] >= max_cap - energy_pload[j])
-        model.addConstr(Epred[j] == current_E + tstep * (battery.eff * energy_pload[j] - energy_pgen[j]))
-    model.addConstr(Epred[-1] >= battery.Emax * 0.5)
+        model.addLConstr(energy_pgen[j] <= current_gen + tstep * battery.gen_roc_up)
+        model.addLConstr(energy_pgen[j] >= current_gen - tstep * battery.gen_roc_down)
+        model.addLConstr(energy_pload[j] <= current_load + tstep * battery.load_roc_up)
+        model.addLConstr(energy_pload[j] >= current_load - tstep * battery.load_roc_down)
+        # model.addLConstr(raise6sec_pgen[j] <= max_cap - energy_pgen[j])
+        # model.addLConstr(raise60sec_pgen[j] <= max_cap - energy_pgen[j])
+        # model.addLConstr(raise5min_pgen[j] <= max_cap - energy_pgen[j])
+        # model.addLConstr(raisereg_pgen[j] <= max_cap - energy_pgen[j])
+        # model.addLConstr(lower6sec_pgen[j] <= energy_pgen[j])
+        # model.addLConstr(lower60sec_pgen[j] <= energy_pgen[j])
+        # model.addLConstr(lower5min_pgen[j] <= energy_pgen[j])
+        # model.addLConstr(lowerreg_pgen[j] <= energy_pgen[j])
+        # model.addLConstr(raise6sec_pload[j] <= energy_pload[j])
+        # model.addLConstr(raise60sec_pload[j] <= energy_pload[j])
+        # model.addLConstr(raise5min_pload[j] <= energy_pload[j])
+        # model.addLConstr(raisereg_pload[j] <= energy_pload[j])
+        # model.addLConstr(lower6sec_pload[j] >= max_cap - energy_pload[j])
+        # model.addLConstr(lower60sec_pload[j] >= max_cap - energy_pload[j])
+        # model.addLConstr(lower5min_pload[j] >= max_cap - energy_pload[j])
+        # model.addLConstr(lowerreg_pload[j] >= max_cap - energy_pload[j])
+        model.addLConstr(Epred[j] == current_E + tstep * (battery.eff * energy_pload[j] - energy_pgen[j]))
+    model.addLConstr(Epred[-1] >= battery.Emax * 0.5)
     model.setObjective(obj, gurobipy.GRB.MAXIMIZE)
     model.optimize()
     print([y.x for y in Epred])
@@ -692,7 +692,7 @@ def main(battery):
         if i % 6 == 0:
             rrp = extract_trading(time + THIRTY_MIN, battery.region)  # Get spot price for period
         period_rrp_record.append(rrp)
-        interval_rrp_record.append(extract_dispatch(time + FIVE_MIN, battery.region))  # Get energy price and FCAS get_prices for interval
+        interval_rrp_record.append(extract_dispatch(time + FIVE_MIN, battery.region))  # Get energy price and FCAS read_prices for interval
         schedule(i, time, battery)
         times.append(time + FIVE_MIN)
         # revenue_actual_record.append(period_rrp_record[i] * (gen_mlf * actual_gen_record[i + 1] -
