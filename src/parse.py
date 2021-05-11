@@ -4,13 +4,13 @@ import preprocess
 import xmltodict
 
 fcas_types = {'R5RE': 'RAISEREG',
-             'L5RE': 'LOWERREG',
-             'R6SE': 'RAISE6SEC',
-             'L6SE': 'LOWER6SEC',
-             'R60S': 'RAISE60SEC',
-             'L60S': 'LOWER60SEC',
-             'R5MI': 'RAISE5MIN',
-             'L5MI': 'LOWER5MIN'
+              'L5RE': 'LOWERREG',
+              'R6SE': 'RAISE6SEC',
+              'L6SE': 'LOWER6SEC',
+              'R60S': 'RAISE60SEC',
+              'L60S': 'LOWER60SEC',
+              'R5MI': 'RAISE5MIN',
+              'L5MI': 'LOWER5MIN'
               }
 
 
@@ -112,6 +112,7 @@ def add_region_factor(constr, lhs_factor_collection, regions):
         constr.fcas_flag = True
 
         def add_region_constr(constr, regions, item):
+            regions[item['@RegionID']].fcas_constraints[fcas_types[item['@TradeType']]].add(constr.gen_con_id)
             constr.region_lhs += float(item['@Factor']) * regions[item['@RegionID']].fcas_local_dispatch[fcas_types[item['@TradeType']]]
             constr.region_lhs_record += float(item['@Factor']) * regions[item['@RegionID']].fcas_local_dispatch_record[fcas_types[item['@TradeType']]]
 
@@ -251,7 +252,7 @@ def add_nemspdoutputs(t, units, links, link_flag, process):
     xml = read_xml(t)
     if process == 'dispatch':
         add_traders(xml, units)
-        violation_prices = add_case(xml)
+        # violation_prices = add_case(xml)
         add_uigf_forecast(xml, units)
     if link_flag:
         add_mnsp_offer(xml, links)
@@ -259,7 +260,7 @@ def add_nemspdoutputs(t, units, links, link_flag, process):
     return None
 
 
-def add_xml_constr(t, start, process, units, regions, interconnectors):
+def add_xml_constr(t, start, predispatch_t, process, units, regions, interconnectors):
     xml = read_xml(t)
     constraints = {}
     add_generic_constraint(xml, units, regions, interconnectors, constraints)
@@ -269,8 +270,7 @@ def add_xml_constr(t, start, process, units, regions, interconnectors):
     elif process == 'p5min':
         constrain.add_p5min_constraint(t, start, constraints)
     else:
-        import datetime
-        constrain.add_predispatch_constraint(t + datetime.timedelta(minutes=25), start, constraints)
+        constrain.add_predispatch_constraint(predispatch_t, start, constraints)
     return constraints
 
 
