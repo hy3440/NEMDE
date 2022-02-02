@@ -34,12 +34,11 @@ def prepare(current):
 
 
 def dispatch(start, interval, process, cvp=helpers.read_cvp(), voll=None, market_price_floor=None, iteration=0,
-             custom_unit=None, path_to_out=default.OUT_DIR, dispatchload_flag=True, hard_flag=False, fcas_flag=True,
-             constr_flag=True, losses_flag=True, link_flag=True, dual_flag=True, fixed_interflow_flag=False,
-             fixed_total_cleared_flag=False, fixed_fcas_value_flag=False, fixed_local_fcas_flag=False,
-             ic_record_flag=False, debug_flag=False):
+             custom_unit=None, path_to_out=default.OUT_DIR, dispatchload_path=None, dispatchload_flag=True, agc_flag=True,
+             hard_flag=False, fcas_flag=True, constr_flag=True, losses_flag=True, link_flag=True, dual_flag=True,
+             fixed_interflow_flag=False, fixed_total_cleared_flag=False, fixed_fcas_value_flag=False, fixed_local_fcas_flag=False,
+             ic_record_flag=False, debug_flag=False, der_flag=False, model=None):
     """
-
     Args:
         start (datetime.datetime): Start datetime
         interval (int): Interval number
@@ -66,7 +65,8 @@ def dispatch(start, interval, process, cvp=helpers.read_cvp(), voll=None, market
         A dictionary of regions and prices
     """
     try:
-        total_obj = 0
+        if debug_flag:
+            path_to_out = default.DEBUG_DIR
         intervals = 30 if process == 'predispatch' else 5  # Length of the dispatch interval in minutes
         current = start + interval * datetime.timedelta(minutes=intervals)  # Current interval datetime
         if process == 'predispatch':
@@ -86,7 +86,7 @@ def dispatch(start, interval, process, cvp=helpers.read_cvp(), voll=None, market
             # Get regions, interconnectors, and case solution
             regions, interconnectors, solution, links = interconnect.get_regions_and_interconnectors(current, start, interval, process, fcas_flag, link_flag)
             # Get units and connection points
-            units, connection_points = offer.get_units(current, start, interval, process, fcas_flag=fcas_flag, dispatchload_flag=dispatchload_flag, predispatch_t=predispatch_current, k=iteration, path_to_out=path_to_out)
+            units, connection_points = offer.get_units(current, start, interval, process, dispatchload_path=dispatchload_path, fcas_flag=fcas_flag, dispatchload_flag=dispatchload_flag, agc_flag=agc_flag, predispatch_t=predispatch_current, k=iteration, path_to_out=path_to_out)
             # Add cutom unit
             if custom_unit is not None:
                 units[custom_unit.duid] = custom_unit
@@ -124,7 +124,7 @@ def dispatch(start, interval, process, cvp=helpers.read_cvp(), voll=None, market
                     penalty = constrain.add_mnsp_total_band_constr(model, link, link_id, debug_flag, penalty, voll, cvp)
                     # MNSP Max Capacity
                     if link.max_capacity is not None:
-                        if link.mw_flow_record is not None and link.mw_flow_record > link.max_capacity:
+                        if link.mw_flow_record is not None and link.mw_flow_record > link.max_capacity and debug_flag:
                             logging.warning(f'Link {link_id} mw flow record {link.mw_flow_record} above max capacity {link.max_capacity}')
                     # Add MNSP availability constraint
                     penalty = constrain.add_mnsp_avail_constr(model, link, link_id, debug_flag, penalty, voll, cvp)
@@ -143,19 +143,19 @@ def dispatch(start, interval, process, cvp=helpers.read_cvp(), voll=None, market
                     regions[link.to_region].net_interchange_record_temp -= link.mw_flow_record * link.to_region_tlf
 
                 model.addLConstr(interconnectors['T-V-MNSP1'].mw_flow, sense=gp.GRB.EQUAL, rhs=links['BLNKTAS'].mw_flow - links['BLNKVIC'].mw_flow, name='BASSLINK_CONSTR')
-                if fixed_total_cleared_flag or fixed_interflow_flag or dual_flag:
+                if fixed_total_cleared_flag or fixed_interflow_flag:
                     # TODO: New method to avoid use SOS2 for Basslink
                     # Run twice and choose the lower objective value.
                     if links['BLNKTAS'].mw_flow_record == 0:
                         model.addLConstr(links['BLNKTAS'].mw_flow, sense=gp.GRB.EQUAL, rhs=0, name='BASSLINK_BLNKTAS')
                     else:
                         model.addLConstr(links['BLNKVIC'].mw_flow, sense=gp.GRB.EQUAL, rhs=0, name='BASSLINK_BLNKVIC')
-                else:
+                elif not dual_flag:
                     model.addSOS(gp.GRB.SOS_TYPE1, [links['BLNKTAS'].mw_flow, links['BLNKVIC'].mw_flow])
             # Calculate inter-region losses
             if losses_flag:
                 if fixed_total_cleared_flag or dual_flag or fixed_interflow_flag:
-                    interconnect.calculate_interconnector_losses(model, regions, interconnectors)
+                    interconnect.calculate_interconnector_losses(model, regions, interconnectors, debug_flag)
                 else:
                     interconnect.sos_calculate_interconnector_losses(model, regions, interconnectors)
             # Add XML FCAS information
@@ -186,13 +186,13 @@ def dispatch(start, interval, process, cvp=helpers.read_cvp(), voll=None, market
                         penalty = constrain.add_daily_energy_constr(model, unit, debug_flag, penalty, voll, cvp)
                     # Add total band MW offer constraint
                     penalty = constrain.add_total_band_constr(model, unit, debug_flag, penalty, voll, cvp)
-                    # Add Unconstrained Intermittent Generation Forecasts (UIGF) constraint
+                    # Add Unconstrained Intermittent Generation Forecasts (UIGF) constraint (See AEMO2019Dispatch)
                     if process != 'predispatch':
                         penalty = constrain.add_uigf_constr(model, unit, debug_flag, penalty, voll, cvp)
                     elif process == 'predispatch' and unit.total_cleared_record is not None and unit.forecast_poe50 is not None:
                         model.addLConstr(unit.total_cleared <= unit.total_cleared_record)
                         # print(f'{unit.duid} record {unit.total_cleared_record} forecast {unit.forecast_poe50} capacity {unit.max_capacity} avail {unit.energy.max_avail} sum {sum(unit.energy.band_avail)}')
-                    # Add on-line dispatch fast start inflexibility profile constraint
+                    # Add on-line dispatch fast start inflexibility profile constraint (See AEMO2014Fast)
                     if process == 'dispatch':
                         penalty = constrain.add_fast_start_inflexibility_profile_constr(model, unit, debug_flag, penalty, voll, cvp)
                     # Add unit ramp rate constraint
@@ -206,10 +206,10 @@ def dispatch(start, interval, process, cvp=helpers.read_cvp(), voll=None, market
                     if unit.transmission_loss_factor is None:
                         logging.error(f'{unit.dispatch_type} {unit.duid} has no MLF.')
                         unit.transmission_loss_factor = 1.0
-                    # Calculate cost
-                    cost = constrain.add_cost(unit, regions, cost, process)
                     # TODO: Add Tie-Break constraint
                     # constrain.add_tie_break_constr(model, unit, energy_bands[unit.dispatch_type][unit.region_id], penalty, voll, cvp)
+                    # Calculate cost
+                    cost = constrain.add_cost(unit, regions, cost, process)
                     # Fix unit dispatch target (custom flag for debugging)
                     if fixed_total_cleared_flag:
                         model.addLConstr(unit.total_cleared == unit.total_cleared_record, name=f'ENERGY_FIXED_{unit.duid}')
@@ -221,7 +221,7 @@ def dispatch(start, interval, process, cvp=helpers.read_cvp(), voll=None, market
                     # Bid for energy and FCAS
                     if unit.energy is not None:
                         # Preprocess
-                        constrain.preprocess_fcas(unit, process, interval, intervals, debug_flag)
+                        constrain.preprocess_fcas(unit, process, interval, intervals, debug_flag, agc_flag)
                         # Co-optimise energy and FCAS
                         for bid_type, fcas in unit.fcas_bids.items():
                             regions[unit.region_id].fcas_local_dispatch_record_temp[bid_type] += 0 if not unit.target_record else unit.target_record[bid_type]  # Add FCAS record to region
@@ -252,9 +252,9 @@ def dispatch(start, interval, process, cvp=helpers.read_cvp(), voll=None, market
                     if fixed_fcas_value_flag and fcas_flag and unit.fcas_bids != {}:
                         for bid_type, fcas in unit.fcas_bids.items():
                             model.addLConstr(fcas.value == unit.target_record[bid_type], name=f'{bid_type}_FIXED_{unit.duid}')
-            # Print the collected energy bands (for debugging)
-            # if debug_flag:
-            #   debug.print_energy_bands(energy_bands)
+                # TODO: DER constraints
+                if der_flag and unit.der_flag:
+                    a = 1
 
             # Region FCAS local dispatch
             if fcas_flag:
@@ -267,6 +267,7 @@ def dispatch(start, interval, process, cvp=helpers.read_cvp(), voll=None, market
                         # Fix local FCAS dispatch for each region (custom flag for debugging)
                         if fixed_local_fcas_flag:
                             model.addLConstr(region.fcas_local_dispatch[bid_type] <= region.fcas_local_dispatch_record[bid_type], name=f'LOCAL_DISPATCH_{bid_type}_FIXED_{region_id}')
+
             # Generic constraints
             generic_slack_variables = set()
             if constr_flag:
@@ -328,70 +329,93 @@ def dispatch(start, interval, process, cvp=helpers.read_cvp(), voll=None, market
             if dual_flag or fixed_total_cleared_flag:
                 for region_id, region in regions.items():
                     penalty = add_regional_energy_demand_supply_balance_constr(model, region, region_id, debug_flag, penalty, voll, cvp)
-                # Set objective
+                # Hard constraints
                 if hard_flag:
                     model.addLConstr(penalty, sense=gp.GRB.EQUAL, rhs=0, name='PENALTY_CONSTR')
+                # Set objective
                 model.setObjective(cost + penalty, gp.GRB.MINIMIZE)
-                # Optimize model
-                model.optimize()
-                # Write model for debugging
-                # path_to_model = default.MODEL_DIR / f'{process}_{preprocess.get_case_datetime(start)}_{interval}.lp'
-                # model.write(str(path_to_model))
+                objVal = None
+                # for link_id, link in links.items():
+                for link_id in ['BLNKVIC', 'BLNKTAS']:
+                    link = links[link_id]
+                    obj_link_constr = model.addLConstr(link.mw_flow, sense=gp.GRB.EQUAL, rhs=0, name=f'BASSLINK_{link_id}')
+                    # Optimize model
+                    model.optimize()
+                    if model.status == gp.GRB.Status.INFEASIBLE or model.status == gp.GRB.Status.INF_OR_UNBD:
+                        debug.debug_infeasible_model(model)
+                        return None
+                    elif model.status == gp.GRB.Status.OPTIMAL:
+                        if objVal is None:
+                            objective = model.getObjective()
+                            objVal = model.objVal
+                            model.remove(obj_link_constr)
+                        else:
+                            objVal_temp = model.objVal
+                            if objVal <= objVal_temp:
+                                break
+                            else:
+                                objVal = objVal_temp
+                                objective = model.getObjective()
+                        print(objective.getValue())
+                        print(objective.getConstant())
+                        # Get dual total_cleared of regional energy balance constraint
+                        for region in regions.values():
+                            prices[region.region_id] = region.rrp_constr.pi
+                            region.rrp = region.rrp_constr.pi
+                            for fcas_type, fcas_constr in region.local_fcas_constr.items():
+                                region.fcas_rrp[fcas_type] = - fcas_constr.pi
+                        dispatchload_path = result.write_dispatchload(units, predispatch_current if process == 'predispatch' else current, start, process, k=iteration, path_to_out=path_to_out)
+                        # Model Debugging
+                        if debug_flag:
+                            # Write model for debugging
+                            path_to_model = path_to_out / f'{process}_{default.get_case_datetime(start)}_{interval}.lp'
+                            model.write(str(path_to_model))
+                            # Write objective into file
+                            debug.write_objective(objective, path_to_out,
+                                                  predispatch_current if process == 'predispatch' else current)
+                            # Write binding constraints into file
+                            debug.write_binding_constrs(model.getConstrs(), path_to_out,
+                                                        predispatch_current if process == 'predispatch' else current)
+                            # Verify if AEMO binding constraints are also binding in our model and vice versa
+                            debug.verify_binding_constr(model, constraints)
+                            # Compare with total cleared record
+                            debug.compare_total_cleared_and_fcas(units)
+                            # Check binding generic FCAS constraints to find the way to calculate FCAS RRP
+                            # debug.check_binding_generic_fcas_constraints(regions, constraints)
+                            # Check all the violated constraints
+                            # if penalty.getValue() > 0:
+                            #     print(f'Total violation is {penalty.getValue()}')
+                            #     debug.check_violation(model, regions, slack_variables, generic_slack_variables)
 
-                if model.status == gp.GRB.Status.INFEASIBLE or model.status == gp.GRB.Status.INF_OR_UNBD:
-                    debug.debug_infeasible_model(model)
-                    return None
-                elif model.status == gp.GRB.Status.OPTIMAL:
-                    # Model Debugging
-                    if debug_flag:
-                        # Verify if AEMO binding constraints are also binding in our model and vice versa
-                        # debug.verify_binding_constr(model, constraints)
-                        # Compare with total cleared record
-                        # debug.compare_total_cleared_and_fcas(units)
-                        # Check binding generic FCAS constraints to find the way to calculate FCAS RRP
-                        # debug.check_binding_generic_fcas_constraints(regions, constraints)
-                        # Check all the violated constraints
-                        # if penalty.getValue() > 0:
-                        #     print(f'Total violation is {penalty.getValue()}')
-                        #     debug.check_violation(model, regions, slack_variables, generic_slack_variables)
+                            # TODO: Debug for objective value
+                            total_energy, total_fcas, total_link = 0, 0, 0
+                            # for index in range(cost.size()):
+                            #     coeff = cost.getCoeff(index)
+                            #     var = cost.getVar(index)
+                            #     if var.x != 0:
+                            #         if 'Energy' in var.varName:
+                            #             total_energy += var.x * coeff
+                            #         elif 'BLNK' in var.varName:
+                            #             total_link += var.x * coeff
+                            #         else:
+                            #             total_fcas += var.x * coeff
+                            # print(f'energy {total_energy}')
+                            # print(f'fcas {total_fcas}')
+                            # print(f'link {total_link}')
+                            # print(f'total {total_energy + total_fcas + total_link}')
 
-                        # TODO: Debug for objective value
-                        total_energy, total_fcas, total_link = 0, 0, 0
-                        # for index in range(cost.size()):
-                        #     coeff = cost.getCoeff(index)
-                        #     var = cost.getVar(index)
-                        #     if var.x != 0:
-                        #         if 'Energy' in var.varName:
-                        #             total_energy += var.x * coeff
-                        #         elif 'BLNK' in var.varName:
-                        #             total_link += var.x * coeff
-                        #         else:
-                        #             total_fcas += var.x * coeff
-                        # print(f'energy {total_energy}')
-                        # print(f'fcas {total_fcas}')
-                        # print(f'link {total_link}')
-                        # print(f'total {total_energy + total_fcas + total_link}')
+                            # total_gen, total_load, total_fcas = 0, 0, 0
+                            # for region_id, region in regions.items():
+                            #     total_gen += region.dispatchable_generation_record * region.rrp_record
+                            #     total_load += region.dispatchable_load_record * region.rrp_record
+                            #     for bid_type, fcas_dispatch in region.fcas_local_dispatch_record.items():
+                            #         total_fcas += fcas_dispatch * region.fcas_rrp_record[bid_type]
+                            # print(f'gen {total_gen}')
+                            # print(f'load {total_load}')
+                            # print(f'fcas {total_fcas}')
 
-                        # total_gen, total_load, total_fcas = 0, 0, 0
-                        # for region_id, region in regions.items():
-                        #     total_gen += region.dispatchable_generation_record * region.rrp_record
-                        #     total_load += region.dispatchable_load_record * region.rrp_record
-                        #     for bid_type, fcas_dispatch in region.fcas_local_dispatch_record.items():
-                        #         total_fcas += fcas_dispatch * region.fcas_rrp_record[bid_type]
-                        # print(f'gen {total_gen}')
-                        # print(f'load {total_load}')
-                        # print(f'fcas {total_fcas}')
-
-                    # Get dual total_cleared of regional energy balance constraint
-                    for region in regions.values():
-                        prices[region.region_id] = region.rrp_constr.pi
-                        region.rrp = region.rrp_constr.pi
-                        for fcas_type, fcas_constr in region.local_fcas_constr.items():
-                            region.fcas_rrp[fcas_type] = - fcas_constr.pi
-                    # Generate result csv
-                    result.write_dispatchload(units, predispatch_current if process == 'predispatch' else current, start, process, k=iteration, path_to_out=path_to_out)
-                    result.write_result_csv(process, start, predispatch_current if process == 'predispatch' else current, model.objVal, solution, penalty.getValue(),
-                                            interconnectors, regions, units, fcas_flag, k=iteration, path_to_out=path_to_out)
+                            # Generate result csv
+                            result.write_result_csv(process, start, predispatch_current if process == 'predispatch' else current, objVal, solution, penalty.getValue(), interconnectors, regions, units, fcas_flag, k=iteration, path_to_out=path_to_out)
             # Calculate difference of objectives by increasing demand by 1 as marginal price
             else:
                 for region_name in [None, 'NSW1', 'QLD1', 'SA1', 'TAS1', 'VIC1']:
@@ -405,7 +429,7 @@ def dispatch(start, interval, process, cvp=helpers.read_cvp(), voll=None, market
                                 region.dispatchable_generation + region.net_mw_flow + region.deficit_gen - region.surplus_gen == region.total_demand + increase + region.dispatchable_load + region.losses,
                                 name=f'REGION_BALANCE_{region_id}')
                     # Set objective
-                    if debug_flag:
+                    if hard_flag:
                         model.addLConstr(penalty, sense=gp.GRB.EQUAL, rhs=0, name='PENALTY_CONSTR')
                     model.setObjective(cost + penalty, gp.GRB.MINIMIZE)
                     model.optimize()
@@ -431,7 +455,7 @@ def dispatch(start, interval, process, cvp=helpers.read_cvp(), voll=None, market
             if custom_unit is not None and iteration == 0:
                 # print(custom_unit.total_cleared)
                 result.record_cutom_unit(current, custom_unit, prices)
-            return prices
+            return dispatchload_path, regions['NSW1'].rrp, regions['NSW1'].rrp_record
     except gp.GurobiError as e:
         print(e)
         print(f'start datetime {start} no {interval} current datetime {current}')
@@ -440,13 +464,29 @@ def dispatch(start, interval, process, cvp=helpers.read_cvp(), voll=None, market
     #     print(f'start datetime {start} no {interval} current datetime {current}')
 
 
+# def formulate(process, start):
+#     with gp.Env() as env, gp.Model(env=env,
+#                                    name=f'{process}{default.get_case_datetime(current)}{interval}{iteration}') as model:
+#         model.setParam("OutputFlag", 0)  # 0 if no log information; otherwise 1
+#         # Initiate cost and penalty of objective function
+#         cost, penalty = 0, 0
+#
+#
+# def formulate_sequence():
+#     with gp.Env() as env, gp.Model(env=env,
+#                                    name=f'{process}{default.get_case_datetime(current)}{interval}{iteration}') as model:
+#         model.setParam("OutputFlag", 0)  # 0 if no log information; otherwise 1
+#         # Initiate cost and penalty of objective function
+#         cost, penalty = 0, 0
+
+
 def get_all_dispatch(start, process, custom_unit=None, cvp=None, voll=None, market_price_floor=None):
     if cvp is None:
         cvp, voll, market_price_floor = prepare(start)
     total = helpers.get_total_intervals(process, start)
     for i in range(total):
         prices = dispatch(start=start, interval=i, process=process, cvp=cvp, voll=voll,
-                          market_price_floor=market_price_floor, custom_unit=custom_unit)
+                          market_price_floor=market_price_floor, custom_unit=custom_unit, debug_flag=True)
     return prices
 
 
@@ -454,7 +494,7 @@ if __name__ == '__main__':
     process_type = 'dispatch'
     # process_type = 'p5min'
     # process_type = 'predispatch'
-    start_time = datetime.datetime(2020, 9, 1, 4, 5, 0)
+    start_time = datetime.datetime(2020, 9, 1, 4, 0, 0)
     # start_time = datetime.datetime(2020, 9, 1, 4, 30 if process_type == 'predispatch' else 5, 0)
     end_time = datetime.datetime(2020, 9, 2, 4, 0, 0)
 
@@ -462,9 +502,9 @@ if __name__ == '__main__':
     logging.basicConfig(filename=path_to_log, filemode='w', format='%(levelname)s: %(asctime)s %(message)s', level=logging.DEBUG)
     total_intervals = helpers.get_total_intervals(process_type, start_time)
     cvp, voll, market_price_floor = prepare(start_time)
-    # for interval in range(32, total_intervals, 1):
     # for interval in range(int((end_time-start_time) / default.FIVE_MIN + 1)):
-    prices = dispatch(start=start_time, interval=0, process=process_type, cvp=cvp, voll=voll,
-                      market_price_floor=market_price_floor, dispatchload_flag=False, debug_flag=True)
-    # get_all_dispatch(start_time, process_type)
-
+    last, interval = default.datetime_to_interval(datetime.datetime(2020, 9, 1, 16, 0, 0))
+    b = helpers.Battery(30, 20, 'NSW1', 2)
+    from price_taker import customise_unit
+    u = customise_unit(last, 20, 0, b, voll, market_price_floor)
+    prices = dispatch(start_time, interval, process=process_type, cvp=cvp, voll=voll, market_price_floor=market_price_floor, dispatchload_flag=True, iteration=1, custom_unit=u, path_to_out=b.bat_dir)

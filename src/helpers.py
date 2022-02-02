@@ -2,6 +2,11 @@ import json
 import default
 from offer import Unit
 
+ENERGIES = [45, 75, 150, 750, 1500]
+POWERS = [30, 50, 100, 500, 1000]
+# ENERGIES = [12, 65, 129, 429, 1000, 2800, 4000]
+# POWERS = [30, 50, 100, 200, 500, 700, 1000]
+
 
 def condition1(process, i):
     """ All intervals of dispatch and first interval of p5min and predispatch.
@@ -89,6 +94,12 @@ class Battery:
         self.load.Emax = e
         self.eff = self.data['eff']
         self.name = f'{self.bat_id} {self.Emax}MWh {self.generator.max_capacity}MW {self.load.region_id} Method {method}'
+        if type(self.Emax) == int and type(self.generator.max_capacity) == int:
+            self.plot_name = self.name
+        else:
+            emax_temp = str(self.Emax).replace('.', '-')
+            cap_temp = str(self.generator.max_capacity).replace('.', '-')
+            self.plot_name = f'{self.bat_id} {emax_temp}MWh {cap_temp}MW {self.load.region_id} Method {method}'
         self.bat_dir = default.OUT_DIR / self.name
         self.bat_dir.mkdir(parents=True, exist_ok=True)
         # self.gen_fcas_types = self.data['gen_fcas_types']
@@ -113,6 +124,9 @@ class Battery:
         #     'Lower60sec': [],
         #     'Lower6sec': []
         # }
+
+    def __repr__(self):
+        return self.name
 
     def read_data(self):
         input_dir = default.DATA_DIR / 'batteries.json'

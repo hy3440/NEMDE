@@ -4,6 +4,7 @@ import read
 
 
 def write_forecasts(current, soc, times, prices, pgen, pload, pt, T1, T2, battery_dir, k=0):
+    p5min_pgen, p5min_pload, predispatch_pgen, predispatch_pload, dispatch_pgen, dispatch_pload = {}, {}, {}, {}, {}, {}
     forecast_dir = battery_dir / ('forecast' if k == 0 else f'forecast_{k}')
     forecast_dir.mkdir(parents=True, exist_ok=True)
     result_dir = forecast_dir / f'{default.get_case_datetime(current)}.csv'
@@ -13,11 +14,18 @@ def write_forecasts(current, soc, times, prices, pgen, pload, pt, T1, T2, batter
         for j, (s, t, p, g, l) in enumerate(zip(soc, times, prices, pgen, pload)):
             if T1 <= j < T1 + T2:
                 process_type = 'PREDISPATCH'
+                predispatch_pgen[t] = g.x
+                predispatch_pload[t] = l.x
             elif j < T1:
                 process_type = 'P5MIN'
+                p5min_pgen[t] = g.x
+                p5min_pload[t] = l.x
             else:
                 process_type = 'DISPATCH'
+                dispatch_pgen[t] = g.x
+                dispatch_pload[t] = l.x
             writer.writerow([process_type, default.get_interval_datetime(t), p, g.x, l.x, s.x])
+    return p5min_pgen, p5min_pload, predispatch_pgen, predispatch_pload, dispatch_pgen, dispatch_pload
 
 
 def write_trading_prices(start, k=0, path_to_out=default.OUT_DIR):
@@ -28,7 +36,7 @@ def write_trading_prices(start, k=0, path_to_out=default.OUT_DIR):
             prices = {'NSW1': [], 'VIC1': [], 'SA1': [], 'QLD1': [], 'TAS1': []}
         t = start + i * default.FIVE_MIN
         for region in prices.keys():
-            dispatch_price, _ = read.read_dispatch_prices(t, 'dispatch', True, region)
+            dispatch_price, _, _, _ = read.read_dispatch_prices(t, 'dispatch', True, region)
             prices[region].append(dispatch_price)
         if i % 6 == 5:
             p = path_to_out / ('dispatch' if k == 0 else f'dispatch_{k}') / f'TRADINGIS_{default.get_case_datetime(t)}.csv'
@@ -45,7 +53,9 @@ def write_trading_prices(start, k=0, path_to_out=default.OUT_DIR):
 
 
 def write_revenues(batteries, revenues, region_id, method):
-    path_to_revenue = default.OUT_DIR / 'revenue' / f'revenue {region_id} method {method}.csv'
+    path_to_dir = default.OUT_DIR / 'revenue'
+    path_to_dir.mkdir(exist_ok=True, parents=True)
+    path_to_revenue = path_to_dir / f'Revenue {region_id} Method {method}.csv'
     with path_to_revenue.open('w') as rf:
         writer = csv.writer(rf)
         writer.writerow(['I', 'Capacity (MWh)', 'Power (MW)', 'Revenue ($)'])

@@ -342,7 +342,7 @@ def test_trading_prices():
             ours = []
             aemos = []
         t = start + i * default.FIVE_MIN
-        our, aemo = read.read_dispatch_prices(t, 'dispatch', True, region)
+        our, aemo, _, _ = read.read_dispatch_prices(t, 'dispatch', True, region)
         ours.append(our)
         aemos.append(aemo)
         if i % 6 == 5:

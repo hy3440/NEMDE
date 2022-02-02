@@ -27,14 +27,14 @@ def verify_region_record(regions):
 
 def verify_binding_constr(model, constraints):
     for constr in model.getConstrs():
-        if constr.slack is not None and constr.slack != 0 and constr.constrName in constraints and constraints[
-            constr.constrName].bind_flag:
+        if constr.slack is not None and constr.slack != 0 and constr.constrName in constraints and constraints[constr.constrName].bind_flag:
+            logging.debug(f'slack value {constr.slack}')
             logging.warning(f'Constraint {constr.constrName} is not binding but record is')
         elif constr.slack is not None and constr.slack == 0 and constr.constrName in constraints and not constraints[constr.constrName].bind_flag:
             logging.warning(f'Constraint {constr.constrName} is binding but record not.')
         elif constr.slack is not None and constr.slack == 0 and constr.constrName in constraints and constraints[constr.constrName].bind_flag:
+            # print('yes')
             continue
-            print('yes')
 
 
 def debug_infeasible_model(model):
@@ -77,15 +77,6 @@ def compare_total_cleared_and_fcas(units):
                     logging.debug(f'{bid_type} {unit.region_id} {duid} {0 if type(fcas.value) == float else fcas.value.x} record {unit.target_record[bid_type]}')
 
 
-def print_energy_bands(energy_bands):
-    for d in energy_bands.values():
-        for dd in d.values():
-            for p, l in dd.items():
-                if len(l) > 1:
-                    print(p)
-                    print(l)
-
-
 def check_binding_generic_fcas_constraints(regions, constraints):
     for region_id, region in regions.items():
         for bid_type, fcas_constraints in region.fcas_constraints.items():
@@ -93,3 +84,20 @@ def check_binding_generic_fcas_constraints(regions, constraints):
                 constr = constraints[constr_name]
                 if constr.bind_flag and constr.constr.pi != 0:
                     logging.debug(f'{region_id} {bid_type} {constr.constr.pi}')
+
+
+def write_binding_constrs(constrs, path_to_out, current):
+    path_to_constr = path_to_out / f'binding_constrs_{default.get_case_datetime(current)}.txt'
+    with path_to_constr.open('w') as constr_file:
+        for constr in constrs:
+            if constr.slack == 0:
+                constr_file.write(f'{constr.constrName}\n')
+
+
+def write_objective(obj, path_to_out, current):
+    import csv
+    path_to_obj = path_to_out / f'obj_{default.get_case_datetime(current)}.csv'
+    with path_to_obj.open('w') as obj_file:
+        writer = csv.writer(obj_file)
+        for i in range(obj.size()):
+            writer.writerow([obj.getVar(i).varName, obj.getVar(i).x, obj.getCoeff(i)])

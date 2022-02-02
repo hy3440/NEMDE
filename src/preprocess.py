@@ -595,10 +595,11 @@ def download_registration():
         None
 
     """
-    registration_file = all_dir / 'REGISTRATION.xls'
+    registration_file = all_dir / 'REGISTRATION.xlsx'
     if not registration_file.is_file():
         # logging.info('Download NEM Registration and Exemption List.')
-        url = 'http://www.aemo.com.au/-/media/Files/Electricity/NEM/Participant_Information/NEM-Registration-and-Exemption-List.xls'
+        url = 'https://aemo.com.au/-/media/files/electricity/nem/planning_and_forecasting/generation_information/2022/nem-generation-information-january-2022.xlsx?la=en'
+        # url = 'http://www.aemo.com.au/-/media/Files/Electricity/NEM/Participant_Information/NEM-Registration-and-Exemption-List.xls'
         download_from_url(url, registration_file)
     return registration_file
 

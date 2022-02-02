@@ -6,6 +6,7 @@ DATA_DIR = BASE_DIR / 'data'  # Data directory
 OUT_DIR = BASE_DIR / 'out'  # Result directory
 LOG_DIR = BASE_DIR / 'log'  # Log directory
 MODEL_DIR = BASE_DIR / 'model'  # Model directory
+DEBUG_DIR = BASE_DIR / 'debug'  # Debug directory
 
 ZERO = datetime.timedelta(seconds=0)
 FIVE_MIN = datetime.timedelta(minutes=5)
@@ -146,11 +147,13 @@ def datetime_to_interval(t, process_type='dispatch'):
 
     Returns:
         (Start datetime, Interval number)
+        Start datetime is 04:05 or 04:30 (Predispatch)
+        Interval number starts from 1 to 288 or 48 (Presdispatch)
     """
     last = t - ONE_DAY if early_morning(t) else t
     start = datetime.datetime(last.year, last.month, last.day, 4, 0)
     no = int((t - start) / (THIRTY_MIN if process_type == 'predispatch' else FIVE_MIN))
-    return last, no
+    return start + (THIRTY_MIN if process_type == 'predispatch' else FIVE_MIN), no
 
 
 def get_first_datetime(t, process='dispatch'):

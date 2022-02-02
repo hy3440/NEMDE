@@ -38,6 +38,10 @@ try:
     for v in m.getVars():
         print(f'{v.varName} {v.x:g}')
 
+    for c in m.getConstrs():
+        # if c.slack != 0:
+        print(c.slack)
+
     print(f'Obj: {m.objVal:g}')
 
 except GurobiError as e:

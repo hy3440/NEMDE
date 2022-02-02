@@ -317,7 +317,7 @@ def add_total_band_constr(model, unit, debug_flag, penalty, voll, cvp):
 
 
 def add_uigf_constr(model, unit, debug_flag, penalty, voll, cvp):
-    # Unconstrained Intermittent Generation Forecasts (UIGF) for Dispatch
+    # Unconstrained Intermittent Generation Forecasts (UIGF) for Dispatch (See AEMO2019Dispatch)
     if unit.forecast_priority is not None and unit.forecast_poe50 is None:
         logging.error(f'Generator {unit.duid} forecast priority is but has no forecast POE50')
     elif unit.forecast_poe50 is not None:
@@ -331,7 +331,7 @@ def add_uigf_constr(model, unit, debug_flag, penalty, voll, cvp):
 
 
 def add_fast_start_inflexibility_profile_constr(model, unit, debug_flag, penalty, voll, cvp):
-    # Fast Start Inflexible Profile constraint
+    # Fast Start Inflexible Profile constraint (See AEMO2014Fast)
     if unit.dispatch_mode > 0:
         unit.profile_deficit_mw = model.addVar(name=f'Profile_Deficit_MW_{unit.duid}')  # Item10
         unit.profile_surplus_mw = model.addVar(name=f'Profile_Surplus_MW_{unit.duid}')  # Item10
@@ -354,10 +354,10 @@ def add_fast_start_inflexibility_profile_constr(model, unit, debug_flag, penalty
                 if unit.total_cleared_record is not None and unit.total_cleared_record < unit.energy.minimum_load:
                     logging.warning(f'{unit.dispatch_type} {unit.duid} avoid fast start inflexible profile mode 3')
         elif unit.current_mode == 4 and unit.energy.t4 != 0:
-            unit.fast_start_inflexible_constr = model.addLConstr(unit.total_cleared + unit.profile_surplus_mw >= ((unit.current_mode_time - unit.energy.t4) / unit.energy.t4) * unit.energy.minimum_load, name=f'FAST_START_INFLEXIBLE_MODE4_{unit.duid}')
+            unit.fast_start_inflexible_constr = model.addLConstr(unit.total_cleared + unit.profile_surplus_mw >= ((unit.energy.t4 - unit.current_mode_time) / unit.energy.t4) * unit.energy.minimum_load, name=f'FAST_START_INFLEXIBLE_MODE4_{unit.duid}')
             model.addLConstr(unit.profile_deficit_mw, sense=gp.GRB.EQUAL, rhs=0, name=f'PROFILE_DEFICIT_MW_{unit.duid}')
             if debug_flag:
-                if unit.total_cleared_record is not None and unit.total_cleared_record < ((unit.current_mode_time - unit.energy.t4) / unit.energy.t4) * unit.energy.minimum_load:
+                if unit.total_cleared_record is not None and unit.total_cleared_record < ((unit.energy.t4 - unit.current_mode_time) / unit.energy.t4) * unit.energy.minimum_load:
                     logging.warning(f'{unit.dispatch_type} {unit.duid} avoid fast start inflexible profile mode 4')
                     logging.debug(f'total cleared {unit.total_cleared_record} current time {unit.current_mode_time} t4 {unit.energy.t4} min load {unit.energy.minimum_load}')
     return penalty
@@ -485,14 +485,15 @@ def enable_fcas(fcas, unit, process, i):
         # and is stranded from providing this service).
         fcas.flag = 4
         return False
+
     fcas.enablement_status = 1
     fcas.flag = 1  # Not stranded, not trapped, is enabled (i.e. available).
     return True
 
 
-def scale_fcas(unit, fcas, bid_type, process, interval, intervals):
+def scale_fcas(unit, fcas, bid_type, process, interval, intervals, agc_flag):
     # Scale for AGC(for regulating services only)
-    if bid_type == 'RAISEREG' or bid_type == 'LOWERREG':
+    if (bid_type == 'RAISEREG' or bid_type == 'LOWERREG') and agc_flag:
         # Scale for AGC enablement limits (for dispatch and 1st interval of predispatch and 5min)
         if condition1(process, interval):
             agc_enablement_max = unit.raisereg_enablement_max if bid_type == 'RAISEREG' else unit.lowerreg_enablement_max
@@ -504,7 +505,7 @@ def scale_fcas(unit, fcas, bid_type, process, interval, intervals):
                 fcas.low_breakpoint = fcas.low_breakpoint + agc_enablement_min - fcas.enablement_min
                 fcas.enablement_min = agc_enablement_min
         # Scale for AGC ramp rates (for dispatch and 1st interval of 5min predispatch)
-        if condition2(process, interval) and fcas.max_avail > unit.raisereg_availability:
+        if condition2(process, interval) and fcas.max_avail > unit.raisereg_availability and agc_flag:
             if (unit.dispatch_type == 'GENERATOR' and bid_type == 'RAISEREG') or (
                     unit.dispatch_type == 'LOAD' and bid_type == 'LOWERREG'):
                 rate = unit.energy.roc_up if unit.ramp_up_rate is None else unit.ramp_up_rate / 60
@@ -524,12 +525,13 @@ def scale_fcas(unit, fcas, bid_type, process, interval, intervals):
         fcas.enablement_max = min(fcas.enablement_max, unit.forecast_poe50)
 
 
-def preprocess_fcas(unit, process, interval, intervals, debug_flag):
+def preprocess_fcas(unit, process, interval, intervals, debug_flag, agc_flag):
     # Preprocess
     for bid_type, fcas in unit.fcas_bids.items():
-        scale_fcas(unit, fcas, bid_type, process, interval, intervals)
+        scale_fcas(unit, fcas, bid_type, process, interval, intervals, agc_flag)
         # Check pre-conditions for enabling FCAS
-        if enable_fcas(fcas, unit, process, interval) or (condition1(process, interval) and unit.flags and unit.flags[bid_type] % 2 == 1):
+        # if enable_fcas(fcas, unit, process, interval) or (condition1(process, interval) and unit.flags and unit.flags[bid_type] % 2 == 1):
+        if enable_fcas(fcas, unit, process, interval):
             if fcas.flag % 2 != unit.flags[bid_type] % 2:
                 fcas.enablement_status = unit.flags[bid_type] % 2
             fcas.lower_slope_coeff = (fcas.low_breakpoint - fcas.enablement_min) / fcas.max_avail
@@ -542,13 +544,13 @@ def preprocess_fcas(unit, process, interval, intervals, debug_flag):
                 logging.warning(f'{unit.dispatch_type} {unit.duid} {bid_type} FCAS flag record {unit.flags[bid_type]} but {fcas.flag}')
 
 
-def add_fcas_offers(model, unit, fcas, bid_type):
+def add_fcas_offers(model, unit, fcas, bid_type, debug_flag):
     # FCAS offers
     for no, avail in enumerate(fcas.band_avail):
         bid_offer = model.addVar(name=f'{bid_type}_Avail{no}_{unit.duid}')
         fcas.offers.append(bid_offer)
         model.addLConstr(bid_offer <= avail, name=f'{bid_type}_AVAIL{no}_{unit.duid}')
-    if unit.target_record and unit.target_record[bid_type] > sum(fcas.band_avail):
+    if unit.target_record and unit.target_record[bid_type] > sum(fcas.band_avail) and debug_flag:
         logging.warning(
             f'{unit.dispatch_type} {unit.duid} {bid_type} {unit.target_record[bid_type]} above sum of avail {sum(fcas.band_avail)}')
 
@@ -570,7 +572,7 @@ def add_fcas_max_avail_constr(model, unit, fcas, bid_type, debug_flag, penalty, 
 def process_fcas_bid(model, unit, fcas, bid_type, debug_flag, penalty, voll, cvp, cost, regions):
     fcas.value = model.addVar(name=f'{fcas.bid_type}_Target_{unit.duid}')
     # FCAS offers
-    add_fcas_offers(model, unit, fcas, bid_type)
+    add_fcas_offers(model, unit, fcas, bid_type, debug_flag)
     # FCAS total band constraints
     model.addLConstr(fcas.value, sense=gp.GRB.EQUAL, rhs=sum(fcas.offers),
                     name=f'{bid_type}_SUM_{unit.duid}')
@@ -655,9 +657,59 @@ def add_energy_and_fcas_capacity_constr(model, unit, fcas, bid_type, debug_flag,
                 logging.debug(f'energy {unit.total_cleared_record} lower slop {fcas.lower_slope_coeff} {bid_type} {unit.target_record[bid_type]} enablement min {fcas.enablement_min}')
 
 
+def add_joint_capacity_constr_temp(model, unit, fcas, bid_type, debug_flag, penalty, voll, cvp):
+    unit.joint_upper_deficit = model.addVar(name=f'Joint_Upper_Deficit_{bid_type}_{unit.duid}')  # Item22
+    penalty += unit.joint_upper_deficit * cvp['FCAS_Enablement'] * voll
+    reg = unit.fcas_bids.get('RAISEREG')
+    if reg is None:
+        model.addLConstr(
+            unit.total_cleared + fcas.upper_slope_coeff * fcas.value - unit.joint_upper_deficit <= fcas.enablement_max,
+            name=f'UPPER_JOINT_CAPACITY_{bid_type}_{unit.duid}')
+        if debug_flag and unit.total_cleared_record is not None and unit.target_record and unit.total_cleared_record + fcas.upper_slope_coeff * \
+                unit.target_record[bid_type] > fcas.enablement_max:
+            logging.warning(f'{unit.dispatch_type} {unit.duid} {bid_type} above joint capacity constraint')
+    else:
+        # model.addLConstr(unit.total_cleared + fcas.upper_slope_coeff * fcas.value + reg.enablement_status * reg.upper_slope_coeff * reg.value - unit.joint_upper_deficit <= fcas.enablement_max, name=f'UPPER_JOINT_CAPACITY_{bid_type}_{unit.duid}')
+        model.addLConstr(
+            unit.total_cleared + fcas.upper_slope_coeff * fcas.value + reg.enablement_status * reg.upper_slope_coeff * reg.value - unit.joint_upper_deficit <= max(
+                fcas.enablement_max, reg.enablement_max), name=f'UPPER_JOINT_CAPACITY_{bid_type}_{unit.duid}')
+        if debug_flag and unit.total_cleared_record is not None and unit.target_record and unit.total_cleared_record + fcas.upper_slope_coeff * \
+                unit.target_record[bid_type] + reg.enablement_status * reg.upper_slope_coeff * unit.target_record[
+            reg.bid_type] > max(fcas.enablement_max, reg.enablement_max):
+            if abs(unit.total_cleared_record + fcas.upper_slope_coeff * unit.target_record[
+                bid_type] + reg.enablement_status * reg.upper_slope_coeff * unit.target_record[reg.bid_type] - max(
+                    fcas.enablement_max, reg.enablement_max)) > 1:
+                logging.warning(f'{unit.dispatch_type} {unit.duid} {bid_type} above joint capacity constraint')
+                logging.debug(
+                    f'cleared {unit.total_cleared_record} upper {fcas.upper_slope_coeff} target {unit.target_record[bid_type]} status {reg.enablement_status} upper {reg.upper_slope_coeff} value {unit.target_record[reg.bid_type]} max {fcas.enablement_max}')
+    unit.joint_lower_surplus = model.addVar(name=f'Joint_Lower_Surplus_{bid_type}_{unit.duid}')  # Item22
+    penalty += unit.joint_lower_surplus * cvp['FCAS_Enablement'] * voll
+    reg = unit.fcas_bids.get('LOWERREG')
+    if reg is None:
+        model.addLConstr(
+            unit.total_cleared - fcas.lower_slope_coeff * fcas.value + unit.joint_lower_surplus >= fcas.enablement_min,
+            name=f'LOWER_JOINT_CAPACITY_{bid_type}_{unit.duid}')
+        if debug_flag and unit.total_cleared_record is not None and unit.target_record and unit.total_cleared_record - fcas.lower_slope_coeff * \
+                unit.target_record[bid_type] < fcas.enablement_min:
+            logging.warning(f'{unit.dispatch_type} {unit.duid} {bid_type} below joint capacity constraint')
+    else:
+        # model.addLConstr(unit.total_cleared - fcas.lower_slope_coeff * fcas.value - reg.enablement_status * reg.lower_slope_coeff * reg.value + unit.joint_lower_surplus >= fcas.enablement_min, name=f'LOWER_JOINT_CAPACITY_{bid_type}_{unit.duid}')
+        model.addLConstr(
+            unit.total_cleared - fcas.lower_slope_coeff * fcas.value - reg.enablement_status * reg.lower_slope_coeff * reg.value + unit.joint_lower_surplus >= min(
+                fcas.enablement_min, reg.enablement_min), name=f'LOWER_JOINT_CAPACITY_{bid_type}_{unit.duid}')
+        if debug_flag and unit.total_cleared_record is not None and unit.target_record and unit.total_cleared_record - fcas.lower_slope_coeff * \
+                unit.target_record[bid_type] - reg.enablement_status * reg.lower_slope_coeff * unit.target_record[
+            reg.bid_type] < min(fcas.enablement_min, reg.enablement_min):
+            if abs(unit.total_cleared_record - fcas.lower_slope_coeff * unit.target_record[
+                bid_type] - reg.enablement_status * reg.lower_slope_coeff * unit.target_record[reg.bid_type] - min(
+                    fcas.enablement_min, reg.enablement_min)) > 1:
+                logging.warning(f'{unit.dispatch_type} {unit.duid} {bid_type} below joint capacity constraint')
+    return penalty
+
+
 def add_joint_capacity_constr_test(model, unit, fcas, bid_type, debug_flag, penalty, voll, cvp):
     # Joint capacity constraint
-    if bid_type[:5] == 'RAISE' or True:
+    if (unit.dispatch_type == 'GENERATOR' and bid_type[:5] == 'RAISE') or (unit.dispatch_type == 'LOAD' and bid_type[:5] == 'LOWER'):
         unit.joint_upper_deficit = model.addVar(name=f'Joint_Upper_Deficit_{bid_type}_{unit.duid}')  # Item22
         penalty += unit.joint_upper_deficit * cvp['FCAS_Enablement'] * voll
         reg = unit.fcas_bids.get('RAISEREG' if unit.dispatch_type == 'GENERATOR' else 'LOWERREG')
@@ -672,7 +724,7 @@ def add_joint_capacity_constr_test(model, unit, fcas, bid_type, debug_flag, pena
                 if abs(unit.total_cleared_record + fcas.upper_slope_coeff * unit.target_record[bid_type] + reg.enablement_status * reg.upper_slope_coeff * unit.target_record[reg.bid_type] - max(fcas.enablement_max, reg.enablement_max)) > 1:
                     logging.warning(f'{unit.dispatch_type} {unit.duid} {bid_type} above joint capacity constraint')
                     logging.debug(f'cleared {unit.total_cleared_record} upper {fcas.upper_slope_coeff} target {unit.target_record[bid_type]} status {reg.enablement_status} upper {reg.upper_slope_coeff} value {unit.target_record[reg.bid_type]} max {fcas.enablement_max}')
-    if bid_type[:5] == 'LOWER' or True:
+    if (unit.dispatch_type == 'GENERATOR' and bid_type[:5] == 'LOWER') or (unit.dispatch_type == 'LOAD' and bid_type[:5] == 'RAISE'):
         unit.joint_lower_surplus = model.addVar(name=f'Joint_Lower_Surplus_{bid_type}_{unit.duid}')  # Item22
         penalty += unit.joint_lower_surplus * cvp['FCAS_Enablement'] * voll
         reg = unit.fcas_bids.get('LOWERREG' if unit.dispatch_type == 'GENERATOR' else 'RAISEREG')
@@ -691,7 +743,7 @@ def add_joint_capacity_constr_test(model, unit, fcas, bid_type, debug_flag, pena
 
 def add_joint_capacity_constr(model, unit, fcas, bid_type, debug_flag, penalty, voll, cvp):
     # Joint capacity constraint
-    if (unit.dispatch_type == 'GENERATOR' and bid_type == 'RAISE5MIN' and 'RAISEREG' in unit.fcas_bids) or (unit.dispatch_type == 'LOAD' and bid_type == 'LOWER5MIN' and 'LOWERREG' in unit.fcas_bids):
+    if (unit.dispatch_type == 'GENERATOR' and bid_type[:5] == 'RAISE' and 'RAISEREG' in unit.fcas_bids) or (unit.dispatch_type == 'LOAD' and bid_type[:5] == 'LOWER' and 'LOWERREG' in unit.fcas_bids):
         reg_type = 'RAISEREG' if unit.dispatch_type == 'GENERATOR' else 'LOWERREG'
         reg = unit.fcas_bids[reg_type]
         unit.joint_upper_deficit = model.addVar(name=f'Joint_Upper_Deficit_{unit.duid}')  # Item22
@@ -707,7 +759,7 @@ def add_joint_capacity_constr(model, unit, fcas, bid_type, debug_flag, penalty, 
                     logging.warning(
                         f'{unit.dispatch_type} {unit.duid} {bid_type} above joint capacity constraint')
 
-    if (unit.dispatch_type == 'GENERATOR' and bid_type == 'LOWER5MIN' and 'LOWERREG' in unit.fcas_bids) or (unit.dispatch_type == 'LOAD' and bid_type == 'RAISE5MIN' and 'RAISEREG' in unit.fcas_bids):
+    if (unit.dispatch_type == 'GENERATOR' and bid_type[:5] == 'LOWER' and 'LOWERREG' in unit.fcas_bids) or (unit.dispatch_type == 'LOAD' and bid_type[:5] == 'RAISE' and 'RAISEREG' in unit.fcas_bids):
         reg_type = 'LOWERREG' if unit.dispatch_type == 'GENERATOR' else 'RAISEREG'
         reg = unit.fcas_bids[reg_type]
         unit.joint_lower_surplus = model.addVar(name=f'Joint_Lower_Surplus_{unit.duid}')  # Item22

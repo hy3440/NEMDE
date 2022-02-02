@@ -528,7 +528,7 @@ def sos_calculate_interconnector_losses(model, regions, interconnectors, links=N
         share_losses(regions, ic)
 
 
-def calculate_interconnector_losses(model, regions, interconnectors):
+def calculate_interconnector_losses(model, regions, interconnectors, debug_flag):
     for ic in interconnectors.values():
         coefficient = ic.loss_constant - 1
         for region_id, dc in ic.demand_coefficient.items():
@@ -539,7 +539,7 @@ def calculate_interconnector_losses(model, regions, interconnectors):
         ic.mw_losses = model.addVar(lb=-gp.GRB.INFINITY, name=f'Mw_Losses_{ic.interconnector_id}')
         for i in range(len(x_s) - 1):
             model.addLConstr((ic.mw_losses - y_s[i]) * (x_s[i + 1] - x_s[i]) >= (y_s[i + 1] - y_s[i]) * (ic.mw_flow - x_s[i]), f'LOSSES_{ic.interconnector_id}')
-            if (ic.mw_losses_record - y_s[i]) * (x_s[i + 1] - x_s[i]) < (y_s[i + 1] - y_s[i]) * (ic.mw_flow_record - x_s[i]):
+            if (ic.mw_losses_record - y_s[i]) * (x_s[i + 1] - x_s[i]) < (y_s[i + 1] - y_s[i]) * (ic.mw_flow_record - x_s[i]) and debug_flag:
                 logging.warning(f'IC {ic.interconnector_id} violate losses constraint')
                 logging.debug(f'lhs = {(ic.mw_losses_record - y_s[i]) * (x_s[i + 1] - x_s[i])} rhs = {(y_s[i + 1] - y_s[i]) * (ic.mw_flow_record - x_s[i])}')
         share_losses(regions, ic)
