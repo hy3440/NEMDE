@@ -1,4 +1,6 @@
 import csv
+import datetime
+import helpers
 import default
 
 FCAS_TYPES = ['RAISEREG', 'RAISE6SEC', 'RAISE60SEC', 'RAISE5MIN', 'LOWERREG', 'LOWER6SEC', 'LOWER60SEC', 'LOWER5MIN']
@@ -18,26 +20,26 @@ def write_dispatchis(start, t, regions, prices, k=0, path_to_out=default.OUT_DIR
                              'PRICE',  # 2
                              '', default.get_interval_datetime(t),  # 4
                              '', region_id,  # 6
-                             '', 0, prices[region_id],  # 9
-                             region.rrp_record,  # 10
-                             region.rop_record,  # 11
-                             '', '', '',
-                             '' if region.fcas_rrp == {} else region.fcas_rrp['RAISE6SEC'],  # 15
-                             region.fcas_rrp_record['RAISE6SEC'],  # 16
-                             '', '' if region.fcas_rrp == {} else region.fcas_rrp['RAISE60SEC'],  # 18
-                             region.fcas_rrp_record['RAISE60SEC'],  # 19
-                             '', '' if region.fcas_rrp == {} else region.fcas_rrp['RAISE5MIN'],  # 21
-                             region.fcas_rrp_record['RAISE5MIN'],  # 22
-                             '', '' if region.fcas_rrp == {} else region.fcas_rrp['RAISEREG'],  # 24
-                             region.fcas_rrp_record['RAISEREG'],  # 25
-                             '', '' if region.fcas_rrp == {} else region.fcas_rrp['LOWER6SEC'],  # 27
-                             region.fcas_rrp_record['LOWER6SEC'],  # 28
-                             '', '' if region.fcas_rrp == {} else region.fcas_rrp['LOWER60SEC'],  # 30
-                             region.fcas_rrp_record['LOWER60SEC'],  # 31
-                             '', '' if region.fcas_rrp == {} else region.fcas_rrp['LOWER5MIN'],  # 33
-                             region.fcas_rrp_record['LOWER5MIN'],  # 34
-                             '', '' if region.fcas_rrp == {} else region.fcas_rrp['LOWERREG'],  # 36
-                             region.fcas_rrp_record['LOWERREG'],  # 37
+                             '', 0, prices[region_id] if region_id in prices else None,  # 9
+                             region.rrp_record  # 10
+                             # '',  # region.rop_record,  # 11
+                             # '', '', '',
+                             # '' if region.fcas_rrp == {} else region.fcas_rrp['RAISE6SEC'],  # 15
+                             # region.fcas_rrp_record['RAISE6SEC'],  # 16
+                             # '', '' if region.fcas_rrp == {} else region.fcas_rrp['RAISE60SEC'],  # 18
+                             # region.fcas_rrp_record['RAISE60SEC'],  # 19
+                             # '', '' if region.fcas_rrp == {} else region.fcas_rrp['RAISE5MIN'],  # 21
+                             # region.fcas_rrp_record['RAISE5MIN'],  # 22
+                             # '', '' if region.fcas_rrp == {} else region.fcas_rrp['RAISEREG'],  # 24
+                             # region.fcas_rrp_record['RAISEREG'],  # 25
+                             # '', '' if region.fcas_rrp == {} else region.fcas_rrp['LOWER6SEC'],  # 27
+                             # region.fcas_rrp_record['LOWER6SEC'],  # 28
+                             # '', '' if region.fcas_rrp == {} else region.fcas_rrp['LOWER60SEC'],  # 30
+                             # region.fcas_rrp_record['LOWER60SEC'],  # 31
+                             # '', '' if region.fcas_rrp == {} else region.fcas_rrp['LOWER5MIN'],  # 33
+                             # region.fcas_rrp_record['LOWER5MIN'],  # 34
+                             # '', '' if region.fcas_rrp == {} else region.fcas_rrp['LOWERREG'],  # 36
+                             # region.fcas_rrp_record['LOWERREG'],  # 37
                              ])
 
 
@@ -117,14 +119,34 @@ def write_p5min(start, t, i, regions, prices, k=0, path_to_out=default.OUT_DIR):
                              ])
 
 
-def write_dispatchload(units, t, start, process, k=0, path_to_out=default.OUT_DIR):
-    interval_datetime = default.get_case_datetime(t + default.THIRTY_MIN) if process == 'predispatch' else default.get_case_datetime(t + default.FIVE_MIN)
+def write_links(links, t, start, process, k=0, path_to_out=default.OUT_DIR):
+    interval_datetime = default.get_case_datetime(t + (default.THIRTY_MIN if process == 'predispatch' else default.FIVE_MIN))
     if process == 'dispatch':
         p = path_to_out / (process if k == 0 else f'{process}_{k}')
     else:
         p = path_to_out / (process if k == 0 else f'{process}_{k}') / f'{process}load_{default.get_case_datetime(start)}'
     p.mkdir(parents=True, exist_ok=True)
-    result_dir = p / f'dispatchload_{interval_datetime}.csv'
+    result_dir = p / f'links_{interval_datetime}.csv'
+    with result_dir.open('w') as result_file:
+        writer = csv.writer(result_file)
+        for link in links.values():
+            writer.writerow([link.link_id, link.mw_flow.x])
+
+
+def write_dispatchload(units, links, t, start, process, k=0, path_to_out=default.OUT_DIR, batt_no=None):
+    interval_datetime = default.get_case_datetime(t + (default.THIRTY_MIN if process == 'predispatch' else default.FIVE_MIN))
+    if process == 'dispatch':
+        if batt_no is not None:
+            p = path_to_out
+        else:
+            p = path_to_out / (process if k == 0 else f'{process}_{k}')
+    else:
+        p = path_to_out / (process if k == 0 else f'{process}_{k}') / f'{process}load_{default.get_case_datetime(start)}'
+    p.mkdir(parents=True, exist_ok=True)
+    if batt_no is not None:
+        result_dir = p / f'dispatchload_{interval_datetime}-batt{batt_no}.csv'
+    else:
+        result_dir = p / f'dispatchload_{interval_datetime}.csv'
     with result_dir.open(mode='w') as result_file:
         writer = csv.writer(result_file, delimiter=',')
         row = ['I', 'DUID', 'TOTALCLEARED', 'RECORD', 'DAILY ENERGY', 'DAILY ENERGY RECORD', 'LAST DAILY ENERGY', 'LAST DAILY ENERGY RECORD']
@@ -151,6 +173,8 @@ def write_dispatchload(units, t, start, process, k=0, path_to_out=default.OUT_DI
                     row.append('-')
                     row.append('-')
             writer.writerow(row)
+        for link_id, link in links.items():
+            writer.writerow(['D', link_id, '0' if type(link.mw_flow) == float else link.mw_flow.x])
     return result_dir
 
 
@@ -159,7 +183,6 @@ def add_prices(process, start, t, prices, k=0, path_to_out=default.OUT_DIR):
         result_dir = path_to_out / (process if k == 0 else f'{process}_{k}') / f'dispatch_{default.get_case_datetime(t)}.csv'
     else:
         result_dir = path_to_out / (process if k == 0 else f'{process}_{k}') / f'{process}_{default.get_case_datetime(start)}' / f'{process}_{default.get_case_datetime(t)}.csv'
-    print(result_dir)
     with result_dir.open(mode='a') as result_file:
         writer = csv.writer(result_file, delimiter=',')
         writer.writerow(['Region ID', 'Differece of Costs'])
@@ -167,7 +190,7 @@ def add_prices(process, start, t, prices, k=0, path_to_out=default.OUT_DIR):
             writer.writerow([region_id, price])
 
 
-def write_result_csv(process, start, t, obj_value, solution, penalty, interconnectors, regions, units, fcas_flag, k=0, path_to_out=default.OUT_DIR):
+def write_result_csv(process, start, t, obj_value, solution, penalty, interconnectors, regions, units, fcas_flag, k=0, path_to_out=default.OUT_DIR, batt_no=None):
     """Write the dispatch results into a csv file.
 
     Args:
@@ -182,11 +205,17 @@ def write_result_csv(process, start, t, obj_value, solution, penalty, interconne
 
     """
     if process == 'dispatch':
-        p = path_to_out / (process if k == 0 else f'{process}_{k}')
+        if batt_no is not None:
+            p = path_to_out
+        else:
+            p = path_to_out / (process if k == 0 else f'{process}_{k}')
     else:
         p = path_to_out / (process if k == 0 else f'{process}_{k}') / f'{process}_{default.get_case_datetime(start)}'
     p.mkdir(parents=True, exist_ok=True)
-    result_dir = p / f'{process}_{default.get_case_datetime(t)}.csv'
+    if batt_no is not None:
+        result_dir = p / f'{process}_{default.get_case_datetime(t)}-batt{batt_no}.csv'
+    else:
+        result_dir = p / f'{process}_{default.get_case_datetime(t)}.csv'
     with result_dir.open(mode='w') as result_file:
         writer = csv.writer(result_file, delimiter=',')
 
@@ -297,3 +326,129 @@ def record_cutom_unit(t, unit, prices):
     with unit.dir.open('a') as f:
         writer = csv.writer(f)
         writer.writerow([unit.Emax, unit.max_capacity, unit.dispatch_type, unit.energy.band_avail[0]] + [prices[r] for r in ['NSW1', 'QLD1', 'SA1', 'TAS1', 'VIC1']])
+
+
+class Region:
+    def __init__(self, region_id):
+        self.region_id = region_id
+        self.fcas_rrp = {}
+        self.fcas_rrp_record = {}
+
+
+def rewrite_dispatch(initial, N=1, process='predispatch', k=0):
+    # Rewrite from result csv to DISPATCHIS, P5MIN, or PREDISPATCHIS
+    path_to_out = default.OUT_DIR
+    path_to_write = default.OUT_DIR / 'rewrite'
+    region_id = 'NSW1'
+    for n in range(N):
+        start = initial + n * (default.THIRTY_MIN if process == 'predispatch' else default.FIVE_MIN)
+        if process != 'dispatch':
+            prices_temp = []
+            fcas_prices_temp = {
+                'RAISEREG': [],
+                'RAISE6SEC': [],
+                'RAISE60SEC': [],
+                'RAISE5MIN': [],
+                'LOWERREG': [],
+                'LOWER6SEC': [],
+                'LOWER60SEC': [],
+                'LOWER5MIN': []
+            }
+        for i in range(helpers.get_total_intervals(process, start)):
+            current = start + i * (default.THIRTY_MIN if process == 'predispatch' else default.FIVE_MIN)
+            if process == 'dispatch':
+                p = path_to_out / (process if k == 0 else f'{process}_{k}')
+            else:
+                p = path_to_out / (process if k == 0 else f'{process}_{k}') / f'{process}_{default.get_case_datetime(start)}'
+            path_to_read = p / f'{process}_{default.get_case_datetime(current)}.csv'
+            regions = {}
+            prices = {}
+            with path_to_read.open() as read_file:
+                reader = csv.reader(read_file)
+                for row in reader:
+                    if row[0] == 'PRICE' and row[1] != 'Region ID':
+                        region = Region(row[1])
+                        prices[row[1]] = float(row[2])
+                        region.rrp_record = float(row[3])
+                        region.rop_record = None if process == 'predispatch' else float(row[4])
+                        region.fcas_rrp['RAISEREG'] = float(row[5])
+                        region.fcas_rrp_record['RAISEREG'] = float(row[6])
+                        region.fcas_rrp['RAISE6SEC'] = float(row[7])
+                        region.fcas_rrp_record['RAISE6SEC'] = float(row[8])
+                        region.fcas_rrp['RAISE60SEC'] = float(row[9])
+                        region.fcas_rrp_record['RAISE60SEC'] = float(row[10])
+                        region.fcas_rrp['RAISE5MIN'] = float(row[11])
+                        region.fcas_rrp_record['RAISE5MIN'] = float(row[12])
+                        region.fcas_rrp['LOWERREG'] = float(row[13])
+                        region.fcas_rrp_record['LOWERREG'] = float(row[14])
+                        region.fcas_rrp['LOWER6SEC'] = float(row[15])
+                        region.fcas_rrp_record['LOWER6SEC'] = float(row[16])
+                        region.fcas_rrp['LOWER60SEC'] = float(row[17])
+                        region.fcas_rrp_record['LOWER60SEC'] = float(row[18])
+                        region.fcas_rrp['LOWER5MIN'] = float(row[19])
+                        region.fcas_rrp_record['LOWER5MIN'] = float(row[20])
+                        regions[row[1]] = region
+            if process == 'dispatch':
+                write_dispatchis(start, current, regions, prices, k=0, path_to_out=path_to_write)
+                from read import read_dispatch_prices
+
+                rrp, rrp_record, fcas_prices, aemo_fcas_prices = read_dispatch_prices(current, process, True, region_id,
+                                                                                      path_to_out=path_to_write,
+                                                                                      fcas_flag=True)
+                region = regions[region_id]
+                if prices[region_id] != rrp:
+                    print(f'rrp {prices[region_id]} read {rrp}')
+                if region.rrp_record != rrp_record:
+                    print(f'record {region.rrp_record} read {rrp_record}')
+                for bid_type in fcas_prices.keys():
+                    if region.fcas_rrp[bid_type] != fcas_prices[bid_type]:
+                        print(f'{bid_type} {region.fcas_rrp[bid_type]} read {fcas_prices[bid_type]}')
+                    if region.fcas_rrp_record[bid_type] != aemo_fcas_prices[bid_type]:
+                        print(f'record {region.fcas_rrp_record[bid_type]} read {aemo_fcas_prices[bid_type]}')
+            else:
+                if process == 'p5min':
+                    write_p5min(start, current, i, regions, prices, k=0, path_to_out=path_to_write)
+                elif process == 'predispatch':
+                    write_predispatchis(start, current, i, regions, prices, k=0, path_to_out=path_to_write)
+                prices_temp.append(prices[region_id])
+                region = regions[region_id]
+                for bid_type, fcas_list in fcas_prices_temp.items():
+                    fcas_list.append(region.fcas_rrp[bid_type])
+        if process == 'p5min':
+            from read import read_p5min_prices
+            p5min_times, p5min_prices, aemo_p5min_prices, p5min_fcas_prices, aemo_p5min_fcas_prices = read_p5min_prices(start, process, True, region_id, k=0, path_to_out=path_to_write, fcas_flag=True)
+            if p5min_prices != prices_temp:
+                print(p5min_prices)
+                print(prices_temp)
+                print('p5min rrp incorrect!')
+            for bid_type in fcas_prices_temp.keys():
+                if fcas_prices_temp[bid_type] != p5min_fcas_prices[bid_type]:
+                    print(fcas_prices_temp[bid_type])
+                    print(p5min_fcas_prices[bid_type])
+                    print('p5min fcas rrp incorrect!')
+        elif process == 'predispatch':
+            from read import read_predispatch_prices
+            predispatch_times, predispatch_prices, aemo_predispatch_prices, predispatch_fcas_prices, aemo_predispatch_fcas_prices = read_predispatch_prices(start, process, True, region_id, k=0, path_to_out=path_to_write, fcas_flag=True)
+            if predispatch_prices != prices_temp:
+                # print(p5min_prices)
+                print(prices_temp)
+                print('predispatch rrp incorrect!')
+            for bid_type in fcas_prices_temp.keys():
+                if fcas_prices_temp[bid_type] != predispatch_fcas_prices[bid_type]:
+                    print(fcas_prices_temp[bid_type])
+                    print(predispatch_fcas_prices[bid_type])
+                    print('predispatch fcas rrp incorrect!')
+
+
+def main_rewrite():
+    # main function for rewrite_dispatch
+    # initial = datetime.datetime(2020, 9, 1, 4, 5)
+    # times = [initial + default.FIVE_MIN * 4 * i for i in range(72)]
+    predispatch_initial = datetime.datetime(2020, 9, 1, 4, 30)
+    times = [predispatch_initial + default.THIRTY_MIN * i for i in range(48)]
+    import multiprocessing as mp
+    with mp.Pool(len(times)) as pool:
+        pool.map(rewrite_dispatch, times)
+    pool.close()
+    pool.join()
+    # rewrite_dispatch(predispatch_initial)

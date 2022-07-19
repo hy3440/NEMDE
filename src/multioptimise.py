@@ -4,10 +4,11 @@ import multiprocessing as mp
 import price_taker
 import time
 import helpers
+import operate
 import write
 import read
 import plot
-from constrain import get_market_price
+from preprocess import get_market_price
 import traceback
 import csv
 
@@ -31,13 +32,13 @@ def apply_multiprocess_optimise_with_bids(b):
     start_time = time.time()
     start = datetime.datetime(2020, 9, 1, 4, 5)
     voll, market_price_floor = get_market_price(start)
-    cvp = helpers.read_cvp()    # g, l, e = price_taker.schedule(start, b, custom_flag=True, method=method)
+    cvp = helpers.read_cvp()    # g, l, e = operate.schedule(start, b, custom_flag=True, method=method)
     # energies, times = [e], [start]
     # start += default.FIVE_MIN
     # i = 0
     # while start <= datetime.datetime(2020, 9, 2, 4, 0):
     #     price_taker.forward_dispatch_with_bids(start, i, b, k=1)
-    #     g, l, e = price_taker.schedule(start, b, E_initial=e, custom_flag=True, method=method, k=1)
+    #     g, l, e = operate.schedule(start, b, E_initial=e, custom_flag=True, method=method, k=1)
     #     energies.append(e)
     #     times.append(start)
     #     start += default.FIVE_MIN
@@ -48,13 +49,13 @@ def apply_multiprocess_optimise_with_bids(b):
     #                     forecast_dir=opt_dir, process_type='dispatch', title='SOC')
 
     try:
-        (p5min_pgen, p5min_pload, predispatch_pgen, predispatch_pload, dispatch_pgen, dispatch_pload), e = price_taker.schedule(start, b, custom_flag=True, method=method)
+        (p5min_pgen, p5min_pload, predispatch_pgen, predispatch_pload, dispatch_pgen, dispatch_pload), e = operate.schedule(start, b, custom_flag=True, method=method)
         energies, times = [e], [start]
         # while start <= datetime.datetime(2020, 9, 1, 4, 10):
         for i in range(1, 288):
             t = start + i * default.FIVE_MIN
             p5min_times, p5min_prices, aemo_p5min_prices, predispatch_times, predispatch_prices, aemo_predispatch_prices = price_taker.forward_dispatch_with_bids(t, i, b, 1, p5min_pgen, p5min_pload, predispatch_pgen, predispatch_pload, dispatch_pgen, dispatch_pload, cvp=cvp, voll=voll, market_price_floor=market_price_floor)
-            (p5min_pgen, p5min_pload, predispatch_pgen, predispatch_pload, dispatch_pgen, dispatch_pload), e = price_taker.schedule(t, b, p5min_times, p5min_prices, aemo_p5min_prices, predispatch_times, predispatch_prices, aemo_predispatch_prices, E_initial=e, horizon=i, custom_flag=True, method=method, k=1)
+            (p5min_pgen, p5min_pload, predispatch_pgen, predispatch_pload, dispatch_pgen, dispatch_pload), e = operate.schedule(t, b, p5min_times, p5min_prices, aemo_p5min_prices, predispatch_times, predispatch_prices, aemo_predispatch_prices, E_initial=e, horizon=i, custom_flag=True, method=method, k=1)
             energies.append(e)
             times.append(t)
     except Exception as e:
@@ -80,10 +81,10 @@ def apply_multiprocess_optimise_with_bids(b):
 def apply_multiprocess_optimise_with_iterations(b):
     iterations = 5
     t = datetime.datetime(2020, 9, 1, 4, 5)
-    (p5min_pgen, p5min_pload, predispatch_pgen, predispatch_pload, dispatch_pgen, dispatch_pload), _ = price_taker.schedule(t, b, custom_flag=True, horizon=0, k=0, method=method)
+    (p5min_pgen, p5min_pload, predispatch_pgen, predispatch_pload, dispatch_pgen, dispatch_pload), _ = operate.schedule(t, b, custom_flag=True, horizon=0, k=0, method=method)
     for k in range(1, iterations):
         price_taker.iterative_dispatch_with_bids(t, b, k, p5min_pgen, p5min_pload, predispatch_pgen, predispatch_pload, dispatch_pgen, dispatch_pload)
-        (p5min_pgen, p5min_pload, predispatch_pgen, predispatch_pload, dispatch_pgen, dispatch_pload), _ = price_taker.schedule(t, b, custom_flag=True, horizon=0, k=k, method=method)
+        (p5min_pgen, p5min_pload, predispatch_pgen, predispatch_pload, dispatch_pgen, dispatch_pload), _ = operate.schedule(t, b, custom_flag=True, horizon=0, k=k, method=method)
     plot.plot_comparison(t, b, price_taker.extract_prices, 'Price', range(iterations))
     plot.plot_comparison(t, b, price_taker.extract_forecasts, 'Forecast', range(iterations))
 
@@ -95,7 +96,7 @@ def apply_multiprocess_forward_iterative_optimise_with_bids(b):
     voll, market_price_floor = get_market_price(start)
     cvp = helpers.read_cvp()
     try:
-        (p5min_pgen, p5min_pload, predispatch_pgen, predispatch_pload, dispatch_pgen, dispatch_pload), e = price_taker.schedule(start, b, custom_flag=True, method=method)
+        (p5min_pgen, p5min_pload, predispatch_pgen, predispatch_pload, dispatch_pgen, dispatch_pload), e = operate.schedule(start, b, custom_flag=True, method=method)
         energies, times = [e], [start]
         for i in range(1, 4):
             t = start + i * default.FIVE_MIN
@@ -104,9 +105,9 @@ def apply_multiprocess_forward_iterative_optimise_with_bids(b):
             start_iteration = 1 if i == 1 else 2
             for k in range(start_iteration, iterations):
                 price_taker.iterative_dispatch_with_bids(t, b, k, p5min_pgen, p5min_pload, predispatch_pgen, predispatch_pload, dispatch_pgen, dispatch_pload)
-                (p5min_pgen, p5min_pload, predispatch_pgen, predispatch_pload, dispatch_pgen, dispatch_pload), _ = price_taker.schedule(t, b, custom_flag=True, horizon=0, k=k, method=method)
+                (p5min_pgen, p5min_pload, predispatch_pgen, predispatch_pload, dispatch_pgen, dispatch_pload), _ = operate.schedule(t, b, custom_flag=True, horizon=0, k=k, method=method)
             p5min_times, p5min_prices, aemo_p5min_prices, predispatch_times, predispatch_prices, aemo_predispatch_prices = price_taker.iterative_forward_dispatch_with_bids(t, i, b, 1, p5min_pgen, p5min_pload, predispatch_pgen, predispatch_pload, dispatch_pgen, dispatch_pload, cvp=cvp, voll=voll, market_price_floor=market_price_floor)
-            (p5min_pgen, p5min_pload, predispatch_pgen, predispatch_pload, dispatch_pgen, dispatch_pload), e = price_taker.schedule(t, b, p5min_times, p5min_prices, aemo_p5min_prices, predispatch_times, predispatch_prices, aemo_predispatch_prices, E_initial=e, horizon=i, custom_flag=True, method=method, k=iterations - 1)
+            (p5min_pgen, p5min_pload, predispatch_pgen, predispatch_pload, dispatch_pgen, dispatch_pload), e = operate.schedule(t, b, p5min_times, p5min_prices, aemo_p5min_prices, predispatch_times, predispatch_prices, aemo_predispatch_prices, E_initial=e, horizon=i, custom_flag=True, method=method, k=iterations - 1)
             energies.append(e)
             times.append(t)
     except Exception as e:

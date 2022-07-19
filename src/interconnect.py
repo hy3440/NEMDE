@@ -3,11 +3,12 @@ import datetime
 import default
 import gurobipy as gp
 import logging
-import pathlib
+import predefine
 import preprocess
 
 log = logging.getLogger(__name__)
 intervention = '0'
+
 
 class Solution:
     """Region class.
@@ -84,7 +85,6 @@ class Region:
         losses (float): Allocated interconnector losses for the region
     """
     def __init__(self, region_id):
-        self.debug_duid = None
         self.region_id = region_id
         # self.generators = set()
         # self.loads = set()
@@ -93,11 +93,11 @@ class Region:
         self.dispatchable_load = 0.0
         self.dispatchable_load_temp = 0.0
         self.net_mw_flow = 0.0
-        self.net_mw_flow_record = 0.0
+        # self.net_mw_flow_record = 0.0
         self.total_demand = None
-        self.dispatchable_generation_record = None
-        self.dispatchable_load_record = None
-        self.fcas_local_dispatch = {}  # Used to formulate generic constraint
+        # self.dispatchable_generation_record = None
+        # self.dispatchable_load_record = None
+        self.fcas_local_dispatch = {}  # Used to dispatch generic constraint
         self.fcas_local_dispatch_temp = {
             'RAISEREG': 0,
             'RAISE6SEC': 0,
@@ -119,25 +119,9 @@ class Region:
             'LOWER5MIN': 0
         }  # Used to calculate the sum of each FCAS type
         self.fcas_local_dispatch_record = {}  # AEMO's FCAS local dispatch record
-        # self.lower5min_local_dispatch = 0.0
-        # self.lower60sec_local_dispatch = 0.0
-        # self.lower6sec_local_dispatch = 0.0
-        # self.raise5min_local_dispatch = 0.0
-        # self.raise60sec_local_dispatch = 0.0
-        # self.raise6sec_local_dispatch = 0.0
-        # self.lowerreg_local_dispatch = 0.0
-        # self.raisereg_local_dispatch = 0.0
-        # self.lower5min_local_dispatch_record = None
-        # self.lower60sec_local_dispatch_record = None
-        # self.lower6sec_local_dispatch_record = None
-        # self.raise5min_local_dispatch_record = None
-        # self.raise60sec_local_dispatch_record = None
-        # self.raise6sec_local_dispatch_record = None
-        # self.lowerreg_local_dispatch_record = None
-        # self.raisereg_local_dispatch_record = None
-        self.rrp = None
-        self.rrp_record = None
-        self.rop_record = None
+        self.rrp = None  # required
+        self.rrp_record = 0
+        # self.rop_record = None
         self.fcas_constraints = {
             'RAISEREG': set(),
             'RAISE6SEC': set(),
@@ -148,35 +132,19 @@ class Region:
             'LOWER60SEC': set(),
             'LOWER5MIN': set()
         }
-        self.local_fcas_constr = {}
-        self.fcas_rrp = {}
-        self.fcas_rrp_record = {}
-        # self.raise6sec_rrp = None
-        # self.raise6sec_rrp_record = None
-        # self.raise60sec_rrp = None
-        # self.raise60sec_rrp_record = None
-        # self.raise5min_rrp = None
-        # self.raise5min_rrp_record = None
-        # self.raisereg_rrp = None
-        # self.raisereg_rrp_record = None
-        # self.lower6sec_rrp = None
-        # self.lower6sec_rrp_record = None
-        # self.lower60sec_rrp = None
-        # self.lower60sec_rrp_record = None
-        # self.lower5min_rrp = None
-        # self.lower5min_rrp_record = None
-        # self.lowerreg_rrp = None
-        # self.lowerreg_rrp_record = None
-        self.available_generation = 0.0
-        self.available_load = 0.0
-        self.available_generation_record = None
-        self.available_load_record = None
-        self.net_interchange_record = None
-        self.net_interchange_record_temp = 0.0
-        self.uigf_record = None
-        self.losses = 0.0
-        self.losses_record = 0.0
-        self.offset = 0
+        self.local_fcas_constr = {}  # required
+        self.fcas_rrp = {}  # required
+        # self.fcas_rrp_record = {}
+        # self.available_generation = 0.0
+        # self.available_load = 0.0
+        # self.available_generation_record = None
+        # self.available_load_record = None
+        # self.net_interchange_record = None
+        # self.net_interchange_record_temp = 0.0
+        # self.uigf_record = None
+        self.losses = 0.0  # required
+        # self.losses_record = 0.0
+        # self.offset = 0
 
 
 def init_regions():
@@ -222,37 +190,37 @@ class Interconnector:
                  region_from,
                  region_to):
         # Interconnector
-        self.interconnector_id = interconnector_id
-        self.region_from = region_from
-        self.region_to = region_to
+        self.interconnector_id = interconnector_id  # required
+        self.region_from = region_from  # required
+        self.region_to = region_to  # required
         # Interconnector constraint
-        self.from_region_loss_share = None
-        self.max_mw_in = None
-        self.max_mw_out = None
-        self.loss_constant = None
-        self.loss_flow_coefficient = None
-        self.import_limit = None
-        self.export_limit = None
-        self.fcas_support_unavailable = None
-        self.ic_type = None
+        self.from_region_loss_share = None  # required
+        # self.max_mw_in = None
+        # self.max_mw_out = None
+        self.loss_constant = None  # used to calculate losses
+        self.loss_flow_coefficient = None  # used to calculate losses
+        self.import_limit = None  # used in interconnector capacity constr
+        self.export_limit = None  # used in interconnector capacity constr
+        # self.fcas_support_unavailable = None
+        # self.ic_type = None
         # Loss factor model
-        self.demand_coefficient = {}
+        self.demand_coefficient = {}  # used to calculate losses
         # Loss model
-        self.mw_breakpoint = {}
+        self.mw_breakpoint = {}  # used to calculate losses
         # Dispatch
-        self.metered_mw_flow = None
-        self.mw_flow = None
-        self.mw_flow_record = None
-        self.mw_losses = 0.0
-        self.mw_losses_record = None
-        self.marginal_value_record = None
-        self.violation_degree_record = None
-        self.export_limit_record = None
-        self.import_limit_record = None
-        self.marginal_loss = None
-        self.marginal_loss_record = None
-        self.fcas_export_limit_record = None
-        self.fcas_import_limit_record = None
+        # self.metered_mw_flow = None
+        self.mw_flow = None  # required
+        # self.mw_flow_record = None
+        self.mw_losses = 0.0  # required
+        # self.mw_losses_record = None
+        # self.marginal_value_record = None
+        # self.violation_degree_record = None
+        # self.export_limit_record = None  # used in interconnector limit constr
+        # self.import_limit_record = None  # used in interconnector limit constr
+        # self.marginal_loss = None
+        # self.marginal_loss_record = None
+        # self.fcas_export_limit_record = None
+        # self.fcas_import_limit_record = None
 
 
 def init_interconnectors():
@@ -272,7 +240,6 @@ def init_interconnectors():
 
 def add_interconnector_constraint(interconnectors, t):
     ic_dir = preprocess.download_dvd_data('INTERCONNECTORCONSTRAINT', t)
-    # logging.info('Read interconnector constraint.')
     with ic_dir.open() as f:
         reader = csv.reader(f)
         for row in reader:
@@ -280,19 +247,18 @@ def add_interconnector_constraint(interconnectors, t):
                 ic = interconnectors.get(row[8])
                 if ic:
                     ic.from_region_loss_share = float(row[5])
-                    ic.max_mw_in = float(row[9])
-                    ic.max_mw_out = float(row[10])
+                    # ic.max_mw_in = float(row[9])
+                    # ic.max_mw_out = float(row[10])
                     ic.loss_constant = float(row[11])
                     ic.loss_flow_coefficient = float(row[12])
                     ic.import_limit = int(row[17])
                     ic.export_limit = int(row[18])
-                    ic.fcas_support_unavailable = int(row[24])
-                    ic.ic_type = row[25]
+                    # ic.fcas_support_unavailable = int(row[24])
+                    # ic.ic_type = row[25]
 
 
 def add_loss_factor_model(interconnectors, t):
     lfm_dir = preprocess.download_dvd_data('LOSSFACTORMODEL', t)
-    # logging.info('Read loss factor model.')
     with lfm_dir.open() as f:
         reader = csv.reader(f)
         for row in reader:
@@ -304,7 +270,6 @@ def add_loss_factor_model(interconnectors, t):
 
 def add_loss_model(interconnectors, t):
     lm_dir = preprocess.download_dvd_data('LOSSMODEL', t)
-    # logging.info('Read loss model.')
     with lm_dir.open() as f:
         reader = csv.reader(f)
         for row in reader:
@@ -352,7 +317,7 @@ class Link:
         self.band_avail = None
         self.ramp_up_rate = None
         # Custom
-        self.mw_flow = None
+        self.mw_flow = 0.0
         self.losses = None
 
 
@@ -369,8 +334,16 @@ def init_links():
 
 
 def add_mnsp_interconnector(links, t):
+    """Add MNSP interconnector information.
+
+    Args:
+        links (dict): dictionary of links
+        t (datetime.datetime): current datetime
+
+    Returns:
+        None
+    """
     mnsp_dir = preprocess.download_dvd_data('MNSP_INTERCONNECTOR', t)
-    # logging.info('Read MNSP interconnector.')
     with mnsp_dir.open() as f:
         reader = csv.reader(f)
         for row in reader:
@@ -387,10 +360,18 @@ def add_mnsp_interconnector(links, t):
 
 
 def add_mnsp_bids(links, t):
+    """Add MNSP bids.
+
+    Args:
+        links (dict): dictionary of links
+        t (datetime.datetime): current datetime
+
+    Returns:
+        None
+    """
     mnsp_dir = preprocess.download_mnsp_bids(t)
     with mnsp_dir.open() as f:
         reader = csv.reader(f)
-        # logging.info('Read MNSP bids.')
         for row in reader:
             if row[0] == 'D':
                 if row[2] == 'DAILY':
@@ -404,113 +385,32 @@ def add_mnsp_bids(links, t):
 
 
 def get_links(t):
+    """Get the dictionary of links.
+
+    Args:
+        t (datetime.datetime): current datetime
+
+    Returns:
+        dict: dictionary of links
+    """
     links = init_links()
     add_mnsp_interconnector(links, t)
     add_mnsp_bids(links, t)
     return links
 
 
-def nonlinear_calculate_interconnector_losses(model, regions, interconnectors, links):
-    qd = regions['QLD1'].total_demand
-    vd = regions['VIC1'].total_demand
-    nd = regions['NSW1'].total_demand
-    sd = regions['SA1'].total_demand
+def sos_calculate_interconnector_losses(model, regions, interconnectors, prob_id, debug_flag):
+    """Use Special Ordered Set (SOS) type 2 to calculate interconnector losses.
 
-    i = interconnectors['NSW1-QLD1']
-    x_s = range(-i.reverse_cap, i.forward_cap + 1)
-    y_s = [(-0.0471 + 1.0044E-05 * qd - 3.5146E-07 * nd) * x_i + 9.8083E-05 * (x_i ** 2) for x_i in x_s]
-    lambda_s = [model.addVar(lb=0.0) for i in x_s]
-    model.addLConstr(i.mw_flow == sum([x_i * lambda_i for x_i, lambda_i in zip(x_s, lambda_s)]))
-    i.mw_losses = model.addVar(lb=-gp.GRB.INFINITY)
-    model.addLConstr(i.mw_losses == sum([y_i * lambda_i for y_i, lambda_i in zip(y_s, lambda_s)]))
-    model.addLConstr(sum(lambda_s) == 1)
-    model.addSOS(gp.GRB.SOS_TYPE2, lambda_s)
+    Args:
+        model (gurobipy.Model): optimisation model
+        regions (dict): dictionary of regions
+        interconnectors (dict): dictionary of interconnectors
+        prob_id (str): problem ID
 
-    i = interconnectors['VIC1-NSW1']
-    x_s = range(-i.reverse_cap, i.forward_cap + 1)
-    y_s = [(0.0657 - 3.1523E-05 * vd + 2.1734E-05 * nd - 6.5967E-05 * sd) * x_i + 8.5133E-05 * (x_i ** 2) for x_i in x_s]
-    lambda_s = [model.addVar(lb=0.0) for i in x_s]
-    model.addLConstr(i.mw_flow == sum([x_i * lambda_i for x_i, lambda_i in zip(x_s, lambda_s)]))
-    i.mw_losses = model.addVar(lb=-gp.GRB.INFINITY)
-    model.addLConstr(i.mw_losses == sum([y_i * lambda_i for y_i, lambda_i in zip(y_s, lambda_s)]))
-    model.addLConstr(sum(lambda_s) == 1)
-    model.addSOS(gp.GRB.SOS_TYPE2, lambda_s)
-
-    i = interconnectors['V-SA']
-    x_s = range(-i.reverse_cap, i.forward_cap + 1)
-    y_s = [(0.0138 + 1.3598E-06 * vd - 1.3290E-05 * sd) * x_i + 1.4761E-04 * (x_i ** 2) for x_i in x_s]
-    lambda_s = [model.addVar(lb=0.0) for i in x_s]
-    model.addLConstr(i.mw_flow == sum([x_i * lambda_i for x_i, lambda_i in zip(x_s, lambda_s)]))
-    i.mw_losses = model.addVar(lb=-gp.GRB.INFINITY)
-    model.addLConstr(i.mw_losses == sum([y_i * lambda_i for y_i, lambda_i in zip(y_s, lambda_s)]))
-    model.addLConstr(sum(lambda_s) == 1)
-    model.addSOS(gp.GRB.SOS_TYPE2, lambda_s)
-
-    i = interconnectors['V-S-MNSP1']
-    x_s = range(-i.reverse_cap, i.forward_cap + 1)
-    y_s = [-0.1067 * x_i + 9.0595E-04 * (x_i ** 2) for x_i in x_s]
-    lambda_s = [model.addVar(lb=0.0) for i in x_s]
-    model.addLConstr(i.mw_flow == sum([x_i * lambda_i for x_i, lambda_i in zip(x_s, lambda_s)]))
-    i.mw_losses = model.addVar(lb=-gp.GRB.INFINITY)
-    model.addLConstr(i.mw_losses == sum([y_i * lambda_i for y_i, lambda_i in zip(y_s, lambda_s)]))
-    model.addLConstr(sum(lambda_s) == 1)
-    model.addSOS(gp.GRB.SOS_TYPE2, lambda_s)
-
-    i = interconnectors['N-Q-MNSP1']
-    x_s = range(-i.reverse_cap, i.forward_cap + 1)
-    y_s = [0.0331 * x_i + 1.3042E-03 * (x_i ** 2) for x_i in x_s]
-    lambda_s = [model.addVar(lb=0.0) for i in x_s]
-    model.addLConstr(i.mw_flow == sum([x_i * lambda_i for x_i, lambda_i in zip(x_s, lambda_s)]))
-    i.mw_losses = model.addVar(lb=-gp.GRB.INFINITY)
-    model.addLConstr(i.mw_losses == sum([y_i * lambda_i for y_i, lambda_i in zip(y_s, lambda_s)]))
-    model.addLConstr(sum(lambda_s) == 1)
-    model.addSOS(gp.GRB.SOS_TYPE2, lambda_s)
-
-    i = interconnectors['T-V-MNSP1']
-    model.addLConstr(i.mw_flow == links['BLNKVIC'].mw_flow + links['BLNKTAS'].mw_flow)
-
-    # model.addLConstr(i.mw_flow == i.mw_flow_record)
-
-    link = links['BLNKVIC']
-    x_s = range(link.max_cap + 1)
-    y_s = [-3.92E-03 * x_i + 1.0393E-04 * (x_i ** 2) + 4 for x_i in x_s]
-    lambda_s = [model.addVar(lb=0.0) for i in x_s]
-    model.addLConstr(link.mw_flow == sum([x_i * lambda_i for x_i, lambda_i in zip(x_s, lambda_s)]))
-    link.losses = model.addVar(lb=-gp.GRB.INFINITY)
-    model.addLConstr(link.losses == sum([y_i * lambda_i for y_i, lambda_i in zip(y_s, lambda_s)]))
-    model.addLConstr(sum(lambda_s) == 1)
-    model.addSOS(gp.GRB.SOS_TYPE2, lambda_s)
-    regions[link.from_region].losses += (1 - link.from_region_tlf) * (link.mw_flow + link.losses)
-    regions[link.to_region].losses += (1 - link.to_region_tlf) * link.mw_flow
-
-    link = links['BLNKTAS']
-    x_s = range(-link.max_cap, 1)
-    y_s = [-3.92E-03 * x_i + 1.0393E-04 * (x_i ** 2) + 4 for x_i in x_s]
-    lambda_s = [model.addVar(lb=0.0) for i in x_s]
-    model.addLConstr(link.mw_flow == sum([x_i * lambda_i for x_i, lambda_i in zip(x_s, lambda_s)]))
-    link.losses = model.addVar(lb=-gp.GRB.INFINITY)
-    model.addLConstr(link.losses == sum([y_i * lambda_i for y_i, lambda_i in zip(y_s, lambda_s)]))
-    model.addLConstr(sum(lambda_s) == 1)
-    model.addSOS(gp.GRB.SOS_TYPE2, lambda_s)
-    regions[link.from_region].losses += (1 - link.from_region_tlf) * (link.mw_flow + link.losses)
-    regions[link.to_region].losses += (1 - link.to_region_tlf) * link.mw_flow
-
-    model.addSOS(gp.GRB.SOS_TYPE1, [links['BLNKVIC'].mw_flow, links['BLNKTAS'].mw_flow])
-    i.mw_losses = model.addVar(lb=-gp.GRB.INFINITY)
-    model.addLConstr(i.mw_losses == links['BLNKVIC'].losses + links['BLNKTAS'].losses - 8)
-
-    for interconnector in interconnectors.values():
-        if interconnector.interconnector_id == 'T-V-MNSP1':
-            if interconnector.metered_mw_flow >= 0:
-                regions['TAS1'].losses += interconnector.mw_losses
-            else:
-                regions['VIC1'].losses += interconnector.mw_losses
-        else:
-            regions[interconnector.from_region].losses += interconnector.mw_losses * interconnector.from_region_loss_share
-            regions[interconnector.to_region].losses += interconnector.mw_losses * (1 - interconnector.from_region_loss_share)
-
-
-def sos_calculate_interconnector_losses(model, regions, interconnectors, links=None):
+    Returns:
+        None
+    """
     for ic_id, ic in interconnectors.items():
         coefficient = ic.loss_constant - 1
         for region_id, dc in ic.demand_coefficient.items():
@@ -518,85 +418,119 @@ def sos_calculate_interconnector_losses(model, regions, interconnectors, links=N
 
         x_s = sorted(ic.mw_breakpoint.values())
         y_s = [0.5 * ic.loss_flow_coefficient * x * x + coefficient * x for x in x_s]
-        ic.mw_losses = model.addVar(lb=-gp.GRB.INFINITY, name=f'Mw_Losses_{ic_id}')
+        ic.mw_losses = model.addVar(lb=-gp.GRB.INFINITY, name=f'Mw_Losses_{ic_id}_{prob_id}')
 
-        lambda_s = [model.addVar(name=f'Lambda{i}_{ic_id}') for i in x_s]
-        model.addLConstr(ic.mw_flow == sum([x_i * lambda_i for x_i, lambda_i in zip(x_s, lambda_s)]), f'SOS_MW_FLOW_{ic_id}')
-        model.addLConstr(ic.mw_losses == sum([y_i * lambda_i for y_i, lambda_i in zip(y_s, lambda_s)]), f'SOS_MW_LOSSES_{ic_id}')
-        model.addLConstr(sum(lambda_s) == 1, f'SOS_LAMBDA_{ic_id}')
+        lambda_s = [model.addVar(name=f'Lambda{i}_{ic_id}_{prob_id}') for i in x_s]
+        model.addLConstr(ic.mw_flow == sum([x_i * lambda_i for x_i, lambda_i in zip(x_s, lambda_s)]), f'SOS_MW_FLOW_{ic_id}_{prob_id}')
+        model.addLConstr(ic.mw_losses == sum([y_i * lambda_i for y_i, lambda_i in zip(y_s, lambda_s)]), f'SOS_MW_LOSSES_{ic_id}_{prob_id}')
+        model.addLConstr(sum(lambda_s) == 1, f'SOS_LAMBDA_{ic_id}_{prob_id}')
         model.addSOS(gp.GRB.SOS_TYPE2, lambda_s)
-        share_losses(regions, ic)
+        share_losses(regions, ic, debug_flag)
 
 
-def calculate_interconnector_losses(model, regions, interconnectors, debug_flag):
+def calculate_interconnector_losses(model, regions, interconnectors, prob_id, debug_flag):
+    """Linearly calculate interconnector losses.
+
+    Args:
+        model (gurobipy.Model): optimisation probelm
+        regions (dict): dictionary of regions
+        interconnectors (dict): dictionary of interconnectors
+        prob_id (str): problem ID
+        debug_flag (bool): used to debug or not
+
+    Returns:
+        None
+    """
     for ic in interconnectors.values():
         coefficient = ic.loss_constant - 1
         for region_id, dc in ic.demand_coefficient.items():
             coefficient += regions[region_id].total_demand * dc
-
         x_s = sorted(ic.mw_breakpoint.values())
         y_s = [0.5 * ic.loss_flow_coefficient * x * x + coefficient * x for x in x_s]
-        ic.mw_losses = model.addVar(lb=-gp.GRB.INFINITY, name=f'Mw_Losses_{ic.interconnector_id}')
+        ic.mw_losses = model.addVar(lb=-gp.GRB.INFINITY, name=f'Mw_Losses_{ic.interconnector_id}_{prob_id}')
         for i in range(len(x_s) - 1):
-            model.addLConstr((ic.mw_losses - y_s[i]) * (x_s[i + 1] - x_s[i]) >= (y_s[i + 1] - y_s[i]) * (ic.mw_flow - x_s[i]), f'LOSSES_{ic.interconnector_id}')
-            if (ic.mw_losses_record - y_s[i]) * (x_s[i + 1] - x_s[i]) < (y_s[i + 1] - y_s[i]) * (ic.mw_flow_record - x_s[i]) and debug_flag:
-                logging.warning(f'IC {ic.interconnector_id} violate losses constraint')
-                logging.debug(f'lhs = {(ic.mw_losses_record - y_s[i]) * (x_s[i + 1] - x_s[i])} rhs = {(y_s[i + 1] - y_s[i]) * (ic.mw_flow_record - x_s[i])}')
-        share_losses(regions, ic)
+            model.addLConstr((ic.mw_losses - y_s[i]) * (x_s[i + 1] - x_s[i]) >= (y_s[i + 1] - y_s[i]) * (ic.mw_flow - x_s[i]), f'LOSSES_{ic.interconnector_id}_{prob_id}')
+        share_losses(regions, ic, debug_flag)
 
 
-def share_losses(regions, ic):
+def share_losses(regions, ic, debug_flag):
+    """Share interconnector's losses to connected regions.
+
+    Args:
+        regions (dict): dictionary of regions
+        ic (Interconnector): interconnector instance
+        debug_flag (bool): used to debug or not
+
+    Returns:
+        None
+    """
     if ic.interconnector_id == 'T-V-MNSP1':
         if ic.metered_mw_flow >= 0:
             regions['TAS1'].losses += ic.mw_losses
-            regions['TAS1'].losses_record += ic.mw_losses_record
-            regions['TAS1'].net_interchange_record_temp += ic.mw_losses_record
+            if debug_flag:
+                regions['TAS1'].losses_record += ic.mw_losses_record
+                regions['TAS1'].net_interchange_record_temp += ic.mw_losses_record
         else:
             regions['VIC1'].losses += ic.mw_losses
-            regions['VIC1'].losses_record += ic.mw_losses_record
-            regions['VIC1'].net_interchange_record_temp += ic.mw_losses_record
+            if debug_flag:
+                regions['VIC1'].losses_record += ic.mw_losses_record
+                regions['VIC1'].net_interchange_record_temp += ic.mw_losses_record
     else:
         regions[ic.region_from].losses += ic.mw_losses * ic.from_region_loss_share
         regions[ic.region_to].losses += ic.mw_losses * (1 - ic.from_region_loss_share)
-        regions[ic.region_from].losses_record += ic.mw_losses_record * ic.from_region_loss_share
-        regions[ic.region_to].losses_record += ic.mw_losses_record * (1 - ic.from_region_loss_share)
-        regions[ic.region_from].net_interchange_record_temp += ic.mw_losses_record * ic.from_region_loss_share
-        regions[ic.region_to].net_interchange_record_temp += ic.mw_losses_record * (1 - ic.from_region_loss_share)
+        if debug_flag:
+            regions[ic.region_from].losses_record += ic.mw_losses_record * ic.from_region_loss_share
+            regions[ic.region_to].losses_record += ic.mw_losses_record * (1 - ic.from_region_loss_share)
+            regions[ic.region_from].net_interchange_record_temp += ic.mw_losses_record * ic.from_region_loss_share
+            regions[ic.region_to].net_interchange_record_temp += ic.mw_losses_record * (1 - ic.from_region_loss_share)
 
 
-def add_dispatchis_record(regions, interconnectors, t, fcas_flag):
+def add_dispatchis_record(regions, interconnectors, t, fcas_flag, debug_flag):
+    """Add region and interconnector record from DISPATCHIS file.
+
+    Args:
+        regions (dict): dictionary of regions
+        interconnectors (dict): dictionary
+        t (datetime.datetime): current datetime
+        fcas_flag (bool): consider FCAS or not
+        debug_flag (bool): used to debug or not
+
+    Returns:
+        Solution: solution instance
+    """
+    solution = None
     dispatch_dir = preprocess.download_dispatch_summary(t)
-    # logging.info('Read dispatch summary.')
     with dispatch_dir.open() as f:
         reader = csv.reader(f)
         for row in reader:
             if row[0] == 'D' and row[2] == 'REGIONSUM' and row[8] == intervention:
                 region = regions[row[6]]
                 region.total_demand = float(row[9])
-                region.available_generation_record = float(row[10])
-                region.available_load_record = float(row[11])
-                region.dispatchable_generation_record = float(row[13])
-                region.dispatchable_load_record = float(row[14])
-                region.net_interchange_record = float(row[15])
-                if fcas_flag:
-                    region.fcas_local_dispatch_record['LOWER5MIN'] = float(row[19])
-                    region.fcas_local_dispatch_record['LOWER60SEC'] = float(row[27])
-                    region.fcas_local_dispatch_record['LOWER6SEC'] = float(row[35])
-                    region.fcas_local_dispatch_record['RAISE5MIN'] = float(row[43])
-                    region.fcas_local_dispatch_record['RAISE60SEC'] = float(row[51])
-                    region.fcas_local_dispatch_record['RAISE6SEC'] = float(row[59])
-                    region.fcas_local_dispatch_record['LOWERREG'] = float(row[71])
-                    region.fcas_local_dispatch_record['RAISEREG'] = float(row[75])
-                # region.lower5min_local_dispatch_record = float(row[19])
-                # region.lower60sec_local_dispatch_record = float(row[27])
-                # region.lower6sec_local_dispatch_record = float(row[35])
-                # region.raise5min_local_dispatch_record = float(row[43])
-                # region.raise60sec_local_dispatch_record = float(row[51])
-                # region.raise6sec_local_dispatch_record = float(row[59])
-                # region.lowerreg_local_dispatch_record = float(row[71])
-                # region.raisereg_local_dispatch_record = float(row[75])
-                region.uigf_record = float(row[106])
-            elif row[0] == 'D' and row[2] == 'PRICE' and row[8] == intervention:
+                if debug_flag:
+                    region.available_generation_record = float(row[10])
+                    region.available_load_record = float(row[11])
+                    region.dispatchable_generation_record = float(row[13])
+                    region.dispatchable_load_record = float(row[14])
+                    region.net_interchange_record = float(row[15])
+                    if fcas_flag:
+                        region.fcas_local_dispatch_record['LOWER5MIN'] = float(row[19])
+                        region.fcas_local_dispatch_record['LOWER60SEC'] = float(row[27])
+                        region.fcas_local_dispatch_record['LOWER6SEC'] = float(row[35])
+                        region.fcas_local_dispatch_record['RAISE5MIN'] = float(row[43])
+                        region.fcas_local_dispatch_record['RAISE60SEC'] = float(row[51])
+                        region.fcas_local_dispatch_record['RAISE6SEC'] = float(row[59])
+                        region.fcas_local_dispatch_record['LOWERREG'] = float(row[71])
+                        region.fcas_local_dispatch_record['RAISEREG'] = float(row[75])
+                    # region.lower5min_local_dispatch_record = float(row[19])
+                    # region.lower60sec_local_dispatch_record = float(row[27])
+                    # region.lower6sec_local_dispatch_record = float(row[35])
+                    # region.raise5min_local_dispatch_record = float(row[43])
+                    # region.raise60sec_local_dispatch_record = float(row[51])
+                    # region.raise6sec_local_dispatch_record = float(row[59])
+                    # region.lowerreg_local_dispatch_record = float(row[71])
+                    # region.raisereg_local_dispatch_record = float(row[75])
+                    region.uigf_record = float(row[106])
+            elif debug_flag and row[0] == 'D' and row[2] == 'PRICE' and row[8] == intervention:
                 region = regions[row[6]]
                 region.rrp_record = float(row[9])
                 region.rop_record = float(row[11])
@@ -617,7 +551,7 @@ def add_dispatchis_record(regions, interconnectors, t, fcas_flag):
                 # region.lower60sec_rrp_record = float(row[30])
                 # region.lower5min_rrp_record = float(row[33])
                 # region.lowerreg_rrp_record = float(row[36])
-            elif row[0] == 'D' and row[2] == 'CASE_SOLUTION':
+            elif debug_flag and row[0] == 'D' and row[2] == 'CASE_SOLUTION':
                 solution = Solution()
                 solution.intervention = row[6]
                 solution.case_subtype = row[7]
@@ -642,16 +576,30 @@ def add_dispatchis_record(regions, interconnectors, t, fcas_flag):
                 interconnector = interconnectors[row[6]]
                 interconnector.metered_mw_flow = float(row[9])
                 interconnector.mw_flow_record = float(row[10])
-                interconnector.mw_losses_record = float(row[11])
-                interconnector.marginal_value_record = float(row[12])
-                interconnector.violation_degree_record = float(row[13])
-                interconnector.export_limit_record = float(row[15])
-                interconnector.import_limit_record = float(row[16])
-                interconnector.marginal_loss_record = float(row[17])
+                if debug_flag:
+                    interconnector.mw_losses_record = float(row[11])
+                    interconnector.marginal_value_record = float(row[12])
+                    interconnector.violation_degree_record = float(row[13])
+                    interconnector.export_limit_record = float(row[15])
+                    interconnector.import_limit_record = float(row[16])
+                    interconnector.marginal_loss_record = float(row[17])
     return solution
 
 
-def add_predispatch_record(regions, interconnectors, i, start):
+def add_predispatch_record(regions, interconnectors, i, start, debug_flag):
+    """Add predispatch region and interconnector record from PREDISPATCHIS file.
+
+    Args:
+        regions (dict): dictionary of regions
+        interconnectors (dict): dictionary
+        i (int): interval number
+        start (datetime.datetime): start datetime
+        debug_flag (bool): used to debug or not
+
+    Returns:
+        Solution: solution instance
+    """
+    solution = None
     dispatch_dir = preprocess.download_predispatch(start)
     with dispatch_dir.open() as f:
         reader = csv.reader(f)
@@ -659,24 +607,24 @@ def add_predispatch_record(regions, interconnectors, i, start):
             if row[0] == 'D' and row[2] == 'REGION_SOLUTION' and int(row[7]) == i + 1 and row[8] == intervention:  # 7: Period ID; 8: Intervention flag
                 region = regions[row[6]]
                 region.total_demand = float(row[9])
-                region.available_generation_record = float(row[10])
-                region.available_load_record = float(row[11])
-                region.dispatchable_generation_record = float(row[13])
-                region.dispatchable_load_record = float(row[14])
-                region.net_interchange_record = float(row[15])
-                region.fcas_local_dispatch_record['LOWER5MIN'] = float(row[19])
-                region.fcas_local_dispatch_record['LOWER60SEC'] = float(row[27])
-                region.fcas_local_dispatch_record['LOWER6SEC'] = float(row[35])
-                region.fcas_local_dispatch_record['RAISE5MIN'] = float(row[43])
-                region.fcas_local_dispatch_record['RAISE60SEC'] = float(row[51])
-                region.fcas_local_dispatch_record['RAISE6SEC'] = float(row[59])
-                region.fcas_local_dispatch_record['LOWERREG'] = float(row[70])
-                region.fcas_local_dispatch_record['RAISEREG'] = float(row[74])
-                region.uigf_record = float(row[106])
-            elif row[0] == 'D' and row[2] == 'REGION_PRICES' and int(row[7]) == i + 1 and row[8] == intervention:
+                if debug_flag:
+                    region.available_generation_record = float(row[10])
+                    region.available_load_record = float(row[11])
+                    region.dispatchable_generation_record = float(row[13])
+                    region.dispatchable_load_record = float(row[14])
+                    region.net_interchange_record = float(row[15])
+                    region.fcas_local_dispatch_record['LOWER5MIN'] = float(row[19])
+                    region.fcas_local_dispatch_record['LOWER60SEC'] = float(row[27])
+                    region.fcas_local_dispatch_record['LOWER6SEC'] = float(row[35])
+                    region.fcas_local_dispatch_record['RAISE5MIN'] = float(row[43])
+                    region.fcas_local_dispatch_record['RAISE60SEC'] = float(row[51])
+                    region.fcas_local_dispatch_record['RAISE6SEC'] = float(row[59])
+                    region.fcas_local_dispatch_record['LOWERREG'] = float(row[70])
+                    region.fcas_local_dispatch_record['RAISEREG'] = float(row[74])
+                    region.uigf_record = float(row[106])
+            elif debug_flag and row[0] == 'D' and row[2] == 'REGION_PRICES' and int(row[7]) == i + 1 and row[8] == intervention:
                 region = regions[row[6]]
                 region.rrp_record = float(row[9])
-                # region.rop_record = float(row[])  # Note: Predispatch doesn't have ROP
                 region.fcas_rrp_record['RAISE6SEC'] = float(row[29])
                 region.fcas_rrp_record['RAISE60SEC'] = float(row[30])
                 region.fcas_rrp_record['RAISE5MIN'] = float(row[31])
@@ -685,7 +633,7 @@ def add_predispatch_record(regions, interconnectors, i, start):
                 region.fcas_rrp_record['LOWER60SEC'] = float(row[34])
                 region.fcas_rrp_record['LOWER5MIN'] = float(row[35])
                 region.fcas_rrp_record['LOWERREG'] = float(row[36])
-            elif row[0] == 'D' and row[2] == 'CASE_SOLUTION':
+            elif debug_flag and row[0] == 'D' and row[2] == 'CASE_SOLUTION':
                 solution = Solution()
                 # solution.intervention = row[6]
                 # solution.case_subtype = row[7]
@@ -710,51 +658,65 @@ def add_predispatch_record(regions, interconnectors, i, start):
             elif row[0] == 'D' and row[2] == 'INTERCONNECTOR_SOLN' and int(row[7]) == i + 1 and row[8] == intervention:
                 ic = interconnectors[row[6]]
                 ic.metered_mw_flow = float(row[9])
-                ic.mw_flow_record = float(row[10])
-                ic.mw_losses_record = float(row[11])
-                ic.marginal_value_record = float(row[12])
-                ic.violation_degree_record = float(row[13])
-                ic.export_limit_record = float(row[16])
-                ic.import_limit_record = float(row[17])
-                ic.marginal_loss_record = float(row[18])
-                ic.fcas_export_limit_record = float(row[21])
-                ic.fcas_import_limit_record = float(row[22])
+                if debug_flag:
+                    ic.mw_flow_record = float(row[10])
+                    ic.mw_losses_record = float(row[11])
+                    ic.marginal_value_record = float(row[12])
+                    ic.violation_degree_record = float(row[13])
+                    ic.export_limit_record = float(row[16])
+                    ic.import_limit_record = float(row[17])
+                    ic.marginal_loss_record = float(row[18])
+                    ic.fcas_export_limit_record = float(row[21])
+                    ic.fcas_import_limit_record = float(row[22])
     return solution
                 
 
-def add_p5min_record(regions, interconnectors, t, start):
+def add_p5min_record(regions, interconnectors, t, start, debug_flag):
+    """Add P5MIN region and interconnector record from P5MIN file.
+
+    Args:
+        regions (dict): dictionary of regions
+        interconnectors (dict): dictionary of interconnectors
+        t (datetime.dateime): current datetime
+        start (datetime.datetime): start datetime
+
+    Returns:
+        Solution: solution instance
+    """
+    solution = None
     dispatch_dir = preprocess.download_5min_predispatch(start)
     with dispatch_dir.open() as f:
         reader = csv.reader(f)
         for row in reader:
             if row[0] == 'D' and row[2] == 'REGIONSOLUTION' and default.extract_datetime(row[6]) == t and row[5] == intervention:
                 region = regions[row[7]]
-                region.rrp_record = float(row[8])
-                region.rop_record = float(row[9])
-                region.fcas_rrp_record['RAISE6SEC'] = float(row[11])
-                region.fcas_rrp_record['RAISE60SEC'] = float(row[13])
-                region.fcas_rrp_record['RAISE5MIN'] = float(row[15])
-                region.fcas_rrp_record['RAISEREG'] = float(row[17])
-                region.fcas_rrp_record['LOWER6SEC'] = float(row[19])
-                region.fcas_rrp_record['LOWER60SEC'] = float(row[21])
-                region.fcas_rrp_record['LOWER5MIN'] = float(row[23])
-                region.fcas_rrp_record['LOWERREG'] = float(row[25])
                 region.total_demand = float(row[27])
-                region.available_generation_record = float(row[28])
-                region.available_load_record = float(row[29])
-                region.dispatchable_generation_record = float(row[31])
-                region.dispatchable_load_record = float(row[32])
-                region.net_interchange_record = float(row[33])
-                region.fcas_local_dispatch_record['LOWER5MIN'] = float(row[36])
-                region.fcas_local_dispatch_record['LOWER60SEC'] = float(row[41])
-                region.fcas_local_dispatch_record['LOWER6SEC'] = float(row[46])
-                region.fcas_local_dispatch_record['RAISE5MIN'] = float(row[51])
-                region.fcas_local_dispatch_record['RAISE60SEC'] = float(row[56])
-                region.fcas_local_dispatch_record['RAISE6SEC'] = float(row[61])
-                region.fcas_local_dispatch_record['LOWERREG'] = float(row[69])
-                region.fcas_local_dispatch_record['RAISEREG'] = float(row[74])
-                region.uigf_record = float(row[96])
-            elif row[0] == 'D' and row[2] == 'CASESOLUTION':
+                if debug_flag:
+                    region.rrp_record = float(row[8])
+                    region.rop_record = float(row[9])
+                    region.fcas_rrp_record['RAISE6SEC'] = float(row[11])
+                    region.fcas_rrp_record['RAISE60SEC'] = float(row[13])
+                    region.fcas_rrp_record['RAISE5MIN'] = float(row[15])
+                    region.fcas_rrp_record['RAISEREG'] = float(row[17])
+                    region.fcas_rrp_record['LOWER6SEC'] = float(row[19])
+                    region.fcas_rrp_record['LOWER60SEC'] = float(row[21])
+                    region.fcas_rrp_record['LOWER5MIN'] = float(row[23])
+                    region.fcas_rrp_record['LOWERREG'] = float(row[25])
+                    region.available_generation_record = float(row[28])
+                    region.available_load_record = float(row[29])
+                    region.dispatchable_generation_record = float(row[31])
+                    region.dispatchable_load_record = float(row[32])
+                    region.net_interchange_record = float(row[33])
+                    region.fcas_local_dispatch_record['LOWER5MIN'] = float(row[36])
+                    region.fcas_local_dispatch_record['LOWER60SEC'] = float(row[41])
+                    region.fcas_local_dispatch_record['LOWER6SEC'] = float(row[46])
+                    region.fcas_local_dispatch_record['RAISE5MIN'] = float(row[51])
+                    region.fcas_local_dispatch_record['RAISE60SEC'] = float(row[56])
+                    region.fcas_local_dispatch_record['RAISE6SEC'] = float(row[61])
+                    region.fcas_local_dispatch_record['LOWERREG'] = float(row[69])
+                    region.fcas_local_dispatch_record['RAISEREG'] = float(row[74])
+                    region.uigf_record = float(row[96])
+            elif debug_flag and row[0] == 'D' and row[2] == 'CASESOLUTION':
                 solution = Solution()
                 solution.intervention = row[6]
                 solution.total_objective = float(row[7])
@@ -776,142 +738,81 @@ def add_p5min_record(regions, interconnectors, t, start):
             elif row[0] == 'D' and row[2] == 'INTERCONNECTORSOLN' and default.extract_datetime(row[7]) == t and row[5] == intervention:
                 ic = interconnectors[row[6]]
                 ic.metered_mw_flow = float(row[8])
-                ic.mw_flow_record = float(row[9])
-                ic.mw_losses_record = float(row[10])
-                ic.marginal_value_record = float(row[11])
-                ic.violation_degree_record = float(row[12])
-                ic.export_limit_record = float(row[14])
-                ic.import_limit_record = float(row[15])
-                ic.marginal_loss_record = float(row[16])
-                ic.fcas_export_limit_record = float(row[19])
-                ic.fcas_import_limit_record = float(row[20])
+                if debug_flag:
+                    ic.mw_flow_record = float(row[9])
+                    ic.mw_losses_record = float(row[10])
+                    ic.marginal_value_record = float(row[11])
+                    ic.violation_degree_record = float(row[12])
+                    ic.export_limit_record = float(row[14])
+                    ic.import_limit_record = float(row[15])
+                    ic.marginal_loss_record = float(row[16])
+                    ic.fcas_export_limit_record = float(row[19])
+                    ic.fcas_import_limit_record = float(row[20])
     return solution
 
 
+def add_dispatch_record(t, start, i, process, problem, fcas_flag, debug_flag):
+    if process == 'dispatch':
+        problem.solution = add_dispatchis_record(problem.regions, problem.interconnectors, t, fcas_flag, debug_flag)
+    elif process == 'predispatch':
+        problem.solution = add_predispatch_record(problem.regions, problem.interconnectors, i, start, debug_flag)
+    else:
+        problem.solution = add_p5min_record(problem.regions, problem.interconnectors, t, start, debug_flag)
+
+
 def add_link_record(ic, blnktas, blnkvic):
+    """Add link record from AEMO's record.
+
+    Args:
+        ic (Interconnector): Basslink
+        blnktas (link): BLINK TAS
+        blnkvic (link): BLINK VIC
+
+    Returns:
+        None
+    """
     if ic.mw_flow_record >= 0:
         blnktas.mw_flow_record = ic.mw_flow_record
         blnkvic.mw_flow_record = 0
-        blnktas.metered_mw_flow = ic.metered_mw_flow
-        blnkvic.metered_mw_flow = 0
     else:
         blnktas.mw_flow_record = 0
         blnkvic.mw_flow_record = - ic.mw_flow_record
+    if ic.metered_mw_flow >= 0:
+        blnktas.metered_mw_flow = ic.metered_mw_flow
+        blnkvic.metered_mw_flow = 0
+    else:
         blnktas.metered_mw_flow = 0
         blnkvic.metered_mw_flow = - ic.metered_mw_flow
 
 
-def get_regions_and_interconnectors(t, start, i, process, fcas_flag=True, link_flag=True):
-    """Extract required information from dispatch summary file.
+def get_regions_and_interconnectors(t, start, i, process, problem=None, fcas_flag=True, link_flag=True, dispatchload_record=False, debug_flag=False):
+    """Get dictionaries of regions and interconnectors.
 
     Args:
-        t(datetime.datetime): Case datetime
+        t (datetime.datetime): current datetime
+        start (datetime.datetime): start datetime
+        i (int): interval number
+        process (str): process type, 'dispatch', 'p5min', or 'predispatch'
+        problem (dispatch.Problem): problem instance
+        fcas_flag (bool): consider FCAS or not
+        link_flag (bool): consider links or not
+        last_prob_id (str): problem ID of last horizon
+        dispatchload_flag (bool):
+        debug_flag (bool): debug or not
 
     Returns:
-        (dict, dict, float): Region dictionary, Interconnector dictionary, AEMO record for objective total_cleared
-
+        None
     """
-    regions = init_regions()
-    interconnectors = init_interconnectors()
-    links = get_links(t) if link_flag else None
-    add_interconnector_constraint(interconnectors, t)
-    add_loss_factor_model(interconnectors, t)
-    add_loss_model(interconnectors, t)
-    if process == 'dispatch':
-        solution = add_dispatchis_record(regions, interconnectors, t, fcas_flag)
-    elif process == 'predispatch':
-        solution = add_predispatch_record(regions, interconnectors, i, start)
-    else:
-        solution = add_p5min_record(regions, interconnectors, t, start)
+    predefine.add_simplified_interconnector_constraint(problem.interconnectors, t)
+    predefine.add_simplified_loss_factor_model(problem.interconnectors, t)
+    predefine.add_simplified_loss_model(problem.interconnectors, t)
+    predefine.add_simplified_mnsp_interconnector(problem.links, t)
+    # add_interconnector_constraint(problem.interconnectors, t)
+    # add_loss_factor_model(problem.interconnectors, t)
+    # add_loss_model(problem.interconnectors, t)
+    # add_mnsp_interconnector(problem.links, t)
+    # add_mnsp_bids(problem.links, t)
+    add_dispatch_record(t, start, i, process, problem, fcas_flag, debug_flag)
     if link_flag:
-        add_link_record(interconnectors['T-V-MNSP1'], links['BLNKTAS'], links['BLNKVIC'])
-    return regions, interconnectors, solution, links
-
-
-def main():
-    logging.basicConfig(format='%(levelname)s: %(asctime)s %(message)s', level=logging.DEBUG)
-    t = datetime.datetime(2020, 9, 1, 18, 5, 0)
-    regions, interconnectors, solution, links = get_regions_and_interconnectors(t, t, 0, 'dispatch', True, True)
-    model = gp.Model('losses')
-
-    for ic_id, ic in interconnectors.items():
-        # Define interconnector MW flow
-        ic.mw_flow = model.addVar(lb=-gp.GRB.INFINITY, name=f'Mw_Flow_{ic_id}')
-
-        ic.import_limit_constr = model.addLConstr(ic.mw_flow >= -ic.import_limit, f'IMPORT_LIMIT_{ic_id}')
-        ic.export_limit_constr = model.addLConstr(ic.mw_flow <= ic.export_limit, f'EXPORT_LIMIT_{ic_id}')
-
-        # Allocate inter-flow to regions
-        regions[ic.region_to].net_mw_flow_record += ic.mw_flow_record
-        regions[ic.region_from].net_mw_flow_record -= ic.mw_flow_record
-        regions[ic.region_to].net_mw_flow += ic.mw_flow
-        regions[ic.region_from].net_mw_flow -= ic.mw_flow
-
-        model.addLConstr(ic.mw_flow == ic.mw_flow_record, f'FIXED_INTERFLOW_{ic_id}')
-
-    calculate_interconnector_losses(model, regions, interconnectors)
-    model.optimize()
-
-    for ic_id, ic in interconnectors.items():
-        print(f'{ic_id} losses record {ic.mw_losses_record} and calculate {ic.mw_losses.x}')
-
-
-def test():
-    t = datetime.datetime(2020, 8, 16, 14, 5, 0)
-    regions, interconnectors, solution, links = get_regions_and_interconnectors(t, t, 0, 'dispatch', True, True)
-    for ic_id, ic in interconnectors.items():
-        # print('{} flow {} losses {}'.format(ic_id, ic.mw_flow_record, ic.mw_losses_record))
-        # print('from {} flow {} * factor {} = losses {} to flow {} * factor {} = losses {}'.format(ic.region_from,
-        #                                                                                           -ic.mw_flow_record,
-        #                                                                                           ic.from_region_loss_share,
-        #                                                                                           ic.mw_losses_record*ic.from_region_loss_share,
-        #                                                                                           ic.region_to,
-        #                                                                                           ic.mw_flow_record,
-        #                                                                                           1-ic.from_region_loss_share,
-        #                                                                                           ic.mw_losses_record*(1-ic.from_region_loss_share)))
-
-
-        if ic.interconnector_id == 'T-V-MNSP1':
-            if ic.metered_mw_flow >= 0:
-                print('metered>0')
-                regions['TAS1'].losses_record += ic.mw_losses_record
-            else:
-                print('metered<0')
-                # regions['VIC1'].losses_record += ic.mw_losses_record
-                regions['VIC1'].losses_record += ic.mw_losses_record
-            if ic.mw_flow_record > 0:
-                print('flow>0')
-                links['BLNKTAS'].mw_flow = ic.mw_flow_record
-                links['BLNKTAS'].losses = ic.mw_losses_record
-                links['BLNKVIC'].mw_flow = 0
-                links['BLNKVIC'].losses = 0
-                # regions['VIC1'].losses_record += (1 - 0.9728) * ic.mw_flow_record
-            else:
-                print('flow<0')
-                links['BLNKTAS'].mw_flow = 0
-                links['BLNKTAS'].losses = 0
-                links['BLNKVIC'].mw_flow = - ic.mw_flow_record
-                links['BLNKVIC'].losses = - ic.mw_losses_record
-                # regions['VIC1'].losses_record += (1 - 0.9789) * (ic.mw_losses_record+ic.mw_flow_record)
-        else:
-            regions[ic.region_to].net_mw_flow_record += ic.mw_flow_record
-            regions[ic.region_from].net_mw_flow_record -= ic.mw_flow_record
-            regions[ic.region_from].losses_record += ic.mw_losses_record * ic.from_region_loss_share
-            regions[ic.region_to].losses_record += ic.mw_losses_record * (1 - ic.from_region_loss_share)
-
-    for link in links.values():
-        regions[link.from_region].net_mw_flow_record -= (link.mw_flow) * link.from_region_tlf
-        regions[link.to_region].net_mw_flow_record += link.mw_flow * link.to_region_tlf
-
-    for region_id, region in regions.items():
-        print(f'{region_id} record {-region.net_interchange_record} flow {region.net_mw_flow_record} losses {region.losses_record} guess {region.net_mw_flow_record - region.losses_record}')
-        print(f'guess {region_id} rhs {region.dispatchable_generation_record} lhs {region.dispatchable_load_record + region.total_demand + region.net_interchange_record}')
-        print(f'verify {region_id} rhs {region.dispatchable_generation_record + region.net_mw_flow_record} lhs {region.dispatchable_load_record + region.total_demand + region.losses_record}')
-
-
-if __name__ == '__main__':
-    main()
-    # test()
-
-
-
+        if dispatchload_record:
+            add_link_record(problem.interconnectors['T-V-MNSP1'], problem.links['BLNKTAS'], problem.links['BLNKVIC'])

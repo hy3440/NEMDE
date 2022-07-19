@@ -1,3 +1,4 @@
+# Basic battery model
 from __future__ import division
 from pulp import LpVariable, LpProblem, LpStatus, lpSum, value
 

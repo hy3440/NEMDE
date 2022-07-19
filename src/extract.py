@@ -18,7 +18,7 @@ def extract_registration_information():
     Returns:
         None
     """
-    generators_file = preprocess.download_registration()
+    generators_file = preprocess.download_registration(False)
     with pd.ExcelFile(generators_file) as xls:
         df = pd.read_excel(xls, 'ExistingGeneration&NewDevs', skiprows=[0])
         for index, row in df.iterrows():

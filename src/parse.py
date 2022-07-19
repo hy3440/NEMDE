@@ -2,6 +2,7 @@ import constrain
 import logging
 import preprocess
 import xmltodict
+from offer import Unit, EnergyBid, FcasBid
 
 fcas_types = {'R5RE': 'RAISEREG',
               'L5RE': 'LOWERREG',
@@ -14,38 +15,142 @@ fcas_types = {'R5RE': 'RAISEREG',
               }
 
 
-def add_traders(xml, units):
+def add_dayoffer(xml, units):
+    """Add day offer.
+
+    Args:
+        xml (dict): dictionary extracted from XML
+        units (dict): dictionary of units
+
+    Returns:
+        None
+    """
     traders = xml['NEMSPDCaseFile']['NemSpdInputs']['TraderCollection']['Trader']
     for trader in traders:
-        if trader['@TraderID'] in units:
-            unit = units[trader['@TraderID']]
-            if '@CurrentMode' in trader:
-                unit.current_mode = int(trader['@CurrentMode'])
-            if '@CurrentModeTime' in trader:
-                unit.current_mode_time = float(trader['@CurrentModeTime'])
-            for condition in trader['TraderInitialConditionCollection']['TraderInitialCondition']:
-                if condition['@InitialConditionID'] == 'SCADARampUpRate':
-                    # scada_up_rate = float(condition['@Value'])
-                    # if abs(scada_up_rate - unit.ramp_up_rate) > 0.1:
-                    #     logging.debug(f'{unit.duid} up {unit.ramp_up_rate} roc {unit.energy.roc_up} but xml {scada_up_rate}')
-                    unit.ramp_up_rate = float(condition['@Value'])
-                elif condition['@InitialConditionID'] == 'SCADARampDnRate':
-                    # scada_dn_rate = float(condition['@Value'])
-                    # if abs(scada_dn_rate - unit.ramp_down_rate) > 0.1:
-                    #     logging.debug(f'{unit.duid} dn {unit.ramp_down_rate} roc {unit.energy.roc_down} but xml {scada_dn_rate}')
-                    unit.ramp_down_rate = float(condition['@Value'])
+        # if trader['@TraderID'] in units:
+        #     unit = units[trader['@TraderID']]
+        duid = trader['@TraderID']
+        unit = Unit(duid)
+        if trader['@TraderType'] == 'NORMALLY_ON_LOAD':
+            unit.dispatch_type = 'LOAD'
+            unit.normally_on_flag = 'Y'
+        elif trader['@TraderType'] == 'LOAD':
+            unit.dispatch_type = trader['@TraderType']
+            unit.normally_on_flag = 'N'
+        elif trader['@TraderType'] == 'GENERATOR':
+            unit.dispatch_type = trader['@TraderType']
+        elif trader['@TraderType'] == 'WDR':
+            unit.dispatch_type = 'GENERATOR'
+        else:
+            print('DISPATCH TYPE ERROR')
+            exit()
+        unit.start_type = 'FAST' if '@FastStart' in trader else 'SLOW'
+        if '@CurrentMode' in trader:
+            unit.current_mode = int(trader['@CurrentMode'])
+        if '@CurrentModeTime' in trader:
+            unit.current_mode_time = float(trader['@CurrentModeTime'])
+        for condition in trader['TraderInitialConditionCollection']['TraderInitialCondition']:
+            if condition['@InitialConditionID'] == 'SCADARampUpRate':
+                # scada_up_rate = float(condition['@Value'])
+                # if abs(scada_up_rate - unit.ramp_up_rate) > 0.1:
+                #     logging.debug(f'{unit.duid} up {unit.ramp_up_rate} roc {unit.energy.roc_up} but xml {scada_up_rate}')
+                unit.ramp_up_rate = float(condition['@Value'])
+            if condition['@InitialConditionID'] == 'SCADARampDnRate':
+                # scada_dn_rate = float(condition['@Value'])
+                # if abs(scada_dn_rate - unit.ramp_down_rate) > 0.1:
+                #     logging.debug(f'{unit.duid} dn {unit.ramp_down_rate} roc {unit.energy.roc_down} but xml {scada_dn_rate}')
+                unit.ramp_down_rate = float(condition['@Value'])
+            if condition['@InitialConditionID'] == 'InitialMW':
+                unit.initial_mw = float(condition['@Value'])
+        structures = trader['TradePriceStructureCollection']['TradePriceStructure']['TradeTypePriceStructureCollection']['TradeTypePriceStructure']
+        if type(structures) != list:
+            structures = [structures]
+        units[duid] = unit
+        for structure in structures:
+            if structure['@TradeType'] == 'ENOF' or structure['@TradeType'] == 'LDOF' or structure['@TradeType'] == 'DROF':
+                unit.energy = EnergyBid([])
+                unit.energy.price_band = [float(structure[f'@PriceBand{i}']) for i in range(1,11)]
+                if '@T1' in trader:
+                    unit.energy.minimum_load = int(trader['@MinLoadingMW'])
+                    unit.energy.t1 = int(trader['@T1'])
+                    unit.energy.t2 = int(trader['@T2'])
+                    unit.energy.t3 = int(trader['@T3'])
+                    unit.energy.t4 = int(trader['@T4'])
+            else:
+                bid_type = fcas_types[structure['@TradeType']]
+                fcas_bid = FcasBid([])
+                fcas_bid.bid_type = bid_type
+                fcas_bid.price_band = [float(structure[f'@PriceBand{i}']) for i in range(1, 11)]
+                unit.fcas_bids[bid_type] = fcas_bid
+
+
+def add_peroffer(xml, units):
+    """Add period offer.
+
+    Args:
+        xml (dict): dictionary extracted from XML
+        units (dict): dictionary of units
+
+    Returns:
+        None
+    """
+    trader_periods = xml['NEMSPDCaseFile']['NemSpdInputs']['PeriodCollection']['Period']['TraderPeriodCollection'][
+        'TraderPeriod']
+    for trader_period in trader_periods:
+        unit = units[trader_period['@TraderID']]
+        unit.region_id = trader_period['@RegionID']
+        if '@UIGF' in trader_period:
+            unit.forecast_poe50 = float(trader_period['@UIGF'])
+        trades = trader_period['TradeCollection']['Trade']
+        if type(trades) != list:
+            trades = [trades]
+        for trade in trades:
+            if trade['@TradeType'] == 'ENOF' or trade['@TradeType'] == 'LDOF' or trade['@TradeType'] == 'DROF':
+                unit.ramp_up_rate = float(trade['@RampUpRate'])
+                unit.ramp_down_rate = float(trade['@RampDnRate'])
+                unit.energy.max_avail = float(trade['@MaxAvail'])
+                unit.energy.band_avail = [float(trade[f'@BandAvail{i}']) for i in range(1, 11)]
+            else:
+                bid_type = fcas_types[trade['@TradeType']]
+                unit.fcas_bids[bid_type].max_avail = float(trade['@MaxAvail'])
+                unit.fcas_bids[bid_type].enablement_min = float(trade['@EnablementMin'])
+                unit.fcas_bids[bid_type].enablement_max = float(trade['@EnablementMax'])
+                unit.fcas_bids[bid_type].low_breakpoint = float(trade['@LowBreakpoint'])
+                unit.fcas_bids[bid_type].high_breakpoint = float(trade['@HighBreakpoint'])
+                unit.fcas_bids[bid_type].band_avail = [float(trade[f'@BandAvail{i}']) for i in range(1, 11)]
 
 
 def add_case(xml):
+    """Extract relevant prices from XML file.
+
+    Args:
+        xml (dict): dictionary extracted from XML
+
+    Returns:
+        (dict, int, int): violation prices, market price cap, market price fllor
+    """
     case = xml['NEMSPDCaseFile']['NemSpdInputs']['Case']
     violation_prices = {}
     for name, price in case.items():
-        if 'Price' in name:
+        if name == '@VoLL':
+            voll = int(price)
+        elif name == '@MPF':
+            market_price_floor = int(price)
+        elif 'Price' in name:
             violation_prices[name[1:]] = float(price)
-    return violation_prices
+    return violation_prices, voll, market_price_floor
 
 
-def add_mnsp_offer(xml, links):
+def add_mnsp_peroffer(xml, links):
+    """Add MNSP period offer.
+
+    Args:
+        xml (dict): dictionary extracted from XML
+        links (dict): dictionary of links
+
+    Returns:
+        None
+    """
     ic_periods = xml['NEMSPDCaseFile']['NemSpdInputs']['PeriodCollection']['Period']['InterconnectorPeriodCollection']['InterconnectorPeriod']
     for ic_period in ic_periods:
         if ic_period['@InterconnectorID'] == 'T-V-MNSP1':
@@ -57,7 +162,35 @@ def add_mnsp_offer(xml, links):
                 link.band_avail = [float(mnsp_offer[f'@BandAvail{i}']) for i in range(1, 11)]
 
 
+def add_mnsp_dayoffer(xml, links):
+    """Add MNSP day offer.
+
+    Args:
+        xml (dict): dictionary extracted from XML
+        links (dict): dictionary of links
+
+    Returns:
+        None
+    """
+    ics = xml['NEMSPDCaseFile']['NemSpdInputs']['InterconnectorCollection']['Interconnector']
+    for ic in ics:
+        if ic['@InterconnectorID'] == 'T-V-MNSP1':
+            structures = ic['MNSPPriceStructureCollection']['MNSPPriceStructure']['MNSPRegionPriceStructureCollection']['MNSPRegionPriceStructure']
+            for structure in structures:
+                link = links[structure['@LinkID']]
+                link.price_band = [float(structure[f'@PriceBand{i}']) for i in range(1, 11)]
+
+
 def add_uigf_forecast(xml, units):
+    """Add UIGF forecast.
+
+    Args:
+        xml (dict): dictionary extracted from XML
+        units (dict): dictionary of units
+
+    Returns:
+        None
+    """
     trader_period = xml['NEMSPDCaseFile']['NemSpdInputs']['PeriodCollection']['Period']['TraderPeriodCollection']['TraderPeriod']
     for trader in trader_period:
         if '@UIGF' in trader:
@@ -68,21 +201,24 @@ def add_uigf_forecast(xml, units):
                 unit.forecast_poe50 = uigf
 
 
-def add_trader_factor(constr, lhs_factor_collection, units):
+def add_trader_factor(constr, lhs_factor_collection, units, fcas_flag, debug_flag=False):
     if lhs_factor_collection is not None and 'TraderFactor' in lhs_factor_collection:
         trader_factor = lhs_factor_collection['TraderFactor']
 
         def add_trader_constr(constr, units, item):
             trade_type = item['@TradeType']
-            if trade_type == 'ENOF' or trade_type == 'LDOF':
+            if trade_type == 'ENOF' or trade_type == 'LDOF' or trade_type == 'DROF':
                 constr.connection_point_lhs += float(item['@Factor']) * units[item['@TraderID']].total_cleared
-                if units[item['@TraderID']].total_cleared_record is not None:
-                    constr.connection_point_lhs_record += float(item['@Factor']) * units[item['@TraderID']].total_cleared_record
+                if debug_flag:
+                    if units[item['@TraderID']].total_cleared_record is not None:
+                        constr.connection_point_lhs_record += float(item['@Factor']) * units[item['@TraderID']].total_cleared_record
             else:
                 constr.fcas_flag = True
-                constr.connection_point_lhs += float(item['@Factor']) * units[item['@TraderID']].fcas_bids[fcas_types[trade_type]].value
-                if units[item['@TraderID']].target_record:
-                    constr.connection_point_lhs_record += float(item['@Factor']) * units[item['@TraderID']].target_record[fcas_types[trade_type]]
+                if fcas_flag:
+                    constr.connection_point_lhs += float(item['@Factor']) * (units[item['@TraderID']].fcas_bids[fcas_types[trade_type]].value if fcas_types[trade_type] in units[item['@TraderID']].fcas_bids else 0)
+                    if debug_flag:
+                        if units[item['@TraderID']].target_record:
+                            constr.connection_point_lhs_record += float(item['@Factor']) * units[item['@TraderID']].target_record[fcas_types[trade_type]]
 
         if type(trader_factor) != list:
             add_trader_constr(constr, units, trader_factor)
@@ -91,13 +227,14 @@ def add_trader_factor(constr, lhs_factor_collection, units):
                 add_trader_constr(constr, units, item)
 
 
-def add_interconnector_factor(constr, lhs_factor_collection, interconnectors):
+def add_interconnector_factor(constr, lhs_factor_collection, interconnectors, debug_flag=False):
     if lhs_factor_collection is not None and 'InterconnectorFactor' in lhs_factor_collection:
         interconnector_factor = lhs_factor_collection['InterconnectorFactor']
 
         def add_interconnector_constr(constr, interconnectors, item):
             constr.interconnector_lhs += float(item['@Factor']) * interconnectors[item['@InterconnectorID']].mw_flow
-            constr.interconnector_lhs_record += float(item['@Factor']) * interconnectors[item['@InterconnectorID']].mw_flow_record
+            if debug_flag:
+                constr.interconnector_lhs_record += float(item['@Factor']) * interconnectors[item['@InterconnectorID']].mw_flow_record
 
         if type(interconnector_factor) != list:
             add_interconnector_constr(constr, interconnectors, interconnector_factor)
@@ -106,15 +243,19 @@ def add_interconnector_factor(constr, lhs_factor_collection, interconnectors):
                 add_interconnector_constr(constr, interconnectors, item)
 
 
-def add_region_factor(constr, lhs_factor_collection, regions):
+def add_region_factor(constr, lhs_factor_collection, regions, fcas_flag, debug_flag=False):
     if lhs_factor_collection is not None and 'RegionFactor' in lhs_factor_collection:
         region_factor = lhs_factor_collection['RegionFactor']
         constr.fcas_flag = True
 
+        if not fcas_flag:
+            return None
+
         def add_region_constr(constr, regions, item):
             regions[item['@RegionID']].fcas_constraints[fcas_types[item['@TradeType']]].add(constr.gen_con_id)
             constr.region_lhs += float(item['@Factor']) * regions[item['@RegionID']].fcas_local_dispatch[fcas_types[item['@TradeType']]]
-            constr.region_lhs_record += float(item['@Factor']) * regions[item['@RegionID']].fcas_local_dispatch_record[fcas_types[item['@TradeType']]]
+            if debug_flag:
+                constr.region_lhs_record += float(item['@Factor']) * regions[item['@RegionID']].fcas_local_dispatch_record[fcas_types[item['@TradeType']]]
 
         if type(region_factor) != list:
             add_region_constr(constr, regions, region_factor)
@@ -123,7 +264,7 @@ def add_region_factor(constr, lhs_factor_collection, regions):
                 add_region_constr(constr, regions, item)
 
 
-def add_generic_constraint(xml, units, regions, interconnectors, constraints):
+def add_generic_constraint(xml, units, regions, interconnectors, constraints, fcas_flag):
     types = {'LE': '<=', 'GE': '>=', 'EQ': '='}
     for generic_constr in xml['NEMSPDCaseFile']['NemSpdInputs']['GenericConstraintCollection']['GenericConstraint']:
         constr_id = generic_constr['@ConstraintID']
@@ -134,9 +275,9 @@ def add_generic_constraint(xml, units, regions, interconnectors, constraints):
             constraints[constr_id] = constr
 
             lhs_factor_collection = generic_constr['LHSFactorCollection']
-            add_trader_factor(constr, lhs_factor_collection, units)
+            add_trader_factor(constr, lhs_factor_collection, units, fcas_flag)
             add_interconnector_factor(constr, lhs_factor_collection, interconnectors)
-            add_region_factor(constr, lhs_factor_collection, regions)
+            add_region_factor(constr, lhs_factor_collection, regions, fcas_flag)
 
 
 def add_constraint_solution(xml, constraints):
@@ -241,6 +382,14 @@ def add_trader_period(xml, units, func):
 
 
 def read_xml(t):
+    """Read XML file.
+
+    Args:
+        t (datetime.datetime): current datetime
+
+    Returns:
+        dict: XML to dict
+    """
     outputs_dir = preprocess.download_xml(t)
     with outputs_dir.open() as f:
         read = f.read()
@@ -249,21 +398,34 @@ def read_xml(t):
 
 
 def add_nemspdoutputs(t, units, links, link_flag, process):
+    """Add required information of link from XML file.
+
+    Args:
+        t (datetime.datetime): current datetime
+        units (dict): dictionary of units
+        links (dict): dictionary of links
+        link_flag (bool): consider link or not
+        process (str): process type
+
+    Returns:
+
+    """
     xml = read_xml(t)
-    if process == 'dispatch':
-        add_traders(xml, units)
-        # violation_prices = add_case(xml)
-        add_uigf_forecast(xml, units)
+    add_dayoffer(xml, units)
+    add_peroffer(xml, units)
+    # if process == 'dispatch':
+    #     # violation_prices = add_case(xml)
+    #     add_uigf_forecast(xml, units)
     if link_flag:
-        add_mnsp_offer(xml, links)
+        add_mnsp_peroffer(xml, links)
+        add_mnsp_dayoffer(xml, links)
     # add_trader_period(xml, units, add_fcas)
-    return None
+    return add_case(xml)
 
 
-def add_xml_constr(t, start, predispatch_t, process, units, regions, interconnectors):
+def add_xml_constr(t, start, predispatch_t, process, units, regions, interconnectors, constraints, fcas_flag):
     xml = read_xml(t)
-    constraints = {}
-    add_generic_constraint(xml, units, regions, interconnectors, constraints)
+    add_generic_constraint(xml, units, regions, interconnectors, constraints, fcas_flag)
     add_constraint_solution(xml, constraints)
     if process == 'dispatch':
         constrain.add_dispatch_constraint(t, constraints)
@@ -271,7 +433,6 @@ def add_xml_constr(t, start, predispatch_t, process, units, regions, interconnec
         constrain.add_p5min_constraint(t, start, constraints)
     else:
         constrain.add_predispatch_constraint(predispatch_t, start, constraints)
-    return constraints
 
 
 def add_nemspdoutputs_fcas(t, units, func):
@@ -283,7 +444,7 @@ def main():
     import datetime
     t = datetime.datetime(2020, 6, 1, 4, 5)
     import offer
-    units, connection_points = offer.get_units(t, t, 0, 'dispatch', True)
+    units, connection_points = offer.get_units(t, t, 0, 'formulate', True)
     import interconnect
     links = interconnect.get_links(t)
     violation_prices = add_nemspdoutputs(t, units, links)

@@ -1,7 +1,10 @@
+import os
+
 from helpers import Battery
 from price_taker import calculate_revenue
 import datetime
 from plot import plot_revenues
+import default
 
 
 def compare_revenue(start):
@@ -35,17 +38,16 @@ def plot_all_revenues(start, batteries):
     # print('| Battery Size (MWh) | Capacity (MW) | Revenue | Revenue per MWh|')
     # print('| ------------------ | ------------- | ------- | -------------- |')
     for e, p in batteries:
-        b = Battery(e, p, 'NSW1', 2)
+        b = Battery(e, p, 'NSW1', 2, usage=f'price-taker-batteries/{round(e / p, 2)}')
         energies.append(e)
         r, times, prices, powers = calculate_revenue(start, b, k=1)
         revenues.append(r / e if normalisation_flag else r)
         print(f'| {e} | {p} | {r} | {r/e} |')
         # plot.plot_optimisation_with_bids(b, method, k=1)
-    original = None
-    plot_revenues(energies, revenues, 'Capacity (MWh)', 'Revenue ($ per MWh)' if normalisation_flag else 'Revenue ($)', b.generator.region_id, 2, original)
+    plot_revenues(energies, revenues, 'Capacity (MWh)', 'Revenue ($ per MWh)' if normalisation_flag else 'Revenue ($)')
 
 
-if __name__ == '__main__':
+def plot_revenues_by_input():
     start = datetime.datetime(2020, 9, 1, 4, 5, 0)
     # compare_revenue(start)
     batteries = []
@@ -56,4 +58,31 @@ if __name__ == '__main__':
         if e not in [7.5, 15, 22.5, 30]:
             p = 1 * a
         batteries.append([e, p])
+        print(e, p)
     plot_all_revenues(start, batteries)
+
+
+def plot_revenues_by_rate():
+    rate = 1.5
+    start = datetime.datetime(2020, 9, 1, 4, 5, 0)
+    # compare_revenue(start)
+    batteries = []
+    path_to_batteries = default.OUT_DIR / 'price-taker-batteries' / f'{rate}'
+
+    def num(s):
+        try:
+            return int(s)
+        except ValueError:
+            return float(s)
+
+    for dirname in os.listdir(path_to_batteries):
+        dirlist = dirname.split(' ')
+        e = num(dirlist[1][:-3])
+        p = num(dirlist[2][:-2])
+        if e < 250:
+            batteries.append([e, p])
+    plot_all_revenues(start, sorted(batteries))
+
+
+if __name__ == '__main__':
+    plot_revenues_by_rate()

@@ -6,6 +6,7 @@
 #       x,  y, z binary
 
 from gurobipy import *
+import default
 
 
 def test(m, x, y):
@@ -35,21 +36,24 @@ try:
     # optimize model
     m.optimize()
 
+    path_to_model = default.MODEL_DIR / f'mip1.lp'
+    m.write(str(path_to_model))
+
     for v in m.getVars():
         print(f'{v.varName} {v.x:g}')
 
     for c in m.getConstrs():
         # if c.slack != 0:
         print(c.slack)
+        print(c.constrName)
 
     print(f'Obj: {m.objVal:g}')
+
+    a = m.getVarByName('tt')
+    print(a == 0)
 
 except GurobiError as e:
     print('Error code ' + str(e.errno) + ": " + str(e))
 
 except AttributeError:
     print('Encountered an attribute error')
-
-
-
-

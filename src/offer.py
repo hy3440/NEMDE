@@ -3,6 +3,7 @@ import datetime
 import default
 import logging
 import preprocess
+import predefine
 
 
 class Bid:
@@ -42,7 +43,6 @@ class EnergyBid(Bid):
         roc_down (int): MW/min for lower
 
     """
-
     def __init__(self, row):
         if row != []:
             super().__init__(row)
@@ -59,7 +59,30 @@ class EnergyBid(Bid):
             self.t4 = int(row[27])
             self.normal_status = row[28]
             # Period bids
-            self.fixed_load = None
+            self.fixed_load = 0
+            self.roc_up = None
+            self.roc_down = None
+        else:
+            self.bid_type = 'ENERGY'
+            # Daily bids
+            self.price_band = None
+            # Period bids
+            self.max_avail = None
+            self.band_avail = None
+            # Daily bids
+            self.daily_energy_limit = 0
+            self.daily_energy = 0.0
+            self.daily_energy_record = 0.0
+            self.last_daily_energy = 0.0
+            self.last_daily_energy_record = 0.0
+            self.minimum_load = None
+            self.t1 = None
+            self.t2 = None
+            self.t3 = None
+            self.t4 = None
+            # self.normal_status = None
+            # Period bids
+            self.fixed_load = 0
             self.roc_up = None
             self.roc_down = None
 
@@ -79,9 +102,16 @@ class FcasBid(Bid):
         high_breakpoint (int): Maximum Energy Output (MW) at which the unit can provide the full availability (MAXAVAIL) for this ancillary service
         flag (int): A flag exists for each ancillary service type such that a unit trapped or stranded in one or more service type can be immediately identified
     """
-
     def __init__(self, row):
-        super().__init__(row)
+        if row != []:
+            super().__init__(row)
+        else:
+            self.bid_type = None
+            # Daily bids
+            self.price_band = None
+            # Period bids
+            self.max_avail = None
+            self.band_avail = None
         self.value = 0.0
         self.offers = []
         self.upper_slope_coeff = 0.0
@@ -163,29 +193,29 @@ class Unit:
         self.duid = duid
         # DU detail
         self.connection_point_id = None
-        self.volt_level = None
-        self.registered_capacity = None
-        self.agc_capability = None
+        # self.volt_level = None
+        # self.registered_capacity = None
+        # self.agc_capability = None
         self.dispatch_type = None
         self.max_capacity = None
-        self.start_type = None
-        self.normally_on_flag = None
-        self.intermittent_flag = None
-        self.semischedule_flag = None
-        self.max_rate_of_change_up = None
-        self.max_rate_of_change_down = None
+        self.start_type = 'NOT DISPATCHED'
+        self.normally_on_flag = ''
+        # self.intermittent_flag = None
+        # self.semischedule_flag = None
+        # self.max_rate_of_change_up = None
+        # self.max_rate_of_change_down = None
         # DU detail summary
         self.region_id = None
-        self.station_id = None
+        # self.station_id = None
         self.transmission_loss_factor = None
-        self.distribution_loss_factor = None
-        self.minimum_energy_price = None
-        self.maximum_energy_price = None
-        self.schedule_type = None
-        self.min_ramp_rate_up = None
-        self.min_ramp_rate_down = None
-        self.max_ramp_rate_up = None
-        self.max_ramp_rate_down = None
+        # self.distribution_loss_factor = None
+        # self.minimum_energy_price = None
+        # self.maximum_energy_price = None
+        # self.schedule_type = None
+        # self.min_ramp_rate_up = None
+        # self.min_ramp_rate_down = None
+        # self.max_ramp_rate_up = None
+        # self.max_ramp_rate_down = None
         # # Registration
         # self.dispatch_type = None
         # self.region_id = None
@@ -208,36 +238,20 @@ class Unit:
         self.energy = None
         self.offers = []
         self.total_cleared = 0.0
-        # self.lower5min = None
-        # self.lower60sec = None
-        # self.lower6sec = None
-        # self.raise5min = None
-        # self.raise60sec = None
-        # self.raise6sec = None
-        self.marginal_value = None
+        # self.marginal_value = None
         self.lowerreg = None
         self.raisereg = None
         self.fcas_bids = {}
-        # self.raise_reg_fcas = None
-        # self.lower_reg_fcas = None
-        # self.raise_con_fcas = {}
-        # self.lower_con_fcas = {}
         # Dispatch load
-        self.dispatch_mode = None
+        self.dispatch_mode = 0
         self.agc_status = None
         self.initial_mw = None
         self.total_cleared_record = None
         self.ramp_down_rate = None
         self.ramp_up_rate = None
         self.target_record = {}
-        # self.lower5min_record = None
-        # self.lower60sec_record = None
-        # self.lower6sec_record = None
-        # self.raise5min_record = None
-        # self.raise60sec_record = None
-        # self.raise6sec_record = None
-        self.marginal_value_record = {}
-        self.violation_degree_record = {}
+        # self.marginal_value_record = {}
+        # self.violation_degree_record = {}
         # self.lowerreg_record = None
         # self.raisereg_record = None
         self.availability = None
@@ -259,12 +273,6 @@ class Unit:
 
     def set_initial_mw(self, initial_mw):
         self.initial_mw = initial_mw
-
-
-class DERUnit(Unit):
-    def __init__(self, duid):
-        super().__init__(duid)
-        self.der_flag = True
 
 
 # class Generator(Unit):
@@ -344,17 +352,17 @@ def add_du_detail(units, t):
                         logging.error(f'Connection point ID {row[7]} has more than one unit.')
                     connection_points[row[7]] = row[5]
                     unit.connection_point_id = row[7]
-                    unit.volt_level = row[8]
-                    unit.registered_capacity = int(row[9])
+                    # unit.volt_level = row[8]
+                    # unit.registered_capacity = int(row[9])
                     unit.agc_capability = row[10]
                     unit.dispatch_type = row[11]
-                    unit.max_capacity = int(row[12])
+                    # unit.max_capacity = int(row[12])
                     unit.start_type = row[13]
                     unit.normally_on_flag = row[14]
-                    unit.intermittent_flag = row[20]
-                    unit.semischedule_flag = row[21]
-                    unit.max_rate_of_change_up = int(row[22]) if row[22] else None
-                    unit.max_rate_of_change_down = int(row[23]) if row[23] else None
+                    # unit.intermittent_flag = row[20]
+                    # unit.semischedule_flag = row[21]
+                    # unit.max_rate_of_change_up = int(row[22]) if row[22] else None
+                    # unit.max_rate_of_change_down = int(row[23]) if row[23] else None
     return connection_points
 
 
@@ -377,16 +385,16 @@ def add_du_detail_summary(units, t):
                 unit = units.get(row[4])
                 if unit:
                     unit.region_id = row[9]
-                    unit.station_id = row[10]
+                    # unit.station_id = row[10]
                     unit.transmission_loss_factor = float(row[13])
-                    unit.distribution_loss_factor = float(row[15])
-                    unit.minimum_energy_price = float(row[16])
-                    unit.maximum_energy_price = float(row[17])
-                    unit.schedule_type = row[18]
-                    unit.min_ramp_rate_up = int(row[19]) if row[19] else None
-                    unit.min_ramp_rate_down = int(row[20]) if row[20] else None
-                    unit.max_ramp_rate_up = int(row[21]) if row[21] else None
-                    unit.max_ramp_rate_down = int(row[22]) if row[22] else None
+                    # unit.distribution_loss_factor = float(row[15])
+                    # unit.minimum_energy_price = float(row[16])
+                    # unit.maximum_energy_price = float(row[17])
+                    # unit.schedule_type = row[18]
+                    # unit.min_ramp_rate_up = int(row[19]) if row[19] else None
+                    # unit.min_ramp_rate_down = int(row[20]) if row[20] else None
+                    # unit.max_ramp_rate_up = int(row[21]) if row[21] else None
+                    # unit.max_ramp_rate_down = int(row[22]) if row[22] else None
 
 
 # def add_marginal_loss_factors(units):
@@ -445,7 +453,7 @@ def add_intermittent_forecast(units, t):
                     unit.forecast_poe50 = float(row[12])
 
 
-def add_dispatchload_record(units, t, fcas_flag):
+def add_dispatchload_record(units, t, fcas_flag, debug_flag):
     """ Add AEMO dispatch record.
 
     Args:
@@ -454,7 +462,6 @@ def add_dispatchload_record(units, t, fcas_flag):
 
     Returns:
         None
-
     """
     record_dir = preprocess.download_next_day_dispatch(t)
     interval_datetime = default.get_interval_datetime(t)
@@ -472,54 +479,47 @@ def add_dispatchload_record(units, t, fcas_flag):
                     unit.total_cleared_record = float(row[14])
                     unit.ramp_down_rate = float(row[15])
                     unit.ramp_up_rate = float(row[16])
-                    unit.marginal_value_record['ENERGY'] = float(row[28]) if row[28] else None
-                    unit.violation_degree_record['ENERGY'] = float(row[32]) if row[32] else None
-                    unit.availability = float(row[36])
-                    if fcas_flag:
-                        # unit.lower5min_record = float(row[17])
-                        # unit.lower60sec_record = float(row[18])
-                        # unit.lower6sec_record = float(row[19])
-                        # unit.raise5min_record = float(row[20])
-                        # unit.raise60sec_record = float(row[21])
-                        # unit.raise6sec_record = float(row[22])
-                        # unit.lowerreg_record = float(row[34])
-                        # unit.raisereg_record = float(row[35])
-                        unit.target_record['LOWER5MIN'] = float(row[17])
-                        unit.target_record['LOWER60SEC'] = float(row[18])
-                        unit.target_record['LOWER6SEC'] = float(row[19])
-                        unit.target_record['RAISE5MIN'] = float(row[20])
-                        unit.target_record['RAISE60SEC'] = float(row[21])
-                        unit.target_record['RAISE6SEC'] = float(row[22])
-                        unit.marginal_value_record['5MIN'] = float(row[25]) if row[25] else None
-                        unit.marginal_value_record['60SEC'] = float(row[26]) if row[26] else None
-                        unit.marginal_value_record['6SEC'] = float(row[27]) if row[27] else None
-                        unit.violation_degree_record['5MIN'] = float(row[29]) if row[29] else None
-                        unit.violation_degree_record['60SEC'] = float(row[30]) if row[30] else None
-                        unit.violation_degree_record['6SEC'] = float(row[31]) if row[31] else None
-                        unit.target_record['LOWERREG'] = float(row[34])
-                        unit.target_record['RAISEREG'] = float(row[35])
-                        unit.flags['RAISE6SEC'] = int(row[37])
-                        unit.flags['RAISE60SEC'] = int(row[38])
-                        unit.flags['RAISE5MIN'] = int(row[39])
-                        unit.flags['RAISEREG'] = int(row[40])
-                        unit.flags['LOWER6SEC'] = int(row[41])
-                        unit.flags['LOWER60SEC'] = int(row[42])
-                        unit.flags['LOWER5MIN'] = int(row[43])
-                        unit.flags['LOWERREG'] = int(row[44])
-                        unit.raisereg_availability = float(row[45])
-                        unit.raisereg_enablement_max = float(row[46])
-                        unit.raisereg_enablement_min = float(row[47])
-                        unit.lowerreg_availability = float(row[48])
-                        unit.lowerreg_enablement_max = float(row[49])
-                        unit.lowerreg_enablement_min = float(row[50])
-                        unit.actual_availability_record['RAISE6SEC'] = float(row[51])
-                        unit.actual_availability_record['RAISE60SEC'] = float(row[52])
-                        unit.actual_availability_record['RAISE5MIN'] = float(row[53])
-                        unit.actual_availability_record['RAISEREG'] = float(row[54])
-                        unit.actual_availability_record['LOWER6SEC'] = float(row[55])
-                        unit.actual_availability_record['LOWER60SEC'] = float(row[56])
-                        unit.actual_availability_record['LOWER5MIN'] = float(row[57])
-                        unit.actual_availability_record['LOWERREG'] = float(row[58])
+                    unit.raisereg_availability = float(row [45])
+                    unit.raisereg_enablement_max = float(row [46])
+                    unit.raisereg_enablement_min = float(row [47])
+                    unit.lowerreg_availability = float(row [48])
+                    unit.lowerreg_enablement_max = float(row [49])
+                    unit.lowerreg_enablement_min = float(row [50])
+                    if debug_flag:
+                        unit.marginal_value_record['ENERGY'] = float(row[28]) if row[28] else None
+                        unit.violation_degree_record['ENERGY'] = float(row[32]) if row[32] else None
+                        unit.availability = float(row[36])
+                        if fcas_flag:
+                            unit.target_record['LOWER5MIN'] = float(row[17])
+                            unit.target_record['LOWER60SEC'] = float(row[18])
+                            unit.target_record['LOWER6SEC'] = float(row[19])
+                            unit.target_record['RAISE5MIN'] = float(row[20])
+                            unit.target_record['RAISE60SEC'] = float(row[21])
+                            unit.target_record['RAISE6SEC'] = float(row[22])
+                            unit.marginal_value_record['5MIN'] = float(row[25]) if row[25] else None
+                            unit.marginal_value_record['60SEC'] = float(row[26]) if row[26] else None
+                            unit.marginal_value_record['6SEC'] = float(row[27]) if row[27] else None
+                            unit.violation_degree_record['5MIN'] = float(row[29]) if row[29] else None
+                            unit.violation_degree_record['60SEC'] = float(row[30]) if row[30] else None
+                            unit.violation_degree_record['6SEC'] = float(row[31]) if row[31] else None
+                            unit.target_record['LOWERREG'] = float(row[34])
+                            unit.target_record['RAISEREG'] = float(row[35])
+                            unit.flags['RAISE6SEC'] = int(row[37])
+                            unit.flags['RAISE60SEC'] = int(row[38])
+                            unit.flags['RAISE5MIN'] = int(row[39])
+                            unit.flags['RAISEREG'] = int(row[40])
+                            unit.flags['LOWER6SEC'] = int(row[41])
+                            unit.flags['LOWER60SEC'] = int(row[42])
+                            unit.flags['LOWER5MIN'] = int(row[43])
+                            unit.flags['LOWERREG'] = int(row[44])
+                            unit.actual_availability_record['RAISE6SEC'] = float(row[51])
+                            unit.actual_availability_record['RAISE60SEC'] = float(row[52])
+                            unit.actual_availability_record['RAISE5MIN'] = float(row[53])
+                            unit.actual_availability_record['RAISEREG'] = float(row[54])
+                            unit.actual_availability_record['LOWER6SEC'] = float(row[55])
+                            unit.actual_availability_record['LOWER60SEC'] = float(row[56])
+                            unit.actual_availability_record['LOWER5MIN'] = float(row[57])
+                            unit.actual_availability_record['LOWERREG'] = float(row[58])
 
 
 def add_unit_solution(units, t, start, fcas_flag):
@@ -533,7 +533,6 @@ def add_unit_solution(units, t, start, fcas_flag):
 
     Returns:
         None
-
     """
     record_dir = preprocess.read_p5min_unit_solution(start)
     interval_datetime = default.get_interval_datetime(t)
@@ -583,7 +582,6 @@ def add_predispatchload(units, t, start, i, fcas_flag):
 
     Returns:
         None
-
     """
     interval_no = default.get_interval_no(start)
     record_dir = preprocess.read_predispatchload(start)
@@ -636,11 +634,12 @@ def add_predispatchload(units, t, start, i, fcas_flag):
                         unit.actual_availability_record['LOWERREG'] = float(row[53])
 
 
-def add_dispatchload(units, t, start, process, i, k=0, path_to_out=default.OUT_DIR, dispatchload_path=None):
+def add_dispatchload(units, links, t, start, process, k=0, path_to_out=default.OUT_DIR, dispatchload_path=None, daily_energy_flag=False):
     """ Add the dispatch load record generated by our model.
 
     Args:
         units (dict): the dictionary of units
+        links (dict): the dictionary of links
         t (datetime.datetime): current datetime
         start (datetime.datetime): start datetime of the process
         process (str): 'dispatch', 'predispatch', or 'p5min'
@@ -667,11 +666,13 @@ def add_dispatchload(units, t, start, process, i, k=0, path_to_out=default.OUT_D
                 if duid in units:
                     unit = units[duid]
                     unit.initial_mw = float(row[2])
-                    if unit.energy is not None and unit.energy.daily_energy_limit != 0:
+                    if daily_energy_flag and unit.energy is not None and unit.energy.daily_energy_limit != 0:
                         unit.energy.daily_energy = float(row[4])
                         unit.energy.daily_energy_record = float(row[5])
                         # unit.energy.last_daily_energy = float(row[6])
                         # unit.energy.last_daily_energy_record = float(row[7])
+                elif duid in links:
+                    links[duid].metered_mw_flow = float(row[2])
 
 
 def add_last_daily_energy(units, t, start, process, k=0, path_to_out=default.OUT_DIR, dispatchload_path=None):
@@ -707,7 +708,6 @@ def add_agc(units, t):
 
     Returns:
         None
-
     """
     record_dir = preprocess.download_next_day_dispatch(t)
     interval_datetime = default.get_interval_datetime(t)
@@ -751,10 +751,11 @@ def calculate_daily_energy(units, t, k, path_to_out):
     Args:
         units (dict): the dictionary of units
         t (datetime.datetime): current datetime
+        k (int): iteration number
+        path_to_out (Path): path to out file
 
     Returns:
         None
-
     """
     start = default.get_first_datetime(t, 'dispatch')
     while start < t:
@@ -788,7 +789,7 @@ def calculate_daily_energy(units, t, k, path_to_out):
         start += default.FIVE_MIN
 
 
-def get_units(t, start, i, process, fcas_flag=True, dispatchload_path=None, dispatchload_flag=True, daily_energy_flag=True, agc_flag=True, predispatch_t=None, k=0, path_to_out=default.OUT_DIR):
+def get_units(t, start, i, process, units={}, links={}, fcas_flag=True, dispatchload_path=None, dispatchload_flag=True, daily_energy_flag=True, agc_flag=True, predispatch_t=None, k=0, path_to_out=default.OUT_DIR, debug_flag=False, dispatchload_record=False):
     """Get units.
 
     Args:
@@ -804,7 +805,6 @@ def get_units(t, start, i, process, fcas_flag=True, dispatchload_path=None, disp
 
     Returns:
         dict: A dictionary of units and a dictionary of connection points
-
     """
     # Pre-process t and predispatch_t for PREDISPATCH
     if process == 'predispatch':
@@ -812,35 +812,32 @@ def get_units(t, start, i, process, fcas_flag=True, dispatchload_path=None, disp
             predispatch_t = start + i * default.THIRTY_MIN
             t = predispatch_t - default.TWENTYFIVE_MIN
 
-    units = {}
-    add_unit_bids(units, predispatch_t if process == 'predispatch' else t, process, fcas_flag)
-    add_intermittent_forecast(units, t)
+    # add_unit_bids(units, predispatch_t if process == 'predispatch' else t, process, fcas_flag)
+    # add_intermittent_forecast(units, t)
 
     # add_registration_information(units)
     # add_marginal_loss_factors(units)
     # add_reserve_trader(units)
+    # connection_points = add_du_detail(units, t)
+    # add_du_detail_summary(units, t)
+    predefine.add_simplified_dudetailsummary(units, t)
 
-    connection_points = add_du_detail(units, t)
-    add_du_detail_summary(units, t)
+    # if process == 'dispatch':
+    if dispatchload_record:
+        add_dispatchload_record(units, t, fcas_flag, debug_flag)
+    # elif process == 'p5min':
+    #     add_unit_solution(units, t, start, fcas_flag)
+    # elif process == 'predispatch':
+    #     add_predispatchload(units, predispatch_t, start, i, fcas_flag)
+    #     if i == 0 and daily_energy_flag:
+    #         calculate_daily_energy(units, t, k, path_to_out)
 
-    if process == 'dispatch':
-        add_dispatchload_record(units, t, fcas_flag)
-    elif process == 'p5min':
-        add_unit_solution(units, t, start, fcas_flag)
-    elif process == 'predispatch':
-        add_predispatchload(units, predispatch_t, start, i, fcas_flag)
-        if i == 0 and daily_energy_flag:
-            calculate_daily_energy(units, t, k, path_to_out)
+    if process == 'predispatch' and i == 0 and daily_energy_flag:
+        calculate_daily_energy(units, t, k, path_to_out)
     if i == 0 and fcas_flag and process != 'dispatch' and agc_flag:
         add_agc(units, t)
     if dispatchload_flag:
-        add_dispatchload(units, predispatch_t if process == 'predispatch' else t, start, process, i, k=k, path_to_out=path_to_out, dispatchload_path=dispatchload_path)
-    return units, connection_points
-
-
-def main():
-    get_units(None, datetime.datetime(2020, 9, 1, 5, 30), 0, 'predispatch')
-
-
-if __name__ == '__main__':
-    main()
+        add_dispatchload(units, links, predispatch_t if process == 'predispatch' else t, start, process, k=k,
+                         path_to_out=path_to_out, dispatchload_path=dispatchload_path, daily_energy_flag=daily_energy_flag)
+    # return connection_points
+    return None

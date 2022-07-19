@@ -1,244 +1,17 @@
-from constrain import get_market_price
+# Price-taker bidding strategy
+from preprocess import get_market_price
 import csv
 import datetime
 import default
 import dispatch
-import gurobipy as gp
 import helpers
 import logging
 from offer import EnergyBid
 import plot
 import read
-import traceback
-import write
 from helpers import Battery
-
-
-def get_cycles(dod):
-    """ Battery degradation model from paper Duggal2015Short. """
-    return 1591.1 * pow(dod, -2.089)
-
-
-def get_degradations(x):
-    """ Convert number of cycles versus DoD to degradation percentage versus SoC (see paper Ying2016Stochastic). """
-    return 1 / get_cycles(1 - x)
-
-
-# relationship between number of cycles and DoD (see paper Omar2014Lithium)
-dods = [20, 40, 60, 80, 100]
-cycles = [34957, 19985, 10019, 3221, 2600]
-socs = [0.8, 0.6, 0.2, 0]
-degradations = [1 / 34957, 1 / 19985, 1 / 10019, 1 / 3221, 1 / 2600]
-# socs = [k / 100 for k in range(0, 100, 5)]
-# degradations = [get_degradations(s) for s in socs]
-
-
-def phi(dod):
-    return 5.24E-4 * pow(dod, 2.03)
-
-
-def marginal_costs(R, eff, M, m):
-    return R * M * (phi(m / M) - phi((m - 1) / M)) / eff
-
-
-def get_predispatch_time(t):
-    if t.minute == 0:
-        return t
-    elif t.minute <= 30:
-        return datetime.datetime(t.year, t.month, t.day, t.hour, 30)
-    else:
-        return (t + default.ONE_HOUR).replace(minute=0)
-
-
-def preprocess_prices(current, custom_flag, battery, k):
-    path_to_out = default.OUT_DIR if k == 0 else battery.bat_dir
-    p5min_times, p5min_prices, aemo_p5min_prices, p5min_fcas_prices, aemo_p5min_fcas_prices = read.read_prices(current, 'p5min', custom_flag,
-                                                               battery.generator.region_id, k, path_to_out)
-    predispatch_time = get_predispatch_time(current)
-    predispatch_times, predispatch_prices, aemo_predispatch_prices, predispatch_fcas_prices, aemo_predispatch_fcas_prices = read.read_prices(predispatch_time, 'predispatch',
-                                                                                 custom_flag,
-                                                                                 battery.generator.region_id, k,
-                                                                                 path_to_out)
-    return p5min_times, predispatch_times[2:], p5min_prices, predispatch_prices[2:], predispatch_time, aemo_p5min_prices, aemo_predispatch_prices[2:]
-
-
-def extend_forcast_horizon(current, times, prices, aemo_prices, custom_flag, battery, k):
-    path_to_out = default.OUT_DIR if k == 0 else battery.bat_dir
-    end_time = current + default.ONE_DAY - default.FIVE_MIN
-    extend_time = end = times[-1]
-    if extend_time < end_time:
-        # 30min-based
-        # while end_time - extend_time > default.THIRTY_MIN:
-        #     extend_time += default.THIRTY_MIN
-        #     price, _ = read.read_trading_prices(extend_time - default.ONE_DAY, custom_flag, battery.load.region_id, k, path_to_out)
-        #     aemo_price, _ = read.read_trading_prices(extend_time, False, battery.load.region_id)
-        #     prices.append(price)
-        #     aemo_prices.append(aemo_price)
-        #     times.append(extend_time)
-        # 5min-based
-        while extend_time < end_time:
-            extend_time += default.FIVE_MIN
-            price, aemo_price, _, _ = read.read_dispatch_prices(extend_time - default.ONE_DAY, 'dispatch', custom_flag,
-                                                                battery.load.region_id, k, path_to_out)
-            prices.append(price)
-            aemo_prices.append(aemo_price)
-            times.append(extend_time)
-    elif extend_time > end_time:
-        while extend_time >= end_time + default.THIRTY_MIN:
-            times.pop()
-            prices.pop()
-            aemo_prices.pop()
-            extend_time = times[-1]
-        # times[-1] = min(extend_time, end_time)
-        end = None
-    return times, prices, aemo_prices, end
-
-
-def extend_forcast_horizon_new(current, times, prices, aemo_prices, custom_flag, battery, k):
-    path_to_out = default.OUT_DIR if k == 0 else battery.bat_dir
-    end_time = current + default.ONE_DAY - default.FIVE_MIN
-    extend_time = end = times[-1]
-    print(f'end {end_time}')
-    print(f'extend {extend_time}')
-    if extend_time < end_time:
-        # 30min-based
-        # while end_time - extend_time > default.THIRTY_MIN:
-        #     extend_time += default.THIRTY_MIN
-        #     price, _ = read.read_trading_prices(extend_time - default.ONE_DAY, custom_flag, battery.load.region_id, k, path_to_out)
-        #     aemo_price, _ = read.read_trading_prices(extend_time, False, battery.load.region_id)
-        #     prices.append(price)
-        #     aemo_prices.append(aemo_price)
-        #     times.append(extend_time)
-        # 5min-based
-        while extend_time <= end_time:
-            extend_time += default.FIVE_MIN
-            price, aemo_price, _, _ = read.read_dispatch_prices(extend_time - default.ONE_DAY, 'dispatch', custom_flag, battery.load.region_id, k, path_to_out)
-            prices.append(price)
-            aemo_prices.append(aemo_price)
-            times.append(extend_time)
-    elif extend_time > end_time:
-        while extend_time >= end_time + default.THIRTY_MIN:
-            times.pop()
-            prices.pop()
-            aemo_prices.pop()
-            extend_time = times[-1]
-        times[-1] = min(extend_time, end_time)
-        end = None
-    return times, prices, aemo_prices, end
-
-
-def process_prices_by_interval(current, custom_flag, battery, k):
-    p5min_times, predispatch_times, p5min_prices, predispatch_prices, predispatch_time, aemo_p5min_prices, aemo_predispatch_prices = preprocess_prices(current, custom_flag, battery, k)
-    times, prices, aemo_prices, end = extend_forcast_horizon(current, p5min_times + predispatch_times, p5min_prices + predispatch_prices, aemo_p5min_prices + aemo_predispatch_prices, custom_flag, battery, k)
-    return times, prices, p5min_prices, predispatch_prices, predispatch_time, aemo_prices, end
-
-
-def process_prices_by_interval_new(current, custom_flag, battery, k, p5min_times, p5min_prices, aemo_p5min_prices, predispatch_times, predispatch_prices, aemo_predispatch_prices):
-    predispatch_times, predispatch_prices, aemo_predispatch_prices = predispatch_times[2:], predispatch_prices[2:], aemo_predispatch_prices[2:]
-    predispatch_time = get_predispatch_time(current)
-    times, prices, aemo_prices, end = extend_forcast_horizon(current, p5min_times + predispatch_times, p5min_prices + predispatch_prices, aemo_p5min_prices + aemo_predispatch_prices, custom_flag, battery, k)
-    return times, prices, p5min_prices, predispatch_prices, predispatch_time, aemo_prices, end
-
-
-def process_prices_by_period(current, horizon, custom_flag, battery, k):
-    r = horizon % 6
-    p5min_times, predispatch_times, p5min_prices, predispatch_prices, predispatch_time, aemo_p5min_prices, aemo_predispatch_prices = preprocess_prices(current, custom_flag, battery, k)
-    times = p5min_times + predispatch_times
-    price1 = sum([read.read_dispatch_prices(current - n * default.FIVE_MIN, 'dispatch', custom_flag, battery.generator.region_id, k=0, path_to_out=default.OUT_DIR)[0] for n in range(1, r + 1)] + p5min_prices[:6-r]) / 6
-    aemo_price1 = sum([read.read_dispatch_prices(current - n * default.FIVE_MIN, 'dispatch', custom_flag, battery.generator.region_id, k=0, path_to_out=default.OUT_DIR)[1] for n in range(1, r + 1)] + aemo_p5min_prices[:6-r]) / 6
-    price2 = sum(p5min_prices[6 - r: 12 - r]) / 6
-    aemo_price2 = sum(aemo_p5min_prices[6 - r: 12 - r]) / 6
-    price3 = (sum(p5min_prices[-r:]) + (6 - r) * predispatch_prices[0]) / 6
-    aemo_price3 = (sum(aemo_p5min_prices[-r:]) + (6 - r) * predispatch_prices[0]) / 6
-    prices = [price1] * (6 - r) + [price2] * 6 + [price3] * (r + 1) + predispatch_prices[1:]
-    aemo_prices = [aemo_price1] * (6 - r) + [aemo_price2] * 6 + [aemo_price3] * (r + 1) + aemo_predispatch_prices[1:]
-    times, prices, aemo_prices, end = extend_forcast_horizon(current, times, prices, aemo_prices, custom_flag, battery, k)
-    return times, prices, p5min_prices, predispatch_prices, predispatch_time, aemo_prices, end
-
-
-def schedule(current, battery, p5min_times=None, p5min_prices=None, aemo_p5min_prices=None, predispatch_times=None, predispatch_prices=None, aemo_predispatch_prices=None, custom_flag=True, horizon=None, k=0, E_initial=None, method=None):
-    tstep = 5 / 60
-    cost = 20  # Operation cost ($/MWh)
-    fee = 300000  # Replacement fee ($/MWh) used for battery degradation model
-    obj = 0
-    SOC_MIN = 0
-    SOC_MAX = 1
-    horizon = default.datetime_to_interval(current)[1] - 1 if horizon is None else horizon
-
-    M = 16  # Number of segments
-    R = 300000  # Replacement cost ($/MWh)
-    if p5min_times is None:
-        times, prices, p5min_prices, predispatch_prices, predispatch_time, aemo_prices, end = process_prices_by_interval(current, custom_flag, battery, k)
-        # times, prices, p5min_prices, predispatch_prices, predispatch_time, aemo_prices, end = process_prices_by_period(current, horizon, custom_flag, battery, k)
-    else:
-        times, prices, p5min_prices, predispatch_prices, predispatch_time, aemo_prices, end = process_prices_by_interval_new(current, custom_flag, battery, k, p5min_times, p5min_prices, aemo_p5min_prices, predispatch_times, predispatch_prices, aemo_predispatch_prices)
-
-    remainder = horizon % 6
-    T1 = len(p5min_prices)
-    T2 = len(predispatch_prices)
-    T = len(prices)
-    with gp.Env() as env, gp.Model(env=env, name=f'price_taker_{battery.name}_{horizon}') as model:
-        model.setParam("OutputFlag", 0)  # 0 if no log information; otherwise 1
-        # Battery variables
-        soc = [model.addVar(lb=SOC_MIN, ub=SOC_MAX, name=f'SOC_{j}') for j in range(T)]
-        E = [soc[j] * battery.Emax for j in range(T)]
-        energy_pgen = [model.addVar(ub=battery.generator.max_capacity, name=f'energy_pgen_{j}') for j in range(T)]
-        energy_pload = [model.addVar(ub=battery.load.max_capacity, name=f'energy_pload_{j}') for j in range(T)]
-        degradation = [model.addVar(name=f'degradation_{j}') for j in range(T)]
-        # Constraints
-        model.addLConstr(E[0], gp.GRB.EQUAL, (0.5 * battery.Emax if horizon == 0 or E_initial is None else E_initial) + tstep * (energy_pload[0] * battery.eff - energy_pgen[0] / battery.eff), 'TRANSITION_0')
-        model.addLConstr(E[T - 1], gp.GRB.EQUAL, E[0], 'FINAL_STATE')
-        for j in range(T):
-            # Charge or discharge
-            model.addSOS(type=gp.GRB.SOS_TYPE1, vars=[energy_pgen[j], energy_pload[j]])
-            # Different length of forecast horizon
-            if j == T1:
-                tstep = (6 - remainder) * 5 / 60
-            # 30min-based
-            # elif remainder != 0 and j == T - 1:
-            #     tstep = remainder * 5 / 60
-            # elif T1 < j:
-            elif T1 < j < T1 + T2:
-                tstep = 30 / 60
-            else:
-                tstep = 5 / 60
-            # Transition between horizons
-            if j >= 1:
-                model.addLConstr(E[j], gp.GRB.EQUAL, E[j - 1] + tstep * (energy_pload[j] * battery.eff - energy_pgen[j] / battery.eff), f'TRANSITION_{j}')
-                # model.addLConstr(energy_pgen[j] <= energy_pgen[j - 1] + tstep * battery.generator.ramp_up_rate / 60)
-                # model.addLConstr(energy_pgen[j] >= energy_pgen[j - 1] - tstep * battery.generator.ramp_down_rate / 60)
-                # model.addLConstr(energy_pload[j] <= energy_pload[j - 1] + tstep * battery.load.ramp_up_rate / 60)
-                # model.addLConstr(energy_pload[j] >= energy_pload[j - 1] - tstep * battery.load.ramp_up_rate / 60)
-            # Objective
-            obj += prices[j] * (battery.generator.transmission_loss_factor * energy_pgen[j] - battery.load.transmission_loss_factor * energy_pload[j]) * tstep
-            # Method 0: Add operational cost to objective function
-            if method == 0:
-                obj -= (energy_pgen[j] + energy_pload[j]) * tstep * cost
-            # Method 1: Battery degradation model (see paper Ying2016Stochastic)
-            elif method == 1:
-                alpha = [model.addVar(name=f'alpha_{j}_{k}') for k in range(len(socs))]
-                model.addLConstr(soc[j], gp.GRB.EQUAL, sum([s * a for s, a in zip(socs, alpha)]))
-                model.addLConstr(degradation[j], gp.GRB.EQUAL, sum([d * a for d, a in zip(degradations, alpha)]))
-                model.addLConstr(sum(alpha), gp.GRB.EQUAL, 1)
-                model.addSOS(gp.GRB.SOS_TYPE2, alpha)
-                # Method (a): Add degradation constraint
-                # model.addLConstr(degradation[j] <= 1 / 10 / 365)
-                # Method (b): Add degradation cost to objective function
-                obj -= fee * degradation[j] * battery.Emax
-            # Method 2: Add factorised aging cost to objective function (Xu2018Factoring)
-            elif method == 2:
-                pgens = [model.addVar(ub=battery.generator.max_capacity, name=f'pgen_{j}_segment_{m + 1}') for m in range(M)]
-                model.addLConstr(energy_pgen[j] == sum(pgens))
-                obj -= tstep * sum([pgens[m] * marginal_costs(R, battery.eff, M, m + 1) for m in range(M)])
-        # Optimise
-        model.setObjective(obj, gp.GRB.MAXIMIZE)
-        model.optimize()
-        # Write results
-        return write.write_forecasts(current, soc, times, prices, energy_pgen, energy_pload, predispatch_time, T1, T2, battery.bat_dir, k), E[0].getValue()
-        # Plot results
-        # plot.plot_forecasts(custom_flag, current, [soc[j].x * 100 for j in range(T)], 'SOC (%)', times, prices, aemo_prices, battery, end=end, k=k, title='SOC')
-        # plot.plot_forecasts(custom_flag, current, [energy_pgen[j].x - energy_pload[j].x for j in range(T)], 'Power (MW)', times, prices, aemo_prices, battery, end=end, k=k, title='Power')
-        # return energy_pgen[0].x, energy_pload[0].x, E[0].getValue()
+from operate import schedule
+from src.price import preprocess_prices
 
 
 def optimise_whole_horizon(t, b, method):
@@ -271,10 +44,10 @@ def optimise_whole_horizon(t, b, method):
 
     opt_dir = default.OUT_DIR / f'battery optimisation'
     opt_dir.mkdir(exist_ok=True, parents=True)
-    plot.plot_forecasts(True, t, [en / b.Emax * 100 for en in energy], 'SOC (%)', times, dispatch_prices, aemo_dispatch_prices, b, forecast_dir=opt_dir,
-                   process_type='dispatch', title='SOC')
-    # plot.plot_forecasts(True, t, power, 'Power (MW)', times, dispatch_prices, aemo_dispatch_prices, b, forecast_dir=opt_dir,
-    #                process_type='dispatch', title='Power')
+    # plot.plot_forecasts(True, t, [en / b.Emax * 100 for en in energy], 'SOC (%)', times, dispatch_prices, aemo_dispatch_prices, b, forecast_dir=opt_dir,
+    #                process_type='dispatch', title='SOC')
+    path_to_fig = opt_dir / f'SOC {b.name}.jpg'
+    plot.plot_soc(times, [dispatch_prices, aemo_dispatch_prices], [en / b.Emax * 100 for en in energy], path_to_fig)
     return revenue
 
 
@@ -302,36 +75,38 @@ def customise_unit(current, gen, load, battery, voll=None, market_price_floor=No
     unit.energy = EnergyBid([])
     if voll is None or market_price_floor is None:
         voll, market_price_floor = get_market_price(current)
-    unit.energy.price_band = [0, voll]
+    unit.energy.price_band = [market_price_floor, voll]
     unit.energy.band_avail = [gen, load]
     unit.energy.fixed_load = 0
     unit.energy.max_avail = unit.max_capacity
     unit.energy.daily_energy_limit = 0
-    unit.energy.roc_up = 1000000
-    unit.energy.roc_down = 1000000
+    unit.energy.roc_up = default.MAX_RAMP_RATE
+    unit.energy.roc_down = default.MAX_RAMP_RATE
     return unit
 
 
 def dispatch_with_first_bid(current, i, gen, load, battery, k):
     voll, market_price_floor = get_market_price(current)
     cvp = helpers.read_cvp()
-    predispatch_time = get_predispatch_time(current)
+    predispatch_time = default.get_predispatch_time(current)
     t = current - default.FIVE_MIN
     unit = customise_unit(t, gen, load, battery, voll, market_price_floor)
-    dispatch.dispatch(t, interval=i - 1, process='dispatch', cvp=cvp, voll=voll, market_price_floor=market_price_floor,
-                      iteration=k, custom_unit=unit, path_to_out=battery.bat_dir)
+    dispatch.formulate(t, interval=i - 1, process='dispatch', iteration=k, custom_unit=unit,
+                       path_to_out=battery.bat_dir)
 
 
 def forward_dispatch_with_bids(current, i, battery, k, p5min_pgen, p5min_pload, predispatch_pgen, predispatch_pload, dispatch_pgen, dispatch_pload, cvp=None, voll=None, market_price_floor=None):
     # if voll is None:
     #     voll, market_price_floor = get_market_price(current)
     #     cvp = helpers.read_cvp()
-    predispatch_time = get_predispatch_time(current)
+    predispatch_time = default.get_predispatch_time(current)
     # p5min_pgen, p5min_pload, predispatch_pgen, predispatch_pload, dispatch_pgen, dispatch_pload, _ = read.read_forecasts(current - default.FIVE_MIN, battery.bat_dir, 0 if i == 1 else k)
     # Generate Dispatch
     t = current - default.FIVE_MIN
     unit = customise_unit(t, p5min_pgen[t], p5min_pload[t], battery, voll, market_price_floor)
-    dispatch_path, _, _ = dispatch.dispatch(start=current - i * default.FIVE_MIN, interval=i - 1, process='dispatch', cvp=cvp, voll=voll, market_price_floor=market_price_floor, iteration=k, custom_unit=unit, dispatchload_flag=False if i == 1 else True, path_to_out=battery.bat_dir)
+    dispatch_path, _, _ = dispatch.formulate(start=current - i * default.FIVE_MIN, interval=i - 1, process='dispatch',
+                                             iteration=k, custom_unit=unit, path_to_out=battery.bat_dir,
+                                             dispatchload_flag=False if i == 1 else True)
     # Generate P5MIN
     p5min_times, p5min_prices, aemo_p5min_prices, predispatch_times, predispatch_prices, aemo_predispatch_prices = [], [], [], [], [], []
     for j in range(helpers.get_total_intervals('p5min')):
@@ -339,9 +114,12 @@ def forward_dispatch_with_bids(current, i, battery, k, p5min_pgen, p5min_pload, 
         if t in p5min_pgen:
             unit = customise_unit(current, p5min_pgen[t], p5min_pload[t], battery, voll, market_price_floor)
         else:
-            predispatch_t = get_predispatch_time(t)
+            predispatch_t = default.get_predispatch_time(t)
             unit = customise_unit(current, predispatch_pgen[predispatch_t], predispatch_pload[predispatch_t], battery, voll, market_price_floor)
-        result_path, rrp, rrp_record = dispatch.dispatch(start=current, interval=j, process='p5min', cvp=cvp, voll=voll, market_price_floor=market_price_floor, iteration=k, custom_unit=unit, dispatchload_flag=True, path_to_out=battery.bat_dir, dispatchload_path=dispatch_path if j == 0 else None)
+        result_path, rrp, rrp_record = dispatch.formulate(start=current, interval=j, process='p5min', iteration=k,
+                                                          custom_unit=unit, path_to_out=battery.bat_dir,
+                                                          dispatchload_path=dispatch_path if j == 0 else None,
+                                                          dispatchload_flag=True)
         p5min_times.append(t)
         p5min_prices.append(rrp)
         aemo_p5min_prices.append(rrp_record)
@@ -364,7 +142,10 @@ def forward_dispatch_with_bids(current, i, battery, k, p5min_pgen, p5min_pload, 
             load = predispatch_pload[t]
         unit = customise_unit(current, gen, load, battery, voll, market_price_floor)
         predispatchload_path = battery.bat_dir / f'dispatch_{k}' / f'dispatchload_{default.get_case_datetime(predispatch_time - default.TWENTYFIVE_MIN)}.csv'
-        result_path, rrp, rrp_record = dispatch.dispatch(start=predispatch_time, interval=j, process='predispatch', cvp=cvp, voll=voll, market_price_floor=market_price_floor, iteration=k, custom_unit=unit, dispatchload_flag=False if i < 6 else True, path_to_out=battery.bat_dir, dispatchload_path=predispatchload_path if j == 0 else None)
+        result_path, rrp, rrp_record = dispatch.formulate(start=predispatch_time, interval=j, process='predispatch',
+                                                          iteration=k, custom_unit=unit, path_to_out=battery.bat_dir,
+                                                          dispatchload_path=predispatchload_path if j == 0 else None,
+                                                          dispatchload_flag=False if i < 6 else True)
         predispatch_times.append(t)
         predispatch_prices.append(rrp)
         aemo_predispatch_prices.append(rrp_record)
@@ -375,26 +156,28 @@ def iterative_dispatch_with_bids(current, battery, k, p5min_pgen, p5min_pload, p
     for j in range(helpers.get_total_intervals('p5min')):
         t = current + j * default.FIVE_MIN
         unit = customise_unit(current, p5min_pgen[t], p5min_pload[t], battery)
-        dispatch.dispatch(start=current, interval=j, process='p5min', iteration=k, custom_unit=unit, dispatchload_flag=False if j == 0 else True,
-                          path_to_out=battery.bat_dir)
-    predispatch_time = get_predispatch_time(current)
+        dispatch.formulate(start=current, interval=j, process='p5min', iteration=k, custom_unit=unit,
+                           path_to_out=battery.bat_dir, dispatchload_flag=False if j == 0 else True)
+    predispatch_time = default.get_predispatch_time(current)
     for j in range(helpers.get_total_intervals('predispatch', predispatch_time)):
         t = predispatch_time + j * default.THIRTY_MIN
         if t in predispatch_pgen:
             unit = customise_unit(current, predispatch_pgen[t], predispatch_pload[t], battery)
         else:
             unit = customise_unit(current, p5min_pgen[t], p5min_pload[t], battery)
-        dispatch.dispatch(start=predispatch_time, interval=j, process='predispatch', iteration=k, custom_unit=unit,
-                          dispatchload_flag=False if j == 0 else True, path_to_out=battery.bat_dir)
+        dispatch.formulate(start=predispatch_time, interval=j, process='predispatch', iteration=k, custom_unit=unit,
+                           path_to_out=battery.bat_dir, dispatchload_flag=False if j == 0 else True)
 
 
 def iterative_forward_dispatch_with_bids(current, i, battery, k, p5min_pgen, p5min_pload, predispatch_pgen, predispatch_pload, dispatch_pgen, dispatch_pload, cvp=None, voll=None, market_price_floor=None):
-    predispatch_time = get_predispatch_time(current)
+    predispatch_time = default.get_predispatch_time(current)
     # p5min_pgen, p5min_pload, predispatch_pgen, predispatch_pload, dispatch_pgen, dispatch_pload, _ = read.read_forecasts(current - default.FIVE_MIN, battery.bat_dir, 0 if i == 1 else k)
     # Generate Dispatch
     t = current - default.FIVE_MIN
     unit = customise_unit(t, p5min_pgen[t], p5min_pload[t], battery, voll, market_price_floor)
-    dispatch_path, _, _ = dispatch.dispatch(start=current-i*default.FIVE_MIN, interval=i-1, process='dispatch', cvp=cvp, voll=voll, market_price_floor=market_price_floor, iteration=k, custom_unit=unit, dispatchload_flag=False if i == 1 else True, path_to_out=battery.bat_dir)
+    dispatch_path, _, _ = dispatch.formulate(start=current - i * default.FIVE_MIN, interval=i - 1, process='dispatch',
+                                             iteration=k, custom_unit=unit, path_to_out=battery.bat_dir,
+                                             dispatchload_flag=False if i == 1 else True)
     # Generate P5MIN
     p5min_times, p5min_prices, aemo_p5min_prices, predispatch_times, predispatch_prices, aemo_predispatch_prices = [], [], [], [], [], []
     for j in range(helpers.get_total_intervals('p5min')):
@@ -402,9 +185,12 @@ def iterative_forward_dispatch_with_bids(current, i, battery, k, p5min_pgen, p5m
         if t in p5min_pgen:
             unit = customise_unit(current, p5min_pgen[t], p5min_pload[t], battery, voll, market_price_floor)
         else:
-            predispatch_t = get_predispatch_time(t)
+            predispatch_t = default.get_predispatch_time(t)
             unit = customise_unit(current, predispatch_pgen[predispatch_t], predispatch_pload[predispatch_t], battery, voll, market_price_floor)
-        result_path, rrp, rrp_record = dispatch.dispatch(start=current, interval=j, process='p5min', cvp=cvp, voll=voll, market_price_floor=market_price_floor, iteration=k, custom_unit=unit, dispatchload_flag=True, path_to_out=battery.bat_dir, dispatchload_path=dispatch_path if j == 0 else None)
+        result_path, rrp, rrp_record = dispatch.formulate(start=current, interval=j, process='p5min', iteration=k,
+                                                          custom_unit=unit, path_to_out=battery.bat_dir,
+                                                          dispatchload_path=dispatch_path if j == 0 else None,
+                                                          dispatchload_flag=True)
         p5min_times.append(t)
         p5min_prices.append(rrp)
         aemo_p5min_prices.append(rrp_record)
@@ -427,7 +213,10 @@ def iterative_forward_dispatch_with_bids(current, i, battery, k, p5min_pgen, p5m
             load = predispatch_pload[t]
         unit = customise_unit(current, gen, load, battery, voll, market_price_floor)
         predispatchload_path = battery.bat_dir / f'dispatch_{k}' / f'dispatchload_{default.get_case_datetime(predispatch_time - default.TWENTYFIVE_MIN)}.csv'
-        result_path, rrp, rrp_record = dispatch.dispatch(start=predispatch_time, interval=j, process='predispatch', cvp=cvp, voll=voll, market_price_floor=market_price_floor, iteration=k, custom_unit=unit, dispatchload_flag=False if i < 6 else True, path_to_out=battery.bat_dir, dispatchload_path=predispatchload_path if j == 0 else None)
+        result_path, rrp, rrp_record = dispatch.formulate(start=predispatch_time, interval=j, process='predispatch',
+                                                          iteration=k, custom_unit=unit, path_to_out=battery.bat_dir,
+                                                          dispatchload_path=predispatchload_path if j == 0 else None,
+                                                          dispatchload_flag=False if i < 6 else True)
         predispatch_times.append(t)
         predispatch_prices.append(rrp)
         aemo_predispatch_prices.append(rrp_record)
@@ -452,8 +241,8 @@ def calculate_revenue(t, b, k=1):
 
 
 def extract_prices(current, battery, k):
-    p5min_times, predispatch_times, p5min_prices, predispatch_prices, _, _, _ = preprocess_prices(current, True, battery, k)
-    return p5min_times + predispatch_times, p5min_prices + predispatch_prices
+    times, predispatch_time, prices, _, _, _ = preprocess_prices(current, True, battery, k)
+    return times, prices
 
 
 def extract_forecasts(current, battery, k):
@@ -468,15 +257,15 @@ def test_batteries(current):
         writer.writerow(
             ['Capacity(MWh)', 'Power (MW)', 'Type', 'Price Taker Bid (MW)', 'NSW1', 'QLD1', 'SA1', 'TAS1',
              'VIC1'])
-        prices = dispatch.dispatch(start=current, interval=0, process='dispatch')
+        prices = dispatch.formulate(start=current, interval=0, process='dispatch')
         writer.writerow([0, 0, '', 0] + [prices[r] for r in ['NSW1', 'QLD1', 'SA1', 'TAS1', 'VIC1']])
     for e, p in zip(helpers.ENERGIES, helpers.POWERS):
         battery = Battery(e, p)
         gen, load, _ = schedule(current, battery)
         if gen + load > 0:
             unit = customise_unit(current, gen, load, battery)
-            dispatch.dispatch(start=current, interval=0, process='dispatch', custom_unit=unit,
-                              path_to_out=battery.bat_dir)
+            dispatch.formulate(start=current, interval=0, process='dispatch', custom_unit=unit,
+                               path_to_out=battery.bat_dir)
         else:
             with result_dir.open('a') as f:
                 writer = csv.writer(f)
@@ -498,7 +287,7 @@ def test_battery_bids(t, iterations=5, method=2):
     #     plot.plot_battery_comparison(t, extract_forecasts, 'Forecast', k)
 
 
-if __name__ == '__main__':
+def old_main():
     import time
     start_time = time.time()
     start = datetime.datetime(2020, 9, 1, 4, 5)

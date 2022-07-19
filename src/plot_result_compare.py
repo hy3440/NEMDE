@@ -1,13 +1,11 @@
+# Plot comparison between NEMDE simulato and AEMO record
 import csv
 import datetime
 import default
-# import gurobipy
-import logging
 import matplotlib.pyplot as plt
-plt.style.use(['science', 'ieee', 'bright'])
+# plt.style.use(['science', 'ieee', 'bright'])
+plt.style.use(['science', 'ieee', 'no-latex'])
 import matplotlib.dates as mdates
-# import pandas as pd
-import pathlib
 from pandas.plotting import register_matplotlib_converters
 register_matplotlib_converters()
 
@@ -85,7 +83,8 @@ def read_dispatchis(start, current):
     times.append(current)
     # current = start + interval * preprocess.FIVE_MIN
     interval_datetime = default.get_case_datetime(current)
-    record_dir = default.OUT_DIR / 'dispatch' / f'DISPATCHIS_{interval_datetime}.csv'
+    record_dir = default.OUT_DIR / 'tiebreak' / 'dispatch' / f'DISPATCHIS_{interval_datetime}.csv'
+    # record_dir = default.OUT_DIR / 'dispatch' / f'DISPATCHIS_{interval_datetime}.csv'
     with record_dir.open() as f:
         reader = csv.reader(f)
         for row in reader:
@@ -102,24 +101,34 @@ def read_dispatchis(start, current):
 
 def plot_region_lineplot(start):
     for region in region_times.keys():
-        fig = plt.figure()
+        if region != 'QLD1':
+            continue
         # fig, axs = plt.subplots(5, 1, constrained_layout=True)
-        plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
-        plt.gca().xaxis.set_major_locator(mdates.HourLocator(interval=4))
-        plt.gca().xaxis.set_minor_locator(mdates.HourLocator(byhour=range(0, 24, 4)))
+        if len(times) <= 288:
+            fig = plt.figure()
+            plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+            plt.gca().xaxis.set_major_locator(mdates.HourLocator(interval=6))
+            plt.gca().xaxis.set_minor_locator(mdates.HourLocator(byhour=range(0, 24, 6)))
+            plt.xlabel("Interval")
+        else:
+            fig, ax1 = plt.subplots(figsize=(8, 4))
+            ax1.xaxis.set_major_formatter(mdates.DateFormatter('%d'))
+            ax1.xaxis.set_major_locator(mdates.DayLocator())
+            ax1.xaxis.set_minor_locator(mdates.DayLocator())
+            ax1.set_xlabel('Date')
         # plt.plot(region_times[region], region_price_record[region], label='AEMO Record')
         # plt.plot(region_times[region], region_price[region], label='Simulator Result')
-        plt.plot(times, region_price_record[region], color='blue', label='AEMO Record')
-        plt.plot(times, region_price[region], '--', color='red', label='Simulator Result')
+        plt.plot(times, region_price_record[region], color=default.PURPLE, label='AEMO Record')
+        plt.plot(times, region_price[region], '--', color=default.BROWN, label='Simulator Result')
         plt.legend()
-        plt.xlabel("Interval")
         plt.ylabel("Price (\$/MWh)")
         # plt.axvline(datetime.datetime(2020, 9, 1, 16, 30), 0, 100, c="r")
         # plt.axvline(datetime.datetime(2020, 9, 1, 20, 0), 0, 100, c="r")
 
-        path_to_save = default.OUT_DIR / f'prices_{default.get_case_datetime(start)}'
-        path_to_save.mkdir(parents=True, exist_ok=True)
-        plt.savefig(path_to_save / f'{region}.png')
+        # path_to_save = default.OUT_DIR / f'prices_{default.get_case_datetime(start)}'
+        # path_to_save.mkdir(parents=True, exist_ok=True)
+        # plt.savefig(path_to_save / f'{region}.png')
+        plt.show()
         plt.close()
 
 
@@ -141,37 +150,38 @@ def plot_region_boxplot(start):
 
     bpl = plt.boxplot(data_a, positions=np.array(range(len(data_a))) * 2.0 - 0.4, sym='', widths=0.6)
     bpr = plt.boxplot(data_b, positions=np.array(range(len(data_b))) * 2.0 + 0.4, sym='', widths=0.6)
-    set_box_color(bpl, 'blue')  # colors are from http://colorbrewer2.org/
-    set_box_color(bpr, 'red')
+    set_box_color(bpl, default.PURPLE)  # colors are from http://colorbrewer2.org/
+    set_box_color(bpr, default.BROWN)
 
     # draw temporary red and blue lines and use them to create a legend
     # plt.plot([], c='#D7191C', label='AEMO Record')
     # plt.plot([], c='#2C7BB6', label='Simulator Result')
-    plt.plot([], c='blue', label='AEMO Record')
-    plt.plot([], c='red', label='Simulator Result')
+    plt.plot([], c=default.PURPLE, label='AEMO Record')
+    plt.plot([], c=default.BROWN, label='Simulator Result')
     plt.legend()
 
     plt.xticks(range(0, len(ticks) * 2, 2), ticks)
     plt.xlim(-2, len(ticks) * 2)
     # plt.ylim(0, 8)
     plt.tight_layout()
-    plt.savefig('boxcompare.png')
-
+    # plt.show()
     path_to_save = default.OUT_DIR / f'prices_{default.get_case_datetime(start)}'
     path_to_save.mkdir(parents=True, exist_ok=True)
     plt.savefig(path_to_save / f'boxplot.png')
     plt.close()
 
 
-def main():
-    start = datetime.datetime(2020, 9, 1, 4, 5, 0)
-    end = datetime.datetime(2020, 9, 2, 4, 5, 0)
+def plot_region():
+    # start = datetime.datetime(2020, 9, 1, 4, 5)
+    # end = datetime.datetime(2020, 9, 2, 4, 5)
+    start = datetime.datetime(2021, 9, 12, 4, 5)
+    end = datetime.datetime(2021, 9, 13, 4, 5)
     current = start
     while current < end:
         read_dispatchis(start, current)
         current += default.FIVE_MIN
     plot_region_lineplot(start)
-    plot_region_boxplot(start)
+    # plot_region_boxplot(start)
 
     # for index, region in enumerate(region_gen):
     #     # plt.subplot(5, 1, index + 1)
@@ -196,5 +206,20 @@ def main():
     #     plt.close()
 
 
+def compare_prices():
+    from read import read_dispatch_prices
+    start = datetime.datetime(2021, 9, 12, 4, 5)
+    end = datetime.datetime(2021, 9, 13, 4, 5)
+    current = start
+    path_to_tiebreak = default.OUT_DIR / 'tiebreak'
+    path_to_sequence = default.OUT_DIR / 'sequence'
+    region_id = 'NSW1'
+    while current < end:
+        p1, rrp_record, _, _ = read_dispatch_prices(current, 'dispatch', True, region_id, path_to_out=path_to_tiebreak, fcas_flag=True)
+        p2, _, _, _ = read_dispatch_prices(current, 'dispatch', True, region_id, path_to_out=path_to_sequence, fcas_flag=True)
+        print(current, p1, p2, rrp_record)
+        current += default.FIVE_MIN
+
+
 if __name__ == '__main__':
-    main()
+    compare_prices()

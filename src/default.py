@@ -7,8 +7,10 @@ OUT_DIR = BASE_DIR / 'out'  # Result directory
 LOG_DIR = BASE_DIR / 'log'  # Log directory
 MODEL_DIR = BASE_DIR / 'model'  # Model directory
 DEBUG_DIR = BASE_DIR / 'debug'  # Debug directory
+RECORD_DIR = OUT_DIR / 'record'
 
 ZERO = datetime.timedelta(seconds=0)
+ONE_MIN = datetime.timedelta(minutes=1)
 FIVE_MIN = datetime.timedelta(minutes=5)
 TWENTYFIVE_MIN = datetime.timedelta(minutes=25)
 THIRTY_MIN = datetime.timedelta(minutes=30)
@@ -19,6 +21,21 @@ ONE_DAY = datetime.timedelta(days=1)
 PERIODS = 48
 INTERVALS = 288
 
+# Colors come from https://personal.sron.nl/~pault/
+# BLUE = '#4477AA'
+BLUE = '#0000FE'  # blue
+RED = '#EE6677'
+GREEN = '#228833'
+YELLOW = '#CCBB44'
+CYAN = '#66CCEE'
+# PURPLE = '#AA3377'
+# PURPLE = '#BB0037'
+PURPLE = '#BF00BF'
+GREY = '#BBBBBB'
+BROWN ='#BB733E'
+
+MAX_RAMP_RATE = 1000000
+
 
 def early_morning(t):
     """ Check if t is early morning (before 4am).
@@ -27,7 +44,7 @@ def early_morning(t):
         t (datetime.datetime):
 
     Returns:
-        True if it is before 4am; False otherwise.
+        bool: True if it is before 4am; False otherwise.
     """
     start = datetime.datetime(t.year, t.month, t.day, 0, 0, 0)
     return t - start <= FOUR_HOUR
@@ -40,7 +57,7 @@ def extract_datetime(s):
         s (str): string to extract
 
     Returns:
-        Extracted datetime.datetime
+        datetime.datetime: Extracted datetime
     """
     return datetime.datetime.strptime(s, '%Y/%m/%d %H:%M:%S')
 
@@ -52,7 +69,7 @@ def extract_default_datetime(s):
             s (str): string to extract
 
         Returns:
-            Extracted datetime.datetime
+            datetime.datetime: Extracted datetime.datetime
         """
     return datetime.datetime.strptime(s, '%Y-%m-%d %H:%M:%S')
 
@@ -64,7 +81,7 @@ def get_case_date(t) :
         t (datetime.datetime): datetime
 
     Returns:
-        A string in format YYmmdd.
+        str: A string in format YYmmdd.
     """
     if early_morning(t):
         return (t - ONE_DAY).strftime('%Y%m%d')  # YYmmdd
@@ -79,7 +96,7 @@ def get_current_date(t):
         t (datetime.datetime): datetime
 
     Returns:
-        A string in format YYmmdd
+        str: A string in format YYmmdd
     """
     if t.hour == 0 and t.minute == 0 and t.second == 0:
         return (t - ONE_DAY).strftime('%Y%m%d')  # YYmmdd
@@ -94,7 +111,7 @@ def get_report_date(t):
          t (datetime.datetime): datetime
 
     Returns:
-        A string in format YYmmdd.
+        str: A string in format YYmmdd.
     """
     if early_morning(t):
         return t.strftime('%Y%m%d')  # YYmmdd
@@ -109,7 +126,7 @@ def get_case_datetime(t):
         t (datetime.datetime): datetime
 
     Returns:
-        A string in format YYmmddHHMM
+        str: A string in format YYmmddHHMM
     """
     return t.strftime('%Y%m%d%H%M')  # YYmmddHHMM
 
@@ -121,7 +138,7 @@ def get_interval_datetime(t):
         t (datetime.datetime): datetime
 
     Returns:
-        A string in format YY/mm/dd HH:MM:SS
+        str: A string in format YY/mm/dd HH:MM:SS
     """
     return t.strftime('%Y/%m/%d %H:%M:%S')  # YY/mm/dd HH:MM:SS
 
@@ -133,7 +150,7 @@ def get_result_datetime(t):
          t (datetime.datetime): datetime
 
     Returns:
-        A string in format YY-mm-dd HH:MM:SS
+        str: A string in format YY-mm-dd HH:MM:SS
     """
     return t.strftime('%Y-%m-%d %H-%M-%S')  # YY-mm-dd HH:MM:SS
 
@@ -164,7 +181,7 @@ def get_first_datetime(t, process='dispatch'):
          process (str): 'dispatch', 'p5min', or 'predispatch'
 
     Returns:
-        The first interval datetime.datetime
+        datetime.datetime: The first interval
     """
     if early_morning(t):
         yesterday = t - ONE_DAY
@@ -181,7 +198,7 @@ def get_interval_no(t, process_type='predispatch'):
         process_type (str): dispatch, p5min, or predispatch
 
     Returns:
-        A string represent the interval number of current datetime
+        str: A string represent the interval number of current datetime
     """
     last, no = datetime_to_interval(t, process_type)
     return f'{last.year}{last.month:02d}{last.day:02d}{no:02d}' if process_type == 'predispatch' else f'{last.year}{last.month:02d}{last.day:02d}{no:03d}'
@@ -195,10 +212,27 @@ def extract_from_interval_no(interval_no, period_flag=True):
         period_flag (bool): whether it is 48 periods or 288 intervals
 
     Returns:
-        datetime, period or interval number
+        datetime.datetime, int: datetime, period or interval number
     """
     year = int(interval_no[:4])
     month = int(interval_no[4:6])
     day = int(interval_no[6:8])
     no = int(interval_no[-(2 if period_flag else 3):])
     return datetime.datetime(year, month, day, 4, 30), no
+
+
+def get_predispatch_time(t):
+    """ Get corresponding predispatch start datetime.
+
+    Args:
+        t (datetime.datetime): Current datetime
+
+    Returns:
+        datetime.datetime: Predispatch start datetime
+    """
+    if t.minute == 0:
+        return t
+    elif t.minute <= 30:
+        return datetime.datetime(t.year, t.month, t.day, t.hour, 30)
+    else:
+        return (t + ONE_HOUR).replace(minute=0)

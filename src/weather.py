@@ -32,15 +32,15 @@ def get_url(url):
             rain.append(float(row[4]) if row[4] else None)
 
 
-t = datetime.datetime(2020, 10, 1)
-end = datetime.datetime(2021, 3, 1)
+t = datetime.datetime(2021, 9, 1)
+end = datetime.datetime(2021, 10, 1)
 while t < end:
     url = f'http://www.bom.gov.au/climate/dwo/{t.year}{t.month:02d}/text/IDCJDW2124.{t.year}{t.month:02d}.csv'
     get_url(url)
     t += relativedelta(months=1)
 
 fig, ax2 = plt.subplots()
-ax2.xaxis.set_major_formatter(mdates.DateFormatter('%m'))
+ax2.xaxis.set_major_formatter(mdates.DateFormatter('%d'))
 # ax2.xaxis.set_major_locator(mdates.HourLocator(interval=4))
 # ax2.xaxis.set_minor_locator(mdates.HourLocator(byhour=range(0, 24, 4)))
 ax2.set_ylabel('Temperature (°C)')
@@ -59,7 +59,7 @@ lns3 = ax2.plot(times, max_temp, label=f'Max')
 lns = lns3 + lns2
 labs = [l.get_label() for l in lns]
 ax2.legend(lns, labs, loc=0)
-plt.savefig(default.OUT_DIR / 'weather')
+plt.savefig(default.OUT_DIR / 'weather' / '202109.png')
 plt.show()
 plt.close(fig)
 

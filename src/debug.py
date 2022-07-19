@@ -86,17 +86,24 @@ def check_binding_generic_fcas_constraints(regions, constraints):
                     logging.debug(f'{region_id} {bid_type} {constr.constr.pi}')
 
 
-def write_binding_constrs(constrs, path_to_out, current):
-    path_to_constr = path_to_out / f'binding_constrs_{default.get_case_datetime(current)}.txt'
+def write_binding_constrs(constrs, path_to_out, current, batt_no):
+    if batt_no is not None:
+        path_to_constr = path_to_out / f'binding_constrs_{default.get_case_datetime(current)}-batt{batt_no}.txt'
+    else:
+        path_to_constr = path_to_out / f'binding_constrs_{default.get_case_datetime(current)}.txt'
     with path_to_constr.open('w') as constr_file:
         for constr in constrs:
             if constr.slack == 0:
                 constr_file.write(f'{constr.constrName}\n')
 
 
-def write_objective(obj, path_to_out, current):
+def write_objective(obj, path_to_out, current, batt_no):
     import csv
-    path_to_obj = path_to_out / f'obj_{default.get_case_datetime(current)}.csv'
+    if batt_no is None:
+        path_to_obj = path_to_out / f'obj_{default.get_case_datetime(current)}.csv'
+    else:
+        path_to_obj = path_to_out / f'obj_{default.get_case_datetime(current)}-batt{batt_no}.csv'
+
     with path_to_obj.open('w') as obj_file:
         writer = csv.writer(obj_file)
         for i in range(obj.size()):
