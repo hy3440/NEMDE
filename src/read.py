@@ -453,7 +453,7 @@ def read_der(e, start, bat_dir):
         reader = csv.reader(f)
         for row in reader:
             times.append(default.extract_default_datetime(row[0]))
-            socs.append(float(row[2]) * 100 / e)
+            socs.append(0 if e == 0 else float(row[2]) * 100 / e)
             prices.append(float(row[5]))
             # socs_record.append(float(row[6]) * 100 / e)
     return times, socs, prices, socs_record
@@ -476,6 +476,8 @@ def read_battery_optimisation(path_to_csv):
                 times.append(default.extract_default_datetime(row[0]))
                 socs.append(float(row[-2]))
                 prices.append(float(row[-1]))
+                if float(row[-1]) < 30:
+                    print(row[0], row[-1])
     return times, socs, prices
 
 

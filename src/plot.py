@@ -28,8 +28,13 @@ def plot_soc(times, prices, socs, path_to_fig, price_flag=True, soc_flag=True):
     if soc_flag:
         ax1.set_ylabel('SOC (%)')
         ax1.set_ylim([0, 100])
-        lns1 = ax1.plot(([] if len(times) == len(socs) else [times[0] - default.FIVE_MIN]) + times, socs, label='SOC', color=default.BROWN)
-        lns = lns1
+        if len(socs) == 2:
+            lns1 = ax1.plot(([] if len(times) == len(socs[1]) else [times[0] - default.FIVE_MIN]) + times, socs[1], label='Time-stepped SOC', color=default.RED, linewidth=0.3)
+            lns4 = ax1.plot(([] if len(times) == len(socs[0]) else [times[0] - default.FIVE_MIN]) + times, socs[0], '-', label='Non-time-stepped SOC',color=default.BROWN, alpha=0.4, linewidth=2)
+            lns = lns1 + lns4
+        else:
+            lns1 = ax1.plot(([] if len(times) == len(socs) else [times[0] - default.FIVE_MIN]) + times, socs, label='SOC', color=default.BROWN)
+            lns = lns1
     if price_flag:
         ax2 = ax1.twinx()
         if len(times) <= 288:
@@ -46,9 +51,12 @@ def plot_soc(times, prices, socs, path_to_fig, price_flag=True, soc_flag=True):
         ax2.set_ylabel('Price ($/MWh)')
         # ax2.set_yscale('symlog')
         if len(prices) == 2:
-            lns3 = ax2.plot(times, prices[1], label='Historical Record', color=default.PURPLE, alpha=0.4, linewidth=2)
-            usage_type = 'Cost-reflective' if 'reflective' in str(path_to_fig) else 'Price-taker'
-            lns2 = ax2.plot(times, prices[0], '-', label=usage_type, color=default.BLUE, linewidth=0.3)
+            # label1 = 'Historical Record'
+            label1 = 'Non-time stepped Price'
+            lns3 = ax2.plot(times, prices[1], label=label1, color=default.PURPLE, alpha=0.4, linewidth=2)
+            # label2 = 'Cost-reflective' if 'reflective' in str(path_to_fig) else 'Price-taker'
+            label2 = 'Time-stepped Price'
+            lns2 = ax2.plot(times, prices[0], '-', label=label2, color=default.BLUE, linewidth=0.3)
             # lns2 = ax2.plot([t for t, p in zip(times, prices[0]) if p < 1000], [p for p in prices[0] if p < 1000], '-', label=usage_type, color=default.BLUE, linewidth=0.5)
             lns += lns2 + lns3
         else:
@@ -56,8 +64,8 @@ def plot_soc(times, prices, socs, path_to_fig, price_flag=True, soc_flag=True):
             lns += lns2
     labs = [l.get_label() for l in lns]
     ax1.legend(lns, labs, loc=0)
-    # plt.show()
-    plt.savefig(path_to_fig)
+    plt.show()
+    # plt.savefig(path_to_fig)
     plt.close(fig)
 
 
@@ -339,32 +347,12 @@ def plot_der_prices(e, t, region_id, bat_dir):
 
 
 if __name__ == '__main__':
-    region_id, method = 'NSW1', 2
-    # import read
-    # capacity_label, capacities, power_label, powers, revenue_label, revenues = read.read_revenues(region_id, method)
-    # plot_revenues(capacities, revenues, capacity_label, revenue_label, region_id, method)
-    # plot_revenues(powers, revenues, power_label, revenue_label, region_id, method)
-    import helpers
-    # start = datetime.datetime(2020, 9, 1, 12, 35)
-    # end = datetime.datetime(2020, 9, 1, 18, 0)
-    # for e, p in zip([240, 210], [160, 140]):
-    # for a in range(1, 27):
-    #     if a > 14 and a % 2 == 1:
-    #         continue
-    # for a in range(32, 50, 2):
-    #     e = 15 * a
-    #     p = 10 * a
-    #     b = helpers.Battery(e, p, region_id, method)
-    #     # plot_optimise_with_bids_old(start, end, b, 0)
-    #     plot_optimisation_with_bids(b, method, 1)
-    #     plot_prices_with_bids(b, method, 1)
-    # b = helpers.Battery(1500, 1000, region_id, method)
-    # plot_prices_with_bids(b, method, 1)
-    for e in [30, 150, 300, 600, 1500, 3000]:
-        p = int(e / 3 * 2)
-        t = datetime.datetime(2020, 9, 1, 4, 5)
-        # bat_dir = default.OUT_DIR / 'DERNEMDE' / f'Battery {e}MWh {p}MW {region_id} Method {method}'
-        bat_dir = default.OUT_DIR / 'DERNEMDE'
-        plot_der_prices(e, t, region_id, bat_dir)
-        break
-        # plot_optimisation_with_bids(None, None, None, der_flag=True, e=e, t=t, bat_dir=bat_dir)
+    from helpers import Battery
+    from read import read_battery_optimisation
+    battery = Battery(30, 20, usage='DER Price-taker Dual')
+    start = datetime.datetime(2020, 9, 1, 4, 5)
+    times, socs, prices = read_battery_optimisation(battery.bat_dir / f'{default.get_case_datetime(start)}.csv')
+    battery = Battery(30, 20, usage='Price-taker Dual')
+    _, socs2, prices2 = read_battery_optimisation(battery.bat_dir / f'{default.get_case_datetime(start)}.csv')
+    path_to_fig = None
+    plot_soc(times, [prices, prices2[:len(prices)]], [socs, socs2[:len(socs)]], path_to_fig, price_flag=True, soc_flag=True)

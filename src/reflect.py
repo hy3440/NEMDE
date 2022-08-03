@@ -6,7 +6,7 @@ from operate import schedule
 from preprocess import get_market_price, download_dvd_data
 from read import read_predispatch_prices, read_battery_optimisation, read_dispatch_prices, read_forecast_soc, read_battery_power
 from multiprocessing.pool import ThreadPool as Pool
-from dispatch import formulate, formulate_sequence
+from dispatchold import formulate, formulate_sequence  # TODO: use old dispatch
 from offer import EnergyBid, FcasBid
 from itertools import repeat
 import default
@@ -442,7 +442,7 @@ def exist_errors(g, l, generator_fcas, load_fcas, battery, E, fcas_flag, multi_f
     return False
 
 
-def rolling_horizon(start, battery, usage, days=1, debug_current=None, batt_no=None, predefined_battery=None):
+def rolling_horizon(start, battery, usage, predefined_battery=None, days=1, debug_current=None, batt_no=None):
     """Rolling horizon for optimisation.
 
     Args:
@@ -461,8 +461,8 @@ def rolling_horizon(start, battery, usage, days=1, debug_current=None, batt_no=N
         fcas_types = ['RAISE5MIN', 'LOWER5MIN', 'RAISE6SEC', 'LOWER6SEC', 'RAISE60SEC', 'LOWER60SEC'] if multi_flag else ['RAISE5MIN', 'LOWER5MIN']
     else:
         fcas_types = []
-    HORIZONS = 1
-    # HORIZONS = 288 * days
+    # HORIZONS = 1
+    HORIZONS = 288 * days
     result_path = battery.bat_dir / f'{default.get_case_datetime(start)}.csv'
     if debug_current:
         bands, fcas_bands = generate_bands(start, usage)
@@ -509,10 +509,9 @@ def rolling_horizon(start, battery, usage, days=1, debug_current=None, batt_no=N
                             fcas_availabilities[bid_type] = generate_availabilities(fcas_bands[bid_type], battery, current, horizon, E_initial, fcas_flag, bid_type, multi_flag)
                     else:
                         fcas_availabilities = None
-
                 custom_units = generate_reflective_units(battery, bands, energy_availabilities, E_initial, fcas_flag, fcas_bands, fcas_availabilities, usage)
                 if 'TT' in usage:
-                    return battery
+                    return None
                 dispatchload_path, rrp, fcas_rrp = formulate(start, horizon, 'dispatch', custom_unit=custom_units,
                                                              path_to_out=default.DEBUG_DIR if debug_current else battery.bat_dir,  # TODO
                                                              dispatchload_flag=(horizon != 0),
@@ -539,15 +538,17 @@ def rolling_horizon(start, battery, usage, days=1, debug_current=None, batt_no=N
                 if fcas_flag:
                     availability, raise_fcas, lower_fcas = schedule(current, battery, horizon=horizon, E_initial=E_initial, method=2, fcas_flag=fcas_flag)
                 else:
-                    times, availability = schedule(current, battery, horizon=horizon, E_initial=E_initial, method=2, fcas_flag=fcas_flag, der_flag=der_flag)
+                    times, availability, extended_times = schedule(current, battery, horizon=horizon, E_initial=E_initial, method=2, fcas_flag=fcas_flag, der_flag=der_flag)
                     raise_fcas, lower_fcas = 0, 0
                 if der_flag:
-                    g, l, rrp = formulate_sequence(current, battery.size, usage, availability, times, first_horizon_flag=(horizon==0), predefined_battery=predefined_battery)
+                    g, l, rrp = formulate_sequence(current, battery.size, usage, availability, times, extended_times, first_horizon_flag=(horizon==0), predefined_battery=predefined_battery)
                 else:
                     custom_units = generate_price_taker_units(battery, bands, availability, E_initial, raise_fcas, lower_fcas, multi_flag)
                     dispatchload_path, rrp, fcas_rrp = formulate(start, horizon, 'dispatch', custom_unit=custom_units,
-                                                                 path_to_out=battery.bat_dir,
+                                                                 path_to_out=battery.bat_dir, fcas_flag=False, link_flag=False, dual_flag=True,
                                                                  dispatchload_flag=False if horizon == 0 else True)
+                    if debug_current:
+
                     g, l, generator_fcas, load_fcas = read_dispatchload(dispatchload_path)
             # if exist_errors(g, l, generator_fcas, load_fcas, battery, E_initial, fcas_flag, multi_flag):
             #     return None
@@ -861,23 +862,26 @@ if __name__ == '__main__':
     # usage = 'Cost-reflective + multiple FCAS'
     # usage = 'Price-taker500 + multiple FCAS'
 
-    usage = 'DER Price-taker NEW'
-    start = datetime.datetime(2021, 9, 12, 4, 5)
-    # start = datetime.datetime(2021, 7, 18, 4, 5)
-    energies = [0]
+    usage = 'DER Price-taker Dual'
+    start = datetime.datetime(2020, 9, 1, 4, 5)
+    energies = [30]
     batteries = generate_batteries(energies, usage)
     rolling_horizon(start, batteries[0], usage)
+    different_batteries(batteries[0], usage, 7, start)
 
-    # DER Cost-reflective
+    # # DER Cost-reflective
     # usage = 'Cost-reflective TT'
-    # start = datetime.datetime(2021, 9, 12, 4, 5)
-    # energies = [30]
-    # batteries = generate_batteries(energies, usage)
-    # b = rolling_horizon(start, batteries[0], usage)
+    # start = datetime.datetime(2020, 9, 1, 4, 5)
+    # energies = [30, 3000]
+    # batteries1 = generate_batteries(energies, usage)
+    # with Pool(len(batteries1)) as pool:
+    #     pool.starmap(rolling_horizon, zip(repeat(start), batteries1, repeat(usage)))
     # usage = 'DER Price-taker TT'
-    # b.update_usage(usage)
+    # for b in batteries1:
+    #     b.update_usage(usage)
     # batteries = generate_batteries(energies, usage)
-    # rolling_horizon(start, batteries [0], usage, predefined_battery=b)
+    # with Pool(len(batteries)) as pool:
+    #     pool.starmap(rolling_horizon, zip(repeat(start), batteries, repeat(usage), batteries1))
 
     # compare_revenue_by_size(start, energies, batteries, usage, '')
     # compare_revenue_by_usage_and_size(start)

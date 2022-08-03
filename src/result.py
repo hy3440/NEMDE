@@ -173,8 +173,12 @@ def write_dispatchload(units, links, t, start, process, k=0, path_to_out=default
                     row.append('-')
                     row.append('-')
             writer.writerow(row)
-        for link_id, link in links.items():
-            writer.writerow(['D', link_id, '0' if type(link.mw_flow) == float else link.mw_flow.x])
+        if type(links) == list:
+            writer.writerow(['BLNKVIC', links [0].x])
+            writer.writerow(['BLNKTAS', links [1].x])
+        else:
+            for link_id, link in links.items():
+                writer.writerow(['D', link_id, '0' if type(link.mw_flow) == float else link.mw_flow.x])
     return result_dir
 
 
@@ -221,7 +225,7 @@ def write_result_csv(process, start, t, obj_value, solution, penalty, interconne
 
         writer.writerow([default.get_interval_datetime(t)])
         writer.writerow(['Item', 'Our Objective', 'AEMO Objective', 'Our Violation', 'AEMO Violation'])
-        writer.writerow(['Value', obj_value, solution.total_objective, penalty, solution.total_violation])
+        writer.writerow(['Value', f'{obj_value:e}', f'{solution.total_objective:e}', penalty, solution.total_violation])
 
         writer.writerow(['Interconnector',
                          'Inter-flow',
