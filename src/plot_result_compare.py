@@ -83,25 +83,35 @@ def read_dispatchis(start, current):
     times.append(current)
     # current = start + interval * preprocess.FIVE_MIN
     interval_datetime = default.get_case_datetime(current)
-    record_dir = default.OUT_DIR / 'tiebreak' / 'dispatch' / f'DISPATCHIS_{interval_datetime}.csv'
-    # record_dir = default.OUT_DIR / 'dispatch' / f'DISPATCHIS_{interval_datetime}.csv'
+    record_dir = default.DEBUG_DIR / 'dispatch' / f'DISPATCHIS_{interval_datetime}.csv'
     with record_dir.open() as f:
         reader = csv.reader(f)
         for row in reader:
             if row[0] == 'D':
                 price = float(row[9])
+                # record = float(row[10])
+                region_times[row[6]].append(current)
+                region_price[row[6]].append(price)
+                # region_price_record[row[6]].append(float(record))
+
+    # record_dir = default.DEBUG_DIR / 'dispatch-sos' / f'DISPATCHIS_{interval_datetime}.csv'
+    record_dir = default.OUT_DIR / 'tiebreak' / 'dispatch' / f'DISPATCHIS_{interval_datetime}.csv'
+    with record_dir.open() as f:
+        reader = csv.reader(f)
+        for row in reader:
+            if row[0] == 'D':
+                # price = float(row[9])
                 record = float(row[10])
-                # if abs(price - record) > 10:
-                if True:
-                    # print(f'{current} {price} AEMO: {record}')
-                    region_times[row[6]].append(current)
-                    region_price[row[6]].append(price)
-                    region_price_record[row[6]].append(float(record))
+                # region_times[row[6]].append(current)
+                # region_price[row[6]].append(price)
+                region_price_record[row[6]].append(record)
+                # if price < 0 and row[6] == 'NSW1':
+                #     print(current, region_price['NSW1'][-1], record, price)
 
 
 def plot_region_lineplot(start):
     for region in region_times.keys():
-        if region != 'QLD1':
+        if region != 'NSW1':
             continue
         # fig, axs = plt.subplots(5, 1, constrained_layout=True)
         if len(times) <= 288:
@@ -118,8 +128,8 @@ def plot_region_lineplot(start):
             ax1.set_xlabel('Date')
         # plt.plot(region_times[region], region_price_record[region], label='AEMO Record')
         # plt.plot(region_times[region], region_price[region], label='Simulator Result')
-        plt.plot(times, region_price_record[region], color=default.PURPLE, label='AEMO Record')
-        plt.plot(times, region_price[region], '--', color=default.BROWN, label='Simulator Result')
+        plt.plot(times, region_price_record[region], color=default.PURPLE, label='AEMO Record', alpha=0.4, linewidth=2)
+        plt.plot(times, region_price[region], '-', color=default.BLUE, label='Simulator Result', linewidth=0.3)
         plt.legend()
         plt.ylabel("Price (\$/MWh)")
         # plt.axvline(datetime.datetime(2020, 9, 1, 16, 30), 0, 100, c="r")
@@ -222,4 +232,4 @@ def compare_prices():
 
 
 if __name__ == '__main__':
-    compare_prices()
+    plot_region()

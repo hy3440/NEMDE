@@ -8,25 +8,29 @@ import pandas as pd
 from reflect import generate_batteries
 
 # Current interval
-current = datetime.datetime(2021, 9, 12, 18, 10, 0)
+# current = datetime.datetime(2021, 9, 12, 18, 10, 0)
+current = datetime.datetime(2020, 9, 1, 16, 20)
 
 # Battery MW capacity
-mw_batt = 10
+mw_batt = 30
 mw_nobatt = 0
 
 # Input filenames.
 # fn_batt = default.OUT_DIR / 'single' / f'{mw_batt}' / 'dispatch' / f'dispatchload_{default.get_case_datetime(current + default.FIVE_MIN)}.csv'
 # fn_nobatt = default.OUT_DIR / 'single' / f'{mw_nobatt}' / 'dispatch' / f'dispatchload_{default.get_case_datetime(current + default.FIVE_MIN)}.csv'
-energies = [0.03, 0.06]
-usage = 'Cost-reflective + multiple FCAS'
+# energies = [0.03, 0.06]
+# usage = 'Cost-reflective + multiple FCAS'
+energies = [30]
+usage = 'DER Price-taker Dual'
 batteries = generate_batteries(energies, usage)
-# fn_batt1 = default.OUT_DIR / batteries[0].bat_dir / 'dispatch' / f'dispatchload_{default.get_case_datetime(current + default.FIVE_MIN)}.csv'
-# fn_batt2 = default.OUT_DIR / batteries[1].bat_dir / 'dispatch' / f'dispatchload_{default.get_case_datetime(current + default.FIVE_MIN)}.csv'
-# fn_nobatt = default.OUT_DIR / 'record' / 'dispatch' / f'dispatchload_{default.get_case_datetime(current + default.FIVE_MIN)}.csv'
-fn_batt1 = default.DEBUG_DIR / 'dispatch' / f'dispatchload_{default.get_case_datetime(current + default.FIVE_MIN)}-batt1.csv'
-fn_batt2 = default.DEBUG_DIR / 'dispatch' / f'dispatchload_{default.get_case_datetime(current + default.FIVE_MIN)}-batt2.csv'
-fn_nobatt = default.OUT_DIR / 'sequence' / 'dispatch' / f'dispatchload_{default.get_case_datetime(current + default.FIVE_MIN)}.csv'
-fn_units = default.DATA_DIR / 'dvd' / 'DVD_DUDETAILSUMMARY_202109010000.csv'
+# fn_batt1 = default.DEBUG_DIR / 'dispatch' / f'dispatchload_{default.get_case_datetime(current + default.FIVE_MIN)}-batt1.csv'
+# fn_batt2 = default.DEBUG_DIR / 'dispatch' / f'dispatchload_{default.get_case_datetime(current + default.FIVE_MIN)}-batt2.csv'
+fn_nobatt = default.DEBUG_DIR / 'dual' / 'dispatch' / f'dispatchload_{default.get_case_datetime(current + default.FIVE_MIN)}.csv'
+fn_units = default.DATA_DIR / 'dvd' / 'DVD_DUDETAILSUMMARY_202009010000.csv'
+fn_batt1 = batteries[0].bat_dir / 'dispatch' / f'dispatchload_{default.get_case_datetime(current + default.FIVE_MIN)}.csv'
+usage = 'Price-taker Dual'
+batteries = generate_batteries(energies, usage)
+fn_batt2 = batteries[0].bat_dir / 'dispatch' / f'dispatchload_{default.get_case_datetime(current + default.FIVE_MIN)}.csv'
 
 # Parse input files into Pandas dataframes.
 df_batt1 = pd.read_csv(fn_batt1, sep=',')

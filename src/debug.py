@@ -49,21 +49,20 @@ def debug_infeasible_model(model):
             logging.debug(f'Constraint rhs: {c.rhs}')
 
 
-def check_violation(model, regions, slack_variables, generic_slack_variables):
-    # Check slack variables for soft constraints
-    for region_id, region in regions.items():
-        logging.debug('{} Deficit: {}'.format(region_id, region.deficit_gen.x))
-        logging.debug('{} Surplus: {}'.format(region_id, region.surplus_gen.x))
-    logging.debug('Slack variables:')
-    for name in slack_variables:
-        var = model.getVarByName(name)
-        if var is not None and var.x != 0:
-            logging.debug('{}'.format(var))
-    logging.debug('Slack variables for generic constraints:')
-    for name in generic_slack_variables:
-        var = model.getVarByName(name)
-        if var.x != 0:
-            logging.debug('{}'.format(var))
+def check_violation(model, regions, penalty):
+    # # Check slack variables for soft constraints
+    # for region_id, region in regions.items():
+    #     logging.debug('{} Deficit: {}'.format(region_id, region.deficit_gen.x))
+    #     logging.debug('{} Surplus: {}'.format(region_id, region.surplus_gen.x))
+    # logging.debug('Slack variables:')
+    # for var in model.getVars():
+    #     if ('Surplus' in var.varName or 'Deficit' in var.varName) and var.x != 0:
+    #         logging.debug('{}'.format(var))
+    # Check violated
+    for j in range(penalty.size()):
+        var = penalty.getVar(j)
+        if var.x != 0 and 'TBSlack' not in var.varName:
+            print(var)
 
 
 def compare_total_cleared_and_fcas(units):

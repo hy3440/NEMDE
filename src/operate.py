@@ -69,9 +69,9 @@ def schedule(current, battery, p5min_times=None, p5min_prices=None, aemo_p5min_p
     M = 16  # Number of segments
     R = 300000  # Replacement cost ($/MWh)
     if p5min_times is None:
-        times, prices, predispatch_time, aemo_prices, fcas_prices, aemo_fcas_prices, end, raise_fcas_records, lower_fcas_records = process_prices_by_interval(current, custom_flag, battery, k, fcas_flag)
+        times, prices, predispatch_time, aemo_prices, fcas_prices, aemo_fcas_prices, raise_fcas_records, lower_fcas_records, extended_times = process_prices_by_interval(current, custom_flag, battery, k, fcas_flag)
     else:
-        times, prices, p5min_prices, predispatch_prices, predispatch_time, aemo_prices, end = process_given_prices_by_interval(current, custom_flag, battery, k, p5min_times, p5min_prices, aemo_p5min_prices, predispatch_times, predispatch_prices, aemo_predispatch_prices)
+        times, prices, p5min_prices, predispatch_prices, predispatch_time, aemo_prices = process_given_prices_by_interval(current, custom_flag, battery, k, p5min_times, p5min_prices, aemo_p5min_prices, predispatch_times, predispatch_prices, aemo_predispatch_prices)
     # Cost-reflective bidding strategy: Replace the price of the first interval by corresponding band price
     if band is not None:
         if fcas_type is None:
@@ -80,7 +80,8 @@ def schedule(current, battery, p5min_times=None, p5min_prices=None, aemo_p5min_p
             fcas_prices[fcas_type][0] = band
     # Horizon and interval
     remainder = horizon % 6  # Number of intervals at the first PREDISPATCH
-    T1 = 12  # Total number of P5MIN intervals
+    # T1 = 12  # Total number of P5MIN intervals
+    T1 = 6
     T = len(prices)  # Total number of intervals
     # Formulate battery operation optimisation problem using gurobi
     with gp.Env() as env, gp.Model(env=env, name=f'operation_{battery.name}_{horizon}{fcas_type}{band}') as model:
@@ -210,10 +211,11 @@ def schedule(current, battery, p5min_times=None, p5min_prices=None, aemo_p5min_p
         # plot.plot_power(times, fcas_prices['LOWER5MIN'], [f.x for f in lower_fcas], 'LOWER5MIN', path_to_fig)
         if der_flag:
             write.write_schedule(times, pgen, pload, battery.bat_dir)
-            return times, [[pgen[j].x, pload[j].x] for j in range(T)]
+            return times, [[pgen[j].x, pload[j].x] for j in range(T)], extended_times
         elif fcas_flag:
             return pgen[0].x - pload[0].x, raise_fcas[0].x, lower_fcas[0].x
         return pgen[0].x - pload[0].x
+        # return None, pgen[0].x - pload[0].x, None
 
 
 if __name__ == '__main__':

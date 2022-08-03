@@ -230,7 +230,7 @@ def add_spd_region_constraint(t, constraints, regions):
                     constr.regions.add(f'{row[4]} {row[10]} {row[8]}')
 
 
-def add_dispatch_constraint(t, constraints):
+def add_dispatch_constraint(t, constraints, debug_flag):
     """ Add Generic Constraint RHS value for 'dispatch' process.
 
     Args:
@@ -258,11 +258,11 @@ def add_dispatch_constraint(t, constraints):
                     constr.violation_degree = float(row[11])
                     constr.lhs = float(row[16])
                     constr.bind_flag = True
-                else:
+                elif debug_flag:
                     logging.error(f'Constraint {row[6]} was not included')
 
 
-def add_predispatch_constraint(t, start, constraints):
+def add_predispatch_constraint(t, start, constraints, debug_flag):
     """ Add Generic Constraint RHS value for 'predispatch' process.
 
     Args:
@@ -286,11 +286,11 @@ def add_predispatch_constraint(t, start, constraints):
                     constr.voilation_degree = float(row[11])
                     constr.lhs = float(row[17])
                     constr.bind_flag = True
-                # else:
-                #     logging.error('Constraint {row[6]} was not included')
+                elif debug_flag:
+                    logging.error(f'Constraint {row[6]} was not included')
 
 
-def add_p5min_constraint(t, start, constraints):
+def add_p5min_constraint(t, start, constraints, debug_flag):
     """ Add Generic Constraint RHS value for 'p5min' process.
 
     Args:
@@ -314,8 +314,8 @@ def add_p5min_constraint(t, start, constraints):
                     constr.voilation_degree = float(row[10])
                     constr.lhs = float(row[15])
                     constr.bind_flag = True
-                # else:
-                #     logging.error('Constraint {row[7]} was not included')
+                elif debug_flag:
+                    logging.error(f'Constraint {row[7]} was not included')
 
 
 def get_constraints(process, t, units, connection_points, interconnectors, regions, start, fcas_flag):
@@ -438,7 +438,7 @@ def add_uigf_constr(model, unit, prob_id, debug_flag, penalty, cvp):
     """
     if unit.forecast_priority is not None and unit.forecast_poe50 is None:
         logging.error(f'Generator {unit.duid} forecast priority is but has no forecast POE50')
-    elif unit.forecast_poe50 is not None:
+    elif unit.forecast_poe50 is not None and unit.total_cleared_record <= unit.forecast_poe50:
         unit.uigf_surplus = model.addVar(name=f'UIGF_Surplus_{unit.duid}_{prob_id}')  # Item12
         penalty += unit.uigf_surplus * cvp['UIGFSurplusPrice']
         model.addLConstr(unit.total_cleared - unit.uigf_surplus <= unit.forecast_poe50, name=f'UIGF_{unit.duid}_{prob_id}')

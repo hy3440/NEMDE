@@ -479,15 +479,15 @@ def add_dispatchload_record(units, t, fcas_flag, debug_flag):
                     unit.total_cleared_record = float(row[14])
                     unit.ramp_down_rate = float(row[15])
                     unit.ramp_up_rate = float(row[16])
-                    unit.raisereg_availability = float(row [45])
-                    unit.raisereg_enablement_max = float(row [46])
-                    unit.raisereg_enablement_min = float(row [47])
-                    unit.lowerreg_availability = float(row [48])
-                    unit.lowerreg_enablement_max = float(row [49])
-                    unit.lowerreg_enablement_min = float(row [50])
+                    unit.raisereg_availability = float(row[45])
+                    unit.raisereg_enablement_max = float(row[46])
+                    unit.raisereg_enablement_min = float(row[47])
+                    unit.lowerreg_availability = float(row[48])
+                    unit.lowerreg_enablement_max = float(row[49])
+                    unit.lowerreg_enablement_min = float(row[50])
                     if debug_flag:
-                        unit.marginal_value_record['ENERGY'] = float(row[28]) if row[28] else None
-                        unit.violation_degree_record['ENERGY'] = float(row[32]) if row[32] else None
+                        # unit.marginal_value_record['ENERGY'] = float(row[28]) if row[28] else None
+                        # unit.violation_degree_record['ENERGY'] = float(row[32]) if row[32] else None
                         unit.availability = float(row[36])
                         if fcas_flag:
                             unit.target_record['LOWER5MIN'] = float(row[17])
@@ -496,12 +496,12 @@ def add_dispatchload_record(units, t, fcas_flag, debug_flag):
                             unit.target_record['RAISE5MIN'] = float(row[20])
                             unit.target_record['RAISE60SEC'] = float(row[21])
                             unit.target_record['RAISE6SEC'] = float(row[22])
-                            unit.marginal_value_record['5MIN'] = float(row[25]) if row[25] else None
-                            unit.marginal_value_record['60SEC'] = float(row[26]) if row[26] else None
-                            unit.marginal_value_record['6SEC'] = float(row[27]) if row[27] else None
-                            unit.violation_degree_record['5MIN'] = float(row[29]) if row[29] else None
-                            unit.violation_degree_record['60SEC'] = float(row[30]) if row[30] else None
-                            unit.violation_degree_record['6SEC'] = float(row[31]) if row[31] else None
+                            # unit.marginal_value_record['5MIN'] = float(row[25]) if row[25] else None
+                            # unit.marginal_value_record['60SEC'] = float(row[26]) if row[26] else None
+                            # unit.marginal_value_record['6SEC'] = float(row[27]) if row[27] else None
+                            # unit.violation_degree_record['5MIN'] = float(row[29]) if row[29] else None
+                            # unit.violation_degree_record['60SEC'] = float(row[30]) if row[30] else None
+                            # unit.violation_degree_record['6SEC'] = float(row[31]) if row[31] else None
                             unit.target_record['LOWERREG'] = float(row[34])
                             unit.target_record['RAISEREG'] = float(row[35])
                             unit.flags['RAISE6SEC'] = int(row[37])
@@ -823,7 +823,7 @@ def get_units(t, start, i, process, units={}, links={}, fcas_flag=True, dispatch
     predefine.add_simplified_dudetailsummary(units, t)
 
     # if process == 'dispatch':
-    if dispatchload_record:
+    if (dispatchload_record and fcas_flag) or debug_flag:
         add_dispatchload_record(units, t, fcas_flag, debug_flag)
     # elif process == 'p5min':
     #     add_unit_solution(units, t, start, fcas_flag)

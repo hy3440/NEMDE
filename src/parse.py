@@ -264,7 +264,7 @@ def add_region_factor(constr, lhs_factor_collection, regions, fcas_flag, debug_f
                 add_region_constr(constr, regions, item)
 
 
-def add_generic_constraint(xml, units, regions, interconnectors, constraints, fcas_flag):
+def add_generic_constraint(xml, units, regions, interconnectors, constraints, fcas_flag, debug_flag):
     types = {'LE': '<=', 'GE': '>=', 'EQ': '='}
     for generic_constr in xml['NEMSPDCaseFile']['NemSpdInputs']['GenericConstraintCollection']['GenericConstraint']:
         constr_id = generic_constr['@ConstraintID']
@@ -275,9 +275,9 @@ def add_generic_constraint(xml, units, regions, interconnectors, constraints, fc
             constraints[constr_id] = constr
 
             lhs_factor_collection = generic_constr['LHSFactorCollection']
-            add_trader_factor(constr, lhs_factor_collection, units, fcas_flag)
-            add_interconnector_factor(constr, lhs_factor_collection, interconnectors)
-            add_region_factor(constr, lhs_factor_collection, regions, fcas_flag)
+            add_trader_factor(constr, lhs_factor_collection, units, fcas_flag, debug_flag)
+            add_interconnector_factor(constr, lhs_factor_collection, interconnectors, debug_flag)
+            add_region_factor(constr, lhs_factor_collection, regions, fcas_flag, debug_flag)
 
 
 def add_constraint_solution(xml, constraints):
@@ -381,6 +381,14 @@ def add_trader_period(xml, units, func):
                 handle_trade(trade, unit, func)
 
 
+def add_trader_solution(xml, units):
+    for trader_soln in xml['NEMSPDCaseFile']['NemSpdOutputs']['TraderSolution']:
+        trader_id = trader_soln['@TraderID']
+        if trader_id in units:
+            trader = units[trader_id]
+            trader.total_cleared_record = float(trader_soln['@EnergyTarget'])
+
+
 def read_xml(t):
     """Read XML file.
 
@@ -413,6 +421,7 @@ def add_nemspdoutputs(t, units, links, link_flag, process):
     xml = read_xml(t)
     add_dayoffer(xml, units)
     add_peroffer(xml, units)
+    add_trader_solution(xml, units)
     # if process == 'dispatch':
     #     # violation_prices = add_case(xml)
     #     add_uigf_forecast(xml, units)
@@ -423,16 +432,16 @@ def add_nemspdoutputs(t, units, links, link_flag, process):
     return add_case(xml)
 
 
-def add_xml_constr(t, start, predispatch_t, process, units, regions, interconnectors, constraints, fcas_flag):
+def add_xml_constr(t, start, predispatch_t, process, units, regions, interconnectors, constraints, fcas_flag, debug_flag):
     xml = read_xml(t)
-    add_generic_constraint(xml, units, regions, interconnectors, constraints, fcas_flag)
+    add_generic_constraint(xml, units, regions, interconnectors, constraints, fcas_flag, debug_flag)
     add_constraint_solution(xml, constraints)
     if process == 'dispatch':
-        constrain.add_dispatch_constraint(t, constraints)
+        constrain.add_dispatch_constraint(t, constraints, debug_flag)
     elif process == 'p5min':
-        constrain.add_p5min_constraint(t, start, constraints)
+        constrain.add_p5min_constraint(t, start, constraints, debug_flag)
     else:
-        constrain.add_predispatch_constraint(predispatch_t, start, constraints)
+        constrain.add_predispatch_constraint(predispatch_t, start, constraints, debug_flag)
 
 
 def add_nemspdoutputs_fcas(t, units, func):

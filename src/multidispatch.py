@@ -58,5 +58,5 @@ if __name__ == '__main__':
     process_type = 'p5min'
     start_datetime = datetime.datetime(2021, 7, 19, 4, 30 if process_type == 'predispatch' else 5)
     num_usage = 16
-    # multiformulate(start_datetime, process_type, num_usage)
-    multiformulate_sequence_batteries()
+    multiformulate(start_datetime, process_type, num_usage)
+    # multiformulate_sequence_batteries()

@@ -84,19 +84,10 @@ class Region:
         uigf_record (float): AEMO record for UIGF
         losses (float): Allocated interconnector losses for the region
     """
-    def __init__(self, region_id):
+    def __init__(self, region_id, debug_flag=False):
         self.region_id = region_id
-        # self.generators = set()
-        # self.loads = set()
-        self.dispatchable_generation = 0.0
-        self.dispatchable_generation_temp = 0.0
-        self.dispatchable_load = 0.0
-        self.dispatchable_load_temp = 0.0
         self.net_mw_flow = 0.0
-        # self.net_mw_flow_record = 0.0
         self.total_demand = None
-        # self.dispatchable_generation_record = None
-        # self.dispatchable_load_record = None
         self.fcas_local_dispatch = {}  # Used to dispatch generic constraint
         self.fcas_local_dispatch_temp = {
             'RAISEREG': 0,
@@ -134,31 +125,39 @@ class Region:
         }
         self.local_fcas_constr = {}  # required
         self.fcas_rrp = {}  # required
-        # self.fcas_rrp_record = {}
-        # self.available_generation = 0.0
-        # self.available_load = 0.0
-        # self.available_generation_record = None
-        # self.available_load_record = None
-        # self.net_interchange_record = None
-        # self.net_interchange_record_temp = 0.0
-        # self.uigf_record = None
         self.losses = 0.0  # required
-        # self.losses_record = 0.0
         # self.offset = 0
+        self.dispatchable_generation = 0.0  # required
+        self.dispatchable_load = 0.0  # required
+        if debug_flag:
+            self.available_generation = 0.0
+            self.available_load = 0.0
+            self.available_generation_record = None
+            self.available_load_record = None
+            self.net_interchange_record = None
+            self.dispatchable_generation_temp = 0.0
+            self.dispatchable_load_temp = 0.0
+            self.dispatchable_generation_record = None
+            self.dispatchable_load_record = None
+            self.net_mw_flow_record = 0.0
+            self.fcas_rrp_record = {}
+            self.net_interchange_record_temp = 0.0
+            self.uigf_record = None
+            self.losses_record = 0.0
 
 
-def init_regions():
+def init_regions(debug_flag):
     """Initiate the dictionary for regions.
 
     Returns:
         dict: A dictionary of regions.
     """
     # logging.info('Initiate regions.')
-    return {'NSW1': Region('NSW1'),
-            'QLD1': Region('QLD1'),
-            'SA1': Region('SA1'),
-            'TAS1': Region('TAS1'),
-            'VIC1': Region('VIC1')}
+    return {'NSW1': Region('NSW1', debug_flag),
+            'QLD1': Region('QLD1', debug_flag),
+            'SA1': Region('SA1', debug_flag),
+            'TAS1': Region('TAS1', debug_flag),
+            'VIC1': Region('VIC1', debug_flag)}
 
 
 class Interconnector:
@@ -210,7 +209,7 @@ class Interconnector:
         # Dispatch
         # self.metered_mw_flow = None
         self.mw_flow = None  # required
-        # self.mw_flow_record = None
+        self.mw_flow_record = None
         self.mw_losses = 0.0  # required
         # self.mw_losses_record = None
         # self.marginal_value_record = None
@@ -318,6 +317,7 @@ class Link:
         self.ramp_up_rate = None
         # Custom
         self.mw_flow = 0.0
+        self.mw_flow_record = 0.0
         self.losses = None
 
 
@@ -658,8 +658,8 @@ def add_predispatch_record(regions, interconnectors, i, start, debug_flag):
             elif row[0] == 'D' and row[2] == 'INTERCONNECTOR_SOLN' and int(row[7]) == i + 1 and row[8] == intervention:
                 ic = interconnectors[row[6]]
                 ic.metered_mw_flow = float(row[9])
+                ic.mw_flow_record = float(row[10])
                 if debug_flag:
-                    ic.mw_flow_record = float(row[10])
                     ic.mw_losses_record = float(row[11])
                     ic.marginal_value_record = float(row[12])
                     ic.violation_degree_record = float(row[13])
@@ -738,8 +738,8 @@ def add_p5min_record(regions, interconnectors, t, start, debug_flag):
             elif row[0] == 'D' and row[2] == 'INTERCONNECTORSOLN' and default.extract_datetime(row[7]) == t and row[5] == intervention:
                 ic = interconnectors[row[6]]
                 ic.metered_mw_flow = float(row[8])
+                ic.mw_flow_record = float(row[9])
                 if debug_flag:
-                    ic.mw_flow_record = float(row[9])
                     ic.mw_losses_record = float(row[10])
                     ic.marginal_value_record = float(row[11])
                     ic.violation_degree_record = float(row[12])
@@ -760,7 +760,7 @@ def add_dispatch_record(t, start, i, process, problem, fcas_flag, debug_flag):
         problem.solution = add_p5min_record(problem.regions, problem.interconnectors, t, start, debug_flag)
 
 
-def add_link_record(ic, blnktas, blnkvic):
+def add_link_record(ic, blnktas, blnkvic, debug_flag):
     """Add link record from AEMO's record.
 
     Args:
@@ -771,12 +771,13 @@ def add_link_record(ic, blnktas, blnkvic):
     Returns:
         None
     """
-    if ic.mw_flow_record >= 0:
-        blnktas.mw_flow_record = ic.mw_flow_record
-        blnkvic.mw_flow_record = 0
-    else:
-        blnktas.mw_flow_record = 0
-        blnkvic.mw_flow_record = - ic.mw_flow_record
+    if debug_flag:
+        if ic.mw_flow_record >= 0:
+            blnktas.mw_flow_record = ic.mw_flow_record
+            blnkvic.mw_flow_record = 0
+        else:
+            blnktas.mw_flow_record = 0
+            blnkvic.mw_flow_record = - ic.mw_flow_record
     if ic.metered_mw_flow >= 0:
         blnktas.metered_mw_flow = ic.metered_mw_flow
         blnkvic.metered_mw_flow = 0
@@ -814,5 +815,5 @@ def get_regions_and_interconnectors(t, start, i, process, problem=None, fcas_fla
     # add_mnsp_bids(problem.links, t)
     add_dispatch_record(t, start, i, process, problem, fcas_flag, debug_flag)
     if link_flag:
-        if dispatchload_record:
-            add_link_record(problem.interconnectors['T-V-MNSP1'], problem.links['BLNKTAS'], problem.links['BLNKVIC'])
+        if dispatchload_record and i == 0:
+            add_link_record(problem.interconnectors['T-V-MNSP1'], problem.links['BLNKTAS'], problem.links['BLNKVIC'], debug_flag)

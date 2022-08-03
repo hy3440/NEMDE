@@ -17,13 +17,13 @@ from plot import plot_optimisation_with_bids
 
 
 class Problem:
-    def __init__(self, current, process, batteries):
+    def __init__(self, current, process, batteries, debug_flag):
         self.current = current
         self.process = process
         self.problem_id = f'{process}_{default.get_case_datetime(current)}'
         self.units = {}
         self.connection_points = None
-        self.regions = interconnect.init_regions()
+        self.regions = interconnect.init_regions(debug_flag)
         self.interconnectors = interconnect.init_interconnectors()
         self.links = interconnect.init_links()
         self.constraints = {}
@@ -41,6 +41,48 @@ class Problem:
         self.process = process
         self.problem_id = f'{process}_{default.get_case_datetime(current)}'
         self.batteries = batteries
+        self.units = {}
+        self.constraints = {}
+        for region in self.regions.values():
+            region.dispatchable_generation = 0.0
+            region.dispatchable_generation_temp = 0.0
+            region.dispatchable_load = 0.0
+            region.dispatchable_load_temp = 0.0
+            region.net_mw_flow = 0.0
+            region.fcas_local_dispatch = {}  # Used to dispatch generic constraint
+            region.fcas_local_dispatch_temp = {
+                'RAISEREG': 0,
+                'RAISE6SEC': 0,
+                'RAISE60SEC': 0,
+                'RAISE5MIN': 0,
+                'LOWERREG': 0,
+                'LOWER6SEC': 0,
+                'LOWER60SEC': 0,
+                'LOWER5MIN': 0
+            }  # Used to calculate the sum of our FCAS value
+            region.fcas_local_dispatch_record_temp = {
+                'RAISEREG': 0,
+                'RAISE6SEC': 0,
+                'RAISE60SEC': 0,
+                'RAISE5MIN': 0,
+                'LOWERREG': 0,
+                'LOWER6SEC': 0,
+                'LOWER60SEC': 0,
+                'LOWER5MIN': 0
+            }  # Used to calculate the sum of each FCAS type
+            region.fcas_constraints = {
+                'RAISEREG': set(),
+                'RAISE6SEC': set(),
+                'RAISE60SEC': set(),
+                'RAISE5MIN': set(),
+                'LOWERREG': set(),
+                'LOWER6SEC': set(),
+                'LOWER60SEC': set(),
+                'LOWER5MIN': set()
+            }
+            region.local_fcas_constr = {}  # required
+            region.fcas_rrp = {}  # required
+            region.losses = 0.0  # required
 
 
 def add_regional_energy_demand_supply_balance_constr(model, region, region_id, prob_id, debug_flag, penalty, cvp):
@@ -108,9 +150,58 @@ def dispatch(current, start, predispatch_current, interval, process, model, iter
     try:
         # Initiate problem
         if prob is None:
-            prob = Problem(predispatch_current if process == 'predispatch' else current, process, batteries)
+            prob = Problem(predispatch_current if process == 'predispatch' else current, process, batteries, debug_flag)
+            # Get regions, interconnectors, and case solution
+            interconnect.get_regions_and_interconnectors(current, start, interval, process, prob, fcas_flag, link_flag, dispatchload_record, debug_flag)
         else:
-            prob.reset_problem(predispatch_current if process == 'predispatch' else current, process, batteries)
+            # prob.reset_problem(predispatch_current if process == 'predispatch' else current, process, batteries)
+            prob.current = current
+            prob.process = process
+            prob.problem_id = f'{process}_{default.get_case_datetime(current)}'
+            prob.batteries = batteries
+            prob.units = {}
+            prob.constraints = {}
+            for region in prob.regions.values():
+                region.dispatchable_generation = 0.0
+                region.dispatchable_generation_temp = 0.0
+                region.dispatchable_load = 0.0
+                region.dispatchable_load_temp = 0.0
+                region.net_mw_flow = 0.0
+                region.fcas_local_dispatch = {}  # Used to dispatch generic constraint
+                region.fcas_local_dispatch_temp = {
+                    'RAISEREG': 0,
+                    'RAISE6SEC': 0,
+                    'RAISE60SEC': 0,
+                    'RAISE5MIN': 0,
+                    'LOWERREG': 0,
+                    'LOWER6SEC': 0,
+                    'LOWER60SEC': 0,
+                    'LOWER5MIN': 0
+                }  # Used to calculate the sum of our FCAS value
+                region.fcas_local_dispatch_record_temp = {
+                    'RAISEREG': 0,
+                    'RAISE6SEC': 0,
+                    'RAISE60SEC': 0,
+                    'RAISE5MIN': 0,
+                    'LOWERREG': 0,
+                    'LOWER6SEC': 0,
+                    'LOWER60SEC': 0,
+                    'LOWER5MIN': 0
+                }  # Used to calculate the sum of each FCAS type
+                region.fcas_constraints = {
+                    'RAISEREG': set(),
+                    'RAISE6SEC': set(),
+                    'RAISE60SEC': set(),
+                    'RAISE5MIN': set(),
+                    'LOWERREG': set(),
+                    'LOWER6SEC': set(),
+                    'LOWER60SEC': set(),
+                    'LOWER5MIN': set()
+                }
+                region.local_fcas_constr = {}  # required
+                region.fcas_rrp = {}  # required
+                region.losses = 0.0  # required
+            interconnect.add_dispatch_record(current, start, interval, process, prob, fcas_flag, debug_flag)
         # Add cutom unit
         if custom_unit is not None:
             if type(custom_unit) == list:
@@ -126,8 +217,8 @@ def dispatch(current, start, predispatch_current, interval, process, model, iter
         # Specify the length of interval
         if intervals is None:
             intervals = 30 if process == 'predispatch' else 5  # Length of the dispatch interval in minutes
-        # Get regions, interconnectors, and case solution
-        interconnect.get_regions_and_interconnectors(current, start, interval, process, prob, fcas_flag, link_flag, dispatchload_record, debug_flag)
+        # # Get regions, interconnectors, and case solution
+        # interconnect.get_regions_and_interconnectors(current, start, interval, process, prob, fcas_flag, link_flag, dispatchload_record, debug_flag)
         # Add NEM SPD outputs
         cvp, voll, market_price_floor = parse.add_nemspdoutputs(current, prob.units, prob.links, link_flag, process)
         # Get market price cap (MPC) and floor
@@ -163,7 +254,8 @@ def dispatch(current, start, predispatch_current, interval, process, model, iter
                 model.addLConstr(ic.mw_flow, sense=gp.GRB.EQUAL, rhs=ic.mw_flow_record, name=f'FIXED_INTERFLOW_{ic_id}')
         if link_flag:
             for link_id, link in prob.links.items():
-                if der_flag and last_prob_id is not None:
+                # if der_flag and last_prob_id is not None:
+                if last_prob_id is not None:
                     link.metered_mw_flow = model.getVarByName(f'Link_Flow_{link_id}_{last_prob_id}')
                 # Avail at each price band
                 link.offers = [model.addVar(ub=avail, name=f'Target{no}_{link_id}_{prob.problem_id}') for no, avail in enumerate(link.band_avail)]
@@ -216,7 +308,8 @@ def dispatch(current, start, predispatch_current, interval, process, model, iter
             # parse.add_nemspdoutputs_fcas(current, units, parse.verify_fcas)
         energy_bands = {'GENERATOR': {'NSW1': {}, 'QLD1': {}, 'SA1': {}, 'TAS1': {}, 'VIC1':{}}, 'LOAD': {'NSW1': {}, 'QLD1': {}, 'SA1': {}, 'TAS1': {}, 'VIC1':{}}}
         for unit in prob.units.values():
-            if der_flag and last_prob_id is not None:
+            # if der_flag and last_prob_id is not None:
+            if last_prob_id is not None:
                 unit.initial_mw = model.getVarByName(f'Total_Cleared_{unit.duid}_{last_prob_id}')
                 if unit.initial_mw is None:
                     unit.initial_mw = 0.0
@@ -329,12 +422,13 @@ def dispatch(current, start, predispatch_current, interval, process, model, iter
                 battery.transition_constr = model.addLConstr(battery.E, gp.GRB.EQUAL, battery.initial_E + intervals * (battery.load.total_cleared * battery.eff - battery.generator.total_cleared / battery.eff) / 60, f'TRANSITION_{bat_id}_{prob.problem_id}')
                 # battery.E_record = model.addVar(name=f'E_record_{bat_id}_{prob.problem_id}')
                 # model.addLConstr(battery.E_record == battery.initial_E_record + intervals * (battery.load.total_cleared_record * battery.eff - battery.generator.total_cleared_record / battery.eff) / 60, f'E_RECORD_{bat_id}_{prob.problem_id}')
-                # Charge or discharge
-                battery.sos_constr = model.addSOS(gp.GRB.SOS_TYPE1, [battery.generator.total_cleared, battery.load.total_cleared])
-                # # Degradation model
-                pgens = [model.addVar(ub=battery.generator.max_capacity, name=f'pgen_segment_{m + 1}_{prob.problem_id}') for m in range(M)]
-                model.addLConstr(battery.generator.total_cleared == sum(pgens), f'PGEN_SEGMENT_{prob.problem_id}')
-                prob.cost += (intervals / 60) * sum([pgens[m] * helpers.marginal_costs(R, battery.eff, M, m + 1) for m in range(M)])
+                if not dual_flag:
+                    # Charge or discharge
+                    battery.sos_constr = model.addSOS(gp.GRB.SOS_TYPE1, [battery.generator.total_cleared, battery.load.total_cleared])
+                    # # Degradation model
+                    pgens = [model.addVar(ub=battery.generator.max_capacity, name=f'pgen_segment_{m + 1}_{prob.problem_id}') for m in range(M)]
+                    model.addLConstr(battery.generator.total_cleared == sum(pgens), f'PGEN_SEGMENT_{prob.problem_id}')
+                    prob.cost += (intervals / 60) * sum([pgens[m] * helpers.marginal_costs(R, battery.eff, M, m + 1) for m in range(M)])
         # TODO: Custom Battery fo comparison
         # if custom_unit is not None and type(custom_unit) == list:
         #     model.addSOS(gp.GRB.SOS_TYPE1, [unit.total_cleared for unit in custom_unit])
@@ -354,7 +448,7 @@ def dispatch(current, start, predispatch_current, interval, process, model, iter
         generic_slack_variables = set()
         if constr_flag:
             # constraints = constrain.get_constraints(process, current, units, connection_points, interconnectors, regions, start, fcas_flag)
-            parse.add_xml_constr(current, start, predispatch_current, process, prob.units, prob.regions, prob.interconnectors, prob.constraints, fcas_flag)
+            parse.add_xml_constr(current, start, predispatch_current, process, prob.units, prob.regions, prob.interconnectors, prob.constraints, fcas_flag, debug_flag)
             for constr in prob.constraints.values():
                 # TODO: Figure out what's going on the above and below commented code
                 # if helpers.condition3(process, constr.dispatch, constr.predispatch, constr.rhs) and constr.connection_point_flag:
@@ -418,7 +512,7 @@ def dispatch(current, start, predispatch_current, interval, process, model, iter
 
 def formulate(start, interval, process, iteration=0, custom_unit=None, path_to_out=default.OUT_DIR,
               dispatchload_path=None, dispatchload_flag=True, hard_flag=False, fcas_flag=True, dual_flag=True,
-              fixed_total_cleared_flag=False, debug_flag=False, batt_no=None, dispatchload_record=False):
+              fixed_total_cleared_flag=False, debug_flag=False, batt_no=None, dispatchload_record=False, link_flag=True):
     """Original NEMDE model.
 
     Args:
@@ -453,8 +547,8 @@ def formulate(start, interval, process, iteration=0, custom_unit=None, path_to_o
                                    name=f'{process}{default.get_case_datetime(current)}{interval}{iteration}') as model:
         model.setParam("OutputFlag", 0)  # 0 if no log information; otherwise 1
         prob, model, cvp = dispatch(current, start, predispatch_current, interval, process, model, iteration, custom_unit,
-                                    path_to_out, dispatchload_path, dispatchload_flag, fcas_flag=fcas_flag,
-                                    debug_flag=debug_flag, der_flag=False, dispatchload_record=dispatchload_record)
+                                    path_to_out, dispatchload_path, dispatchload_flag, fcas_flag=fcas_flag, dual_flag=dual_flag,
+                                    debug_flag=debug_flag, der_flag=False, dispatchload_record=dispatchload_record, link_flag=link_flag)
         # Calculate marginal prices
         prices = {'NSW1': None, 'VIC1': None, 'SA1': None, 'TAS1': None, 'QLD1': None}
         # Calculate dual variable as marginal price
@@ -551,17 +645,16 @@ def formulate(start, interval, process, iteration=0, custom_unit=None, path_to_o
                             # Write objective into file
                             debug.write_objective(objective, path_to_out,
                                                   predispatch_current if process == 'predispatch' else current, batt_no)
-                            # Write model for debugging
-                            if batt_no is not None:
-                                path_to_model = path_to_out / f'{process}_{default.get_case_datetime(current)}-batt{batt_no}.lp'
-                            else:
-                                path_to_model = path_to_out / process / f'{process}_{default.get_case_datetime(current)}.lp'
-                            # path_to_model = default.MODEL_DIR / f'{process}_{default.get_case_datetime(start)}_{interval}.lp'
-                            model.write(str(path_to_model))
+                        # Write model for debugging
+                        if batt_no is not None:
+                            path_to_model = path_to_out / f'{process}_{default.get_case_datetime(current)}-batt{batt_no}.lp'
+                        else:
+                            path_to_model = path_to_out / process / f'{process}_{default.get_case_datetime(current)}.lp'
+                        # path_to_model = default.MODEL_DIR / f'{process}_{default.get_case_datetime(start)}_{interval}.lp'
+                        model.write(str(path_to_model))
                 # model.remove(obj_battery_constr)
         # Calculate difference of objectives by increasing demand by 1 as marginal price
         else:
-            model
             for region_name in [None, 'NSW1', 'QLD1', 'SA1', 'TAS1', 'VIC1']:
                 for region_id, region in prob.regions.items():
                     if region_name is None:
@@ -576,6 +669,8 @@ def formulate(start, interval, process, iteration=0, custom_unit=None, path_to_o
                 if hard_flag:
                     model.addLConstr(prob.penalty, sense=gp.GRB.EQUAL, rhs=0, name='PENALTY_CONSTR')
                 model.setObjective(prob.cost + prob.penalty, gp.GRB.MINIMIZE)
+                path_to_model = path_to_out / process / f'SOS_{default.get_case_datetime(current)}.lp'
+                model.write(str(path_to_model))
                 model.optimize()
                 if model.status == gp.GRB.Status.INFEASIBLE or model.status == gp.GRB.Status.INF_OR_UNBD:
                     debug.debug_infeasible_model(model)
@@ -593,6 +688,7 @@ def formulate(start, interval, process, iteration=0, custom_unit=None, path_to_o
                                                 path_to_out=path_to_out)
                 else:
                     prices[region_name] = prob.cost.getValue() - base
+                    prob.regions[region_name].rrp = prices[region_name]
             result.add_prices(process, start, current, prices)
         if process == 'dispatch':
             result.write_dispatchis(start, current, prob.regions, prices, k=iteration, path_to_out=path_to_out)
@@ -648,6 +744,12 @@ def update_formulation(prob, problems, model, total_costs, total_penalty, cvp):
     return total_costs, total_penalty, last_prob_id
 
 
+def add_regional_constr(prob, model, cvp):
+    for region_id, region in prob.regions.items():
+        prob.penalty = add_regional_energy_demand_supply_balance_constr(model, region, region_id, prob.problem_id,
+                                                                        False, prob.penalty, cvp)
+
+
 def battery_bid(battery, avails):
     if avails is None:
         battery.add_energy_bid([0], [battery.generator.max_capacity], [500], [battery.load.max_capacity])
@@ -655,7 +757,7 @@ def battery_bid(battery, avails):
         battery.add_energy_bid([0], [avails[0]], [500], [avails[1]])
 
 
-def formulate_sequence(start, e, usage, results=None, times=None, first_horizon_flag=False, predefined_battery=None):
+def formulate_sequence(start, e, usage, results=None, times=None, extended_times=None, first_horizon_flag=False, predefined_battery=None, link_flag=False, dual_flag=True):
     """Improved NEMDE which looks ahead for 24hrs (12 intervals of P5MIN and 46 periods of Predispatch).
 
     Args:
@@ -675,13 +777,15 @@ def formulate_sequence(start, e, usage, results=None, times=None, first_horizon_
     #     reminder = horizon % 6
     # temp_j = 0
     if True:
-        problems = []
+        # problems = []
+        saved_regions, saved_ids = [], []
         last_prob_id = None
+        prob = None
         with gp.Env() as env, gp.Model(env=env,
                                        name=f'Integration {default.get_case_datetime(start)}') as model:
             model.setParam("OutputFlag", 0)  # 0 if no log information; otherwise 1
             # Initiate cost and penalty of objective function
-            total_costs, total_penalty = 0, 0
+            # total_costs, total_penalty = 0, 0
 
             # for j in range(12):
             #     current = start + j * default.FIVE_MIN
@@ -709,75 +813,115 @@ def formulate_sequence(start, e, usage, results=None, times=None, first_horizon_
             #     total_costs, total_penalty, last_prob_id = update_formulation(prob, problems, model, total_costs, total_penalty, cvp)
 
             predispatch_start = default.get_predispatch_time(start)
-            for j, (t, r) in enumerate(zip(times, results)):
+            for j, (t, r, et) in enumerate(zip(times, results, extended_times)):
+                constr_flag = False
                 if predefined_battery is not None and j == 0:
                     battery = predefined_battery
                 else:
                     battery = helpers.Battery(e, int(e / 3 * 2), usage=usage)
                     battery_bid(battery, None if 'None' in usage else r)
-                if j < 12:
+                # if j < 12:
+                if j < 6:
                     current = t
                     process = 'dispatch' if j == 0 else 'p5min'
                     pre_start = start
                     intervals = None
                     pre_t = None
-                else:
+                    constr_flag = True
+                elif et is None:
                     current = t - default.TWENTYFIVE_MIN
                     process = 'predispatch'
                     pre_start = predispatch_start
-                    j = j - 10
-                    intervals = (t - start - default.ONE_HOUR + default.FIVE_MIN) / default.ONE_MIN if j == 2 else None
+                    # j = j - 10
+                    # intervals = (t - start - default.ONE_HOUR + default.FIVE_MIN) / default.ONE_MIN if j == 2 else None
+                    j = j - 5
+                    intervals = (t - start - default.THIRTY_MIN + default.FIVE_MIN) / default.ONE_MIN if j == 1 else None
                     pre_t = t
+                else:
+                    current = et
+                    process = 'dispatch'
+                    pre_start = et
+                    intervals = None
+                    pre_t = None
                 # print(t, pre_start, j, intervals)
                 prob, model, cvp = dispatch(current, pre_start, pre_t, j, process, model, path_to_out=battery.bat_dir,
-                                            dispatchload_flag=(j==0 and not first_horizon_flag), dispatchload_record=first_horizon_flag,
-                                            fcas_flag='FCAS' in usage, der_flag=True, last_prob_id=last_prob_id, dual_flag=False,
-                                            batteries={battery.bat_id: battery}, intervals=intervals)
+                                            dispatchload_flag=(j==0 and not first_horizon_flag), dispatchload_record=True,
+                                            fcas_flag='FCAS' in usage, der_flag=True, last_prob_id=last_prob_id, dual_flag=dual_flag,
+                                            batteries={battery.bat_id: battery}, constr_flag=constr_flag,
+                                            intervals=intervals, link_flag=link_flag)
                 first_horizon_flag = False
-                total_costs, total_penalty, last_prob_id = update_formulation(prob, problems, model, total_costs, total_penalty, cvp)
+                # total_costs, total_penalty, last_prob_id = update_formulation(prob, problems, model, total_costs, total_penalty, cvp)
+                last_prob_id = prob.problem_id
+                add_regional_constr(prob, model, cvp)
+                saved_regions.append(prob.regions['NSW1'])
+                saved_ids.append(prob.problem_id)
+                if j == 0:
+                    saved_units = prob.units
+                    saved_links = [prob.links['BLNKVIC'].mw_flow, prob.links['BLNKTAS'].mw_flow]
 
-            for bat_id, battery in prob.batteries.items():
-                battery.final_constr = model.addLConstr(battery.E, gp.GRB.EQUAL, battery.size * 0.5, f'FINAL_STATE_{bat_id}_{prob.problem_id}')
-            model.setObjective(total_costs + total_penalty, gp.GRB.MINIMIZE)
-            # model.addLConstr(total_penalty == 0, name='HARD_CONSTR')
+            # for bat_id, battery in prob.batteries.items():
+            #     battery.final_constr = model.addLConstr(battery.E, gp.GRB.EQUAL, battery.size * 0.5, f'FINAL_STATE_{bat_id}_{prob.problem_id}')
+            # model.setObjective(total_costs + total_penalty, gp.GRB.MINIMIZE)
+            model.setObjective(prob.cost + prob.penalty, gp.GRB.MINIMIZE)
             model.optimize()
             path_to_model = battery.bat_dir / f'DER_{e}MWh_{default.get_case_datetime(start)}.lp'
             model.write(str(path_to_model))
-            # return None
+            print(f'Finished optimisation: {datetime.datetime.now()}')
             base = model.getObjective().getValue()
             region_id = 'NSW1'
             prices = []
-            for prob_num, prob in enumerate(problems):
-                region = prob.regions[region_id]
-                model.remove(region.rrp_constr)
-                region.rrp_constr = model.addLConstr(
-                    region.dispatchable_generation + region.net_mw_flow + region.deficit_gen - region.surplus_gen == region.total_demand + 1 + region.dispatchable_load + region.losses,
-                    name=f'REGION_BALANCE_{region_id}_{prob.problem_id}')
 
-                model.setObjective(total_costs + total_penalty, gp.GRB.MINIMIZE)
-                # model.addLConstr(total_penalty == 0, name='HARD_CONSTR')
-                model.optimize()
-                prices.append(model.getObjective().getValue() - base)
+            # print(saved_regions[0].rrp_constr.pi)
+            # return None
 
-                if prob_num == 0:
-                    for b in prob.batteries.values():
-                        dispatchload_path = result.write_dispatchload(prob.units, prob.links, times[0], times[0], 'dispatch',
-                                                                      path_to_out=battery.bat_dir)
-                        result.write_dispatchis(None, start, prob.regions, {region_id: prices[0]}, k=0, path_to_out=b.bat_dir)
-                        # return b.generator.total_cleared.x, b.load.total_cleared.x, prices[0]
+            # dispatchload_path = result.write_dispatchload(saved_units, saved_links, times[0], times[0], 'dispatch',
+            #                                               path_to_out=battery.bat_dir)
+            levels, generations, loads = [], [], []
+            bat_id = 'Battery'
+            for problem_id in saved_ids:
+                levels.append(model.getVarByName(f'E_{bat_id}_{problem_id}').x)
+                generations.append(model.getVarByName(f'Total_Cleared_G_{problem_id}').x)
+                loads.append(model.getVarByName(f'Total_Cleared_L_{problem_id}').x)
 
-                # Get prices for all intervals
-                model.remove(region.rrp_constr)
-                region.rrp_constr = model.addLConstr(
-                    region.dispatchable_generation + region.net_mw_flow + region.deficit_gen - region.surplus_gen == region.total_demand + region.dispatchable_load + region.losses,
-                    name=f'REGION_BALANCE_{region_id}_{prob.problem_id}')
+            # for prob_num, prob in enumerate(problems):
+            #     region = prob.regions[region_id]
+            print(f'Finished first interval: {datetime.datetime.now()}')
+            if dual_flag:
+                prices = [model.getConstrByName(f'REGION_BALANCE_{region_id}_{prob_id}').pi for prob_id in saved_ids]
+                print(prices[0])
+            else:
+                for prob_num, (problem_id, region) in enumerate(zip(saved_ids, saved_regions)):
+                    model.remove(region.rrp_constr)
+                    region.rrp_constr = model.addLConstr(
+                        region.dispatchable_generation + region.net_mw_flow + region.deficit_gen - region.surplus_gen == region.total_demand + 1 + region.dispatchable_load + region.losses,
+                        name=f'REGION_BALANCE_{region_id}_INCREASED')
+
+                    # model.setObjective(total_costs + total_penalty, gp.GRB.MINIMIZE)
+                    model.setObjective(prob.cost + prob.penalty, gp.GRB.MINIMIZE)
+                    # model.addLConstr(total_penalty == 0, name='HARD_CONSTR')
+                    model.optimize()
+                    prices.append(model.getObjective().getValue() - base)
+                    print(prices)
+                    if prob_num == 0:
+                        for b in prob.batteries.values():
+                            result.write_dispatchis(None, start, prob.regions, {region_id: prices[0]}, k=0, path_to_out=b.bat_dir)
+                            # return b.generator.total_cleared.x, b.load.total_cleared.x, prices[0]
+
+                    # Get prices for all intervals
+                    model.remove(region.rrp_constr)
+                    region.rrp_constr = model.addLConstr(
+                        region.dispatchable_generation + region.net_mw_flow + region.deficit_gen - region.surplus_gen == region.total_demand + region.dispatchable_load + region.losses,
+                        name=f'REGION_BALANCE_{region_id}_{problem_id}')
             path_to_csv = battery.bat_dir / f'DER_{battery.size}MWh_{default.get_case_datetime(start)}.csv'
             with path_to_csv.open('w') as f:
                 writer = csv.writer(f)
-                for prob, p in zip(problems, prices):
-                    for b in prob.batteries.values():
-                        writer.writerow([prob.current, prob.process, b.E.x, b.generator.total_cleared.x, b.load.total_cleared.x, p])
+                # for prob, p in zip(problems, prices):
+                #     for b in prob.batteries.values():
+                #         writer.writerow([prob.current, prob.process, b.E.x, b.generator.total_cleared.x, b.load.total_cleared.x, p])
+                for t, e, g, l, p in zip(times, levels, generations, loads, prices):
+                    writer.writerow([t, '', e, g, l, p])
             plot_optimisation_with_bids(battery, None, None, der_flag=True, e=battery.size, t=start, bat_dir=b.bat_dir)
+            print(f'Finished all intervals: {datetime.datetime.now()}')
 
 
 def get_all_dispatch(start, process, path_to_out, custom_unit=None):
@@ -791,7 +935,8 @@ if __name__ == '__main__':
     # process_type = 'dispatch'
     # process_type = 'p5min'
     # process_type = 'predispatch'
-    start = datetime.datetime(2021, 9, 12, 4, 5)
+    # start = datetime.datetime(2021, 9, 12, 4, 5)
+    start = datetime.datetime(2020, 9, 1, 4, 5)
 
     # path_to_log = default.LOG_DIR / f'{process_type}_{default.get_case_datetime(start_time)}.log'
     # logging.basicConfig(filename=path_to_log, filemode='w', format='%(levelname)s: %(asctime)s %(message)s', level=logging.DEBUG)
@@ -818,8 +963,17 @@ if __name__ == '__main__':
     #     dispatchload_path, rrp, fcas_rrp = formulate(start_time, horizon, 'dispatch', path_to_out=path_to_out, dispatchload_flag=(horizon != 0), debug_flag=False)
     #     current += default.FIVE_MIN
     # get_all_dispatch(start_time, process_type, path_to_out)
-    dispatchload_path, rrp, fcas_rrp = formulate(start, 0, 'dispatch',
-                                                 path_to_out=default.DEBUG_DIR,
-                                                 dispatchload_flag=False,
-                                                 dispatchload_record=True)
-    print(rrp)
+
+    # dispatchload_path, rrp, fcas_rrp = formulate(start, 0, 'dispatch',
+    #                                              path_to_out=default.DEBUG_DIR,
+    #                                              dispatchload_flag=False,
+    #                                              dispatchload_record=True,
+    #                                              fcas_flag=False,
+    #                                              dual_flag=True)
+    # print(rrp)
+    usage = 'DER Test'
+    e = 0
+    times = [start + default.FIVE_MIN * i for i in range(2)]
+    results = [[0, 0] for _ in times]
+    extended_times = [None for _ in times]
+    formulate_sequence(start, e, usage, results, times, extended_times, first_horizon_flag=True, link_flag=False, dual_flag=False)
