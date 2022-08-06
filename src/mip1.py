@@ -33,11 +33,11 @@ try:
 
     test(m, x, y)
 
-    # optimize model
-    m.optimize()
-
     path_to_model = default.MODEL_DIR / f'mip1.lp'
     m.write(str(path_to_model))
+
+    # optimize model
+    m.optimize()
 
     for v in m.getVars():
         print(f'{v.varName} {v.x:g}')
