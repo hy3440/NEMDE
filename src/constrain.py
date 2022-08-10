@@ -319,7 +319,7 @@ def add_p5min_constraint(t, start, constraints, debug_flag):
 
 
 def get_constraints(process, t, units, connection_points, interconnectors, regions, start, fcas_flag):
-    """ Get a dictionary of generic constraints.
+    """ Formulate a dictionary of generic constraints.
 
     Args:
         process (str): 'dispatch', 'predispatch', or 'p5min'
@@ -364,12 +364,10 @@ def add_max_avail_constr(model, unit, prob_id, debug_flag, penalty, cvp):
         The penalty linear expression
     """
     if unit.total_cleared_record is None or unit.total_cleared_record <= unit.energy.max_avail:
-        unit.deficit_trader_energy_capacity = model.addVar(name=f'Deficit_Trader_Energy_Capacity_{unit.duid}_{prob_id}')  # Item14
-        penalty += unit.deficit_trader_energy_capacity * cvp['CapacityPrice']
-        unit.max_avail_constr = model.addLConstr(unit.total_cleared - unit.deficit_trader_energy_capacity <= unit.energy.max_avail, name=f'MAX_AVAIL_{unit.duid}_{prob_id}')
-    elif debug_flag:
-        logging.warning(f'{unit.dispatch_type} {unit.duid} total cleared record {unit.total_cleared_record} above max avail {unit.energy.max_avail} (total band {sum(unit.energy.band_avail)})')
-    return penalty
+        deficit_trader_energy_capacity = model.addVar(name=f'Deficit_Trader_Energy_Capacity_{unit.duid}_{prob_id}')  # Item14
+        penalty += deficit_trader_energy_capacity * cvp['CapacityPrice']
+        model.addLConstr(unit.total_cleared - deficit_trader_energy_capacity <= unit.energy.max_avail, name=f'MAX_AVAIL_{unit.duid}_{prob_id}')
+    # return penalty
 
 
 def add_daily_energy_constr(model, unit, prob_id, debug_flag, penalty, cvp):
@@ -387,14 +385,10 @@ def add_daily_energy_constr(model, unit, prob_id, debug_flag, penalty, cvp):
     Returns:
         The penalty linear expression
     """
-    unit.defict_energy = model.addVar(name=f'Deficit_Energy_{unit.duid}_{prob_id}')  # Item14
-    penalty += unit.defict_energy * cvp['CapacityPrice']
-    unit.daily_energy_constr = model.addLConstr(unit.total_cleared / 2.0 + unit.energy.daily_energy - unit.defict_energy <= unit.energy.daily_energy_limit, name=f'DAILY_ENERGY_{unit.duid}_{prob_id}')
-    if debug_flag:
-        if unit.total_cleared_record is not None and unit.total_cleared_record / 2.0 + unit.energy.daily_energy_record > unit.energy.daily_energy_limit:
-            logging.warning(f'{unit.dispatch_type} {unit.duid} total cleared record above daily energy limit')
-            logging.debug(f'record {unit.total_cleared_record} / 2.0 + daily {unit.energy.daily_energy_record} > limit {unit.energy.daily_energy_limit}')
-    return penalty
+    defict_energy = model.addVar(name=f'Deficit_Energy_{unit.duid}_{prob_id}')  # Item14
+    penalty += defict_energy * cvp['CapacityPrice']
+    model.addLConstr(unit.total_cleared / 2.0 + unit.energy.daily_energy - defict_energy <= unit.energy.daily_energy_limit, name=f'DAILY_ENERGY_{unit.duid}_{prob_id}')
+    # return penalty
 
 
 def add_total_band_constr(model, unit, prob_id, debug_flag, penalty, cvp):
@@ -412,13 +406,11 @@ def add_total_band_constr(model, unit, prob_id, debug_flag, penalty, cvp):
     Returns:
         The penalty linear expression
     """
-    unit.deficit_offer_mw = model.addVar(name=f'Deficit_Offer_MW_{unit.duid}_{prob_id}')  # Item8
-    penalty += unit.deficit_offer_mw * cvp['OfferPrice']
-    unit.total_band_mw_offer_constr = model.addLConstr(unit.total_cleared + unit.deficit_offer_mw,
-                                                      sense=gp.GRB.EQUAL,
-                                                      rhs=sum(unit.offers),
-                                                      name=f'TOTAL_BAND_MW_OFFER_{unit.duid}_{prob_id}')
-    return penalty
+    deficit_offer_mw = model.addVar(name=f'Deficit_Offer_MW_{unit.duid}_{prob_id}')  # Item8
+    penalty += deficit_offer_mw * cvp['OfferPrice']
+    model.addLConstr(unit.total_cleared + deficit_offer_mw, sense=gp.GRB.EQUAL, rhs=sum(unit.offers),
+                     name=f'TOTAL_BAND_MW_OFFER_{unit.duid}_{prob_id}')
+    # return penalty
 
 
 def add_uigf_constr(model, unit, prob_id, debug_flag, penalty, cvp):
@@ -436,16 +428,13 @@ def add_uigf_constr(model, unit, prob_id, debug_flag, penalty, cvp):
     Returns:
         The penalty linear expression
     """
-    if unit.forecast_priority is not None and unit.forecast_poe50 is None:
-        logging.error(f'Generator {unit.duid} forecast priority is but has no forecast POE50')
-    elif unit.forecast_poe50 is not None and unit.total_cleared_record <= unit.forecast_poe50:
-        unit.uigf_surplus = model.addVar(name=f'UIGF_Surplus_{unit.duid}_{prob_id}')  # Item12
-        penalty += unit.uigf_surplus * cvp['UIGFSurplusPrice']
-        model.addLConstr(unit.total_cleared - unit.uigf_surplus <= unit.forecast_poe50, name=f'UIGF_{unit.duid}_{prob_id}')
-        if debug_flag:
-            if unit.total_cleared_record is not None and unit.total_cleared_record > unit.forecast_poe50 and abs(unit.total_cleared_record - unit.forecast_poe50) > 0.1:
-                logging.warning(f'{unit.dispatch_type} {unit.duid} total cleared record {unit.total_cleared_record} above UIGF forecast {unit.forecast_poe50}')
-    return penalty
+    uigf_surplus = model.addVar(name=f'UIGF_Surplus_{unit.duid}_{prob_id}')  # Item12
+    penalty += uigf_surplus * cvp['UIGFSurplusPrice']
+    model.addLConstr(unit.total_cleared - uigf_surplus <= unit.forecast_poe50, name=f'UIGF_{unit.duid}_{prob_id}')
+    # if debug_flag:
+    #     if unit.total_cleared_record is not None and unit.total_cleared_record > unit.forecast_poe50 and abs(unit.total_cleared_record - unit.forecast_poe50) > 0.1:
+    #         logging.warning(f'{unit.dispatch_type} {unit.duid} total cleared record {unit.total_cleared_record} above UIGF forecast {unit.forecast_poe50}')
+    # return penalty
 
 
 def add_fast_start_inflexibility_profile_constr(model, unit, prob_id, debug_flag, penalty, cvp):
@@ -464,34 +453,34 @@ def add_fast_start_inflexibility_profile_constr(model, unit, prob_id, debug_flag
         The penalty linear expression
     """
     if unit.dispatch_mode > 0:
-        unit.profile_deficit_mw = model.addVar(name=f'Profile_Deficit_MW_{unit.duid}_{prob_id}')  # Item10
-        unit.profile_surplus_mw = model.addVar(name=f'Profile_Surplus_MW_{unit.duid}_{prob_id}')  # Item10
-        penalty += (unit.profile_deficit_mw + unit.profile_surplus_mw) * cvp['FastStartPrice']
+        profile_deficit_mw = model.addVar(name=f'Profile_Deficit_MW_{unit.duid}_{prob_id}')  # Item10
+        profile_surplus_mw = model.addVar(name=f'Profile_Surplus_MW_{unit.duid}_{prob_id}')  # Item10
+        penalty += (profile_deficit_mw + profile_surplus_mw) * cvp['FastStartPrice']
         if unit.current_mode == 1:
-            unit.fast_start_inflexible_constr = model.addLConstr(unit.total_cleared - unit.profile_deficit_mw <= 0.000001, name=f'FAST_START_INFLEXIBLE_MODE1_{unit.duid}_{prob_id}')
-            model.addLConstr(unit.profile_surplus_mw, sense=gp.GRB.EQUAL, rhs=0, name=f'PROFILE_SURPLUS_MW_{unit.duid}_{prob_id}')
+            model.addLConstr(unit.total_cleared - profile_deficit_mw <= 0.000001, name=f'FAST_START_INFLEXIBLE_MODE1_{unit.duid}_{prob_id}')
+            model.addLConstr(profile_surplus_mw, sense=gp.GRB.EQUAL, rhs=0, name=f'PROFILE_SURPLUS_MW_{unit.duid}_{prob_id}')
             if debug_flag:
                 if unit.total_cleared_record is not None and unit.total_cleared_record > 0.000001:
                     logging.warning(f'{unit.dispatch_type} {unit.duid} avoid fast start inflexible profile mode 1')
         elif unit.current_mode == 2 and unit.energy.t2 != 0:
-            unit.fast_start_inflexible_constr = model.addLConstr(unit.total_cleared + unit.profile_surplus_mw - unit.profile_deficit_mw, sense=gp.GRB.EQUAL, rhs=unit.current_mode_time*unit.energy.minimum_load/unit.energy.t2, name=f'FAST_START_INFLEXIBLE_MODE2_{unit.duid}_{prob_id}')
+            model.addLConstr(unit.total_cleared + profile_surplus_mw - profile_deficit_mw, sense=gp.GRB.EQUAL, rhs=unit.current_mode_time*unit.energy.minimum_load/unit.energy.t2, name=f'FAST_START_INFLEXIBLE_MODE2_{unit.duid}_{prob_id}')
             if debug_flag:
                 if unit.total_cleared_record is not None and abs(unit.total_cleared_record - unit.current_mode_time*unit.energy.minimum_load/unit.energy.t2) > 0.1:
                     logging.warning(f'{unit.dispatch_type} {unit.duid} avoid fast start inflexible profile mode 2')
         elif unit.current_mode == 3:
-            unit.fast_start_inflexible_constr = model.addLConstr(unit.total_cleared + unit.profile_surplus_mw >= unit.energy.minimum_load, name=f'FAST_START_INFLEXIBLE_MODE3_{unit.duid}_{prob_id}')
-            model.addLConstr(unit.profile_deficit_mw, sense=gp.GRB.EQUAL, rhs=0, name=f'PROFILE_DEFICIT_MW_{unit.duid}_{prob_id}')
+            model.addLConstr(unit.total_cleared + profile_surplus_mw >= unit.energy.minimum_load, name=f'FAST_START_INFLEXIBLE_MODE3_{unit.duid}_{prob_id}')
+            model.addLConstr(profile_deficit_mw, sense=gp.GRB.EQUAL, rhs=0, name=f'PROFILE_DEFICIT_MW_{unit.duid}_{prob_id}')
             if debug_flag:
                 if unit.total_cleared_record is not None and unit.total_cleared_record < unit.energy.minimum_load:
                     logging.warning(f'{unit.dispatch_type} {unit.duid} avoid fast start inflexible profile mode 3')
         elif unit.current_mode == 4 and unit.energy.t4 != 0:
-            unit.fast_start_inflexible_constr = model.addLConstr(unit.total_cleared + unit.profile_surplus_mw >= ((unit.energy.t4 - unit.current_mode_time) / unit.energy.t4) * unit.energy.minimum_load, name=f'FAST_START_INFLEXIBLE_MODE4_{unit.duid}_{prob_id}')
-            model.addLConstr(unit.profile_deficit_mw, sense=gp.GRB.EQUAL, rhs=0, name=f'PROFILE_DEFICIT_MW_{unit.duid}_{prob_id}')
+            model.addLConstr(unit.total_cleared + profile_surplus_mw >= ((unit.energy.t4 - unit.current_mode_time) / unit.energy.t4) * unit.energy.minimum_load, name=f'FAST_START_INFLEXIBLE_MODE4_{unit.duid}_{prob_id}')
+            model.addLConstr(profile_deficit_mw, sense=gp.GRB.EQUAL, rhs=0, name=f'PROFILE_DEFICIT_MW_{unit.duid}_{prob_id}')
             if debug_flag:
                 if unit.total_cleared_record is not None and unit.total_cleared_record < ((unit.energy.t4 - unit.current_mode_time) / unit.energy.t4) * unit.energy.minimum_load:
                     logging.warning(f'{unit.dispatch_type} {unit.duid} avoid fast start inflexible profile mode 4')
                     logging.debug(f'total cleared {unit.total_cleared_record} current time {unit.current_mode_time} t4 {unit.energy.t4} min load {unit.energy.minimum_load}')
-    return penalty
+    # return penalty
 
 
 def add_unit_ramp_constr(process, model, intervals, unit, prob_id, debug_flag, penalty, cvp):
@@ -514,35 +503,31 @@ def add_unit_ramp_constr(process, model, intervals, unit, prob_id, debug_flag, p
     # Note: In Dispatch, the more restrictive of the telemetered ramp rates and the ramp rates submitted in energy
     # offers are used to determine the effective energy ramp rates applied to the calculation of unit energy dispatch.
     # In Pre-dispatch, only the offered ramp rates are used. (See Paper AEMO2021Factors Section 7.2.4.1)
-
     # Ignore battery's ramp rate constraints
     if unit.ramp_up_rate is None and unit.energy.roc_up is None:
-        return penalty
-
+        return None
     # Unit Ramp Rate constraint (Raise)
     # up_rate = unit.energy.roc_up if unit.ramp_up_rate is None or process == 'predispatch' else unit.ramp_up_rate / 60
     up_rate = unit.energy.roc_up if unit.ramp_up_rate is None else unit.ramp_up_rate / 60
-    unit.surplus_ramp_rate = model.addVar(name=f'Surplus_Ramp_Rate_{unit.duid}_{prob_id}')  # Item3
-    penalty += unit.surplus_ramp_rate * cvp['RampRatePrice']
-    unit.ramp_up_rate_constr = model.addLConstr(
-        unit.total_cleared - unit.surplus_ramp_rate <= unit.initial_mw + intervals * up_rate, name=f'ROC_UP_{unit.duid}_{prob_id}')
-    if debug_flag:
-        if unit.total_cleared_record is not None and unit.total_cleared_record > unit.initial_mw + intervals * up_rate and abs(unit.total_cleared_record - unit.initial_mw - intervals * up_rate) > 1:
-            logging.warning(f'{unit.dispatch_type} {unit.duid} above raise ramp rate constraint')
+    surplus_ramp_rate = model.addVar(name=f'Surplus_Ramp_Rate_{unit.duid}_{prob_id}')  # Item3
+    penalty += surplus_ramp_rate * cvp['RampRatePrice']
+    model.addLConstr(unit.total_cleared - surplus_ramp_rate <= unit.initial_mw + intervals * up_rate, name=f'ROC_UP_{unit.duid}_{prob_id}')
+    # if debug_flag:
+    #     if unit.total_cleared_record is not None and unit.total_cleared_record > unit.initial_mw + intervals * up_rate and abs(unit.total_cleared_record - unit.initial_mw - intervals * up_rate) > 1:
+    #         logging.warning(f'{unit.dispatch_type} {unit.duid} above raise ramp rate constraint')
 
     # Unit Ramp Rate constraint (Down)
     # down_rate = unit.energy.roc_down if unit.ramp_down_rate is None or process == 'predispatch' else unit.ramp_down_rate / 60
     down_rate = unit.energy.roc_down if unit.ramp_down_rate is None else unit.ramp_down_rate / 60
-    unit.deficit_ramp_rate = model.addVar(name=f'Deficit_Ramp_Rate_{unit.duid}_{prob_id}')  # Item3
-    penalty += unit.deficit_ramp_rate * cvp['RampRatePrice']
-    unit.ramp_down_rate_constr = model.addLConstr(
-        unit.total_cleared + unit.deficit_ramp_rate >= unit.initial_mw - intervals * down_rate * 10,
-        name=f'ROC_DOWN_{unit.duid}_{prob_id}')
-    if debug_flag:
-        if unit.total_cleared_record is not None and unit.total_cleared_record < unit.initial_mw - intervals * down_rate and abs(unit.total_cleared_record - unit.initial_mw + intervals * down_rate) > 1:
-            logging.warning(f'{unit.dispatch_type} {unit.duid} below down ramp rate constraint')
-            logging.debug(f'{unit.dispatch_type} {unit.duid} energy target {unit.total_cleared_record} initial {unit.initial_mw} rate {down_rate}')
-    return penalty
+    deficit_ramp_rate = model.addVar(name=f'Deficit_Ramp_Rate_{unit.duid}_{prob_id}')  # Item3
+    penalty += deficit_ramp_rate * cvp['RampRatePrice']
+    model.addLConstr(unit.total_cleared + deficit_ramp_rate >= unit.initial_mw - intervals * down_rate * 10,
+                     name=f'ROC_DOWN_{unit.duid}_{prob_id}')
+    # if debug_flag:
+    #     if unit.total_cleared_record is not None and unit.total_cleared_record < unit.initial_mw - intervals * down_rate and abs(unit.total_cleared_record - unit.initial_mw + intervals * down_rate) > 1:
+    #         logging.warning(f'{unit.dispatch_type} {unit.duid} below down ramp rate constraint')
+    #         logging.debug(f'{unit.dispatch_type} {unit.duid} energy target {unit.total_cleared_record} initial {unit.initial_mw} rate {down_rate}')
+    # return penalty
 
 
 def add_fixed_loading_constr(model, unit, prob_id, debug_flag, penalty,  cvp):
@@ -560,17 +545,15 @@ def add_fixed_loading_constr(model, unit, prob_id, debug_flag, penalty,  cvp):
     Returns:
         The penalty linear expression
     """
-    if unit.energy.fixed_load != 0:
-        unit.deficit_fixed_loading = model.addVar(name=f'Deficit_Fixed_Loading_{unit.duid}_{prob_id}')  # Item13
-        unit.surplus_fixed_loading = model.addVar(name=f'Surplus_Fixed_Loading_{unit.duid}_{prob_id}')  # Item13
-        penalty += (unit.deficit_fixed_loading + unit.surplus_fixed_loading) * 5700000
-        model.addLConstr(
-            unit.total_cleared - unit.surplus_fixed_loading + unit.deficit_fixed_loading,
-            sense=gp.GRB.EQUAL, rhs=unit.energy.fixed_load, name=f'FIXED_LOAD_{unit.duid}_{prob_id}')
-        if debug_flag:
-            if unit.total_cleared_record is not None and unit.total_cleared_record != unit.energy.fixed_load:
-                logging.warning(f'{unit.dispatch_type} {unit.duid} total cleared record {unit.total_cleared_record} not equal to fixed load {unit.energy.fixed_load}')
-    return penalty
+    deficit_fixed_loading = model.addVar(name=f'Deficit_Fixed_Loading_{unit.duid}_{prob_id}')  # Item13
+    surplus_fixed_loading = model.addVar(name=f'Surplus_Fixed_Loading_{unit.duid}_{prob_id}')  # Item13
+    penalty += (deficit_fixed_loading + surplus_fixed_loading) * 5700000
+    model.addLConstr(unit.total_cleared - surplus_fixed_loading + deficit_fixed_loading,
+                     sense=gp.GRB.EQUAL, rhs=unit.energy.fixed_load, name=f'FIXED_LOAD_{unit.duid}_{prob_id}')
+    # if debug_flag:
+    #     if unit.total_cleared_record is not None and unit.total_cleared_record != unit.energy.fixed_load:
+    #         logging.warning(f'{unit.dispatch_type} {unit.duid} total cleared record {unit.total_cleared_record} not equal to fixed load {unit.energy.fixed_load}')
+    # return penalty
 
 
 def add_cost(unit, regions, cost, debug_flag):
@@ -642,7 +625,7 @@ def add_tie_break_constr(model, unit, bands, penalty,  cvp):
                 bands[p].append((offer, avail))
             else:
                 bands[p] = [(offer, avail)]
-    return penalty
+    # return penalty
 
 
 def enable_fcas(fcas, unit, process, i):
@@ -761,15 +744,13 @@ def add_fcas_max_avail_constr(model, unit, fcas, bid_type, prob_id, debug_flag, 
     Returns:
         The penalty linear expression
     """
-    fcas.max_avail_deficit = model.addVar(
-        name=f'FCAS_Max_Avail_Deficit_{bid_type}_{unit.duid}_{prob_id}')  # Item18
-    penalty += fcas.max_avail_deficit * cvp['ASMaxAvailPrice']
-    fcas.max_avail_constr = model.addLConstr(fcas.value - fcas.max_avail_deficit <= fcas.max_avail,
-                                            name=f'FCAS_MAX_AVAIL_{bid_type}_{unit.duid}_{prob_id}')
+    max_avail_deficit = model.addVar(name=f'FCAS_Max_Avail_Deficit_{bid_type}_{unit.duid}_{prob_id}')  # Item18
+    penalty += max_avail_deficit * cvp['ASMaxAvailPrice']
+    model.addLConstr(fcas.value - max_avail_deficit <= fcas.max_avail, name=f'FCAS_MAX_AVAIL_{bid_type}_{unit.duid}_{prob_id}')
     if debug_flag:
         if unit.target_record and unit.target_record[bid_type] > fcas.max_avail and abs(unit.target_record[bid_type] - fcas.max_avail) > 1:
             logging.warning(f'{unit.dispatch_type} {unit.duid} {bid_type} {unit.target_record[bid_type]} above max avail {fcas.max_avail}')
-    return penalty
+    # return penalty
 
 
 def process_fcas_bid(model, unit, fcas, bid_type, prob_id, debug_flag, penalty,  cvp, cost, regions):
@@ -778,15 +759,15 @@ def process_fcas_bid(model, unit, fcas, bid_type, prob_id, debug_flag, penalty, 
     add_fcas_offers(model, unit, fcas, bid_type, prob_id, debug_flag)
     # FCAS total band constraints
     model.addLConstr(fcas.value, sense=gp.GRB.EQUAL, rhs=sum(fcas.offers),
-                    name=f'{bid_type}_SUM_{unit.duid}_{prob_id}')
+                     name=f'{bid_type}_SUM_{unit.duid}_{prob_id}')
     # Add cost to objective
     fcas.cost = sum([o * p for o, p in zip(fcas.offers, fcas.price_band)])
     cost += fcas.cost
     # FCAS MaxAvail constraint
-    penalty = add_fcas_max_avail_constr(model, unit, fcas, bid_type, prob_id, debug_flag, penalty,  cvp)
+    add_fcas_max_avail_constr(model, unit, fcas, bid_type, prob_id, debug_flag, penalty,  cvp)
     # Add FCAS target to region sum
     regions[unit.region_id].fcas_local_dispatch_temp[bid_type] += fcas.value
-    return cost, penalty
+    return cost
 
 
 def add_enablement_min_constr(model, unit, fcas, bid_type, prob_id, debug_flag, penalty,  cvp):
@@ -806,13 +787,13 @@ def add_enablement_min_constr(model, unit, fcas, bid_type, prob_id, debug_flag, 
     Returns:
         The penalty linear expression
     """
-    fcas.lower_surplus = model.addVar(name=f'Lower_Surplus_{unit.duid}_{bid_type}_{prob_id}')  # Item22
-    penalty += fcas.lower_surplus * cvp['ASEnablementMinPrice']
-    model.addLConstr(unit.total_cleared - fcas.lower_slope_coeff * fcas.value + fcas.lower_surplus >= fcas.enablement_min, name=f'FCAS_ENABLEMENT_MIN_{bid_type}_{unit.duid}_{prob_id}')
+    lower_surplus = model.addVar(name=f'Lower_Surplus_{unit.duid}_{bid_type}_{prob_id}')  # Item22
+    penalty += lower_surplus * cvp['ASEnablementMinPrice']
+    model.addLConstr(unit.total_cleared - fcas.lower_slope_coeff * fcas.value + lower_surplus >= fcas.enablement_min, name=f'FCAS_ENABLEMENT_MIN_{bid_type}_{unit.duid}_{prob_id}')
     if debug_flag:
         if unit.total_cleared_record and unit.target_record and unit.total_cleared_record - fcas.lower_slope_coeff * unit.target_record[bid_type] < fcas.enablement_min and abs(unit.total_cleared_record - fcas.lower_slope_coeff * unit.target_record[bid_type] - fcas.enablement_min) > 0.1:
             logging.warning(f'{unit.dispatch_type} {unit.duid} {bid_type} below FCAS EnablementMin constraint')
-    return penalty
+    # return penalty
 
 
 def add_enablement_max_constr(model, unit, fcas, bid_type, prob_id, debug_flag, penalty,  cvp):
@@ -832,13 +813,13 @@ def add_enablement_max_constr(model, unit, fcas, bid_type, prob_id, debug_flag, 
     Returns:
         The penalty linear expression
     """
-    fcas.upper_deficit = model.addVar(name=f'Upper_Deficit_{unit.duid}_{bid_type}_{prob_id}')  # Item22
-    penalty += fcas.upper_deficit * cvp['ASEnablementMaxPrice']
-    model.addLConstr(unit.total_cleared + fcas.upper_slope_coeff * fcas.value - fcas.upper_deficit <= fcas.enablement_max, name=f'FCAS_ENABLEMENT_MAX_{bid_type}_{unit.duid}_{prob_id}')
+    upper_deficit = model.addVar(name=f'Upper_Deficit_{unit.duid}_{bid_type}_{prob_id}')  # Item22
+    penalty += upper_deficit * cvp['ASEnablementMaxPrice']
+    model.addLConstr(unit.total_cleared + fcas.upper_slope_coeff * fcas.value - upper_deficit <= fcas.enablement_max, name=f'FCAS_ENABLEMENT_MAX_{bid_type}_{unit.duid}_{prob_id}')
     if debug_flag:
         if unit.total_cleared_record and unit.target_record and unit.total_cleared_record + fcas.upper_slope_coeff * unit.target_record[bid_type] > fcas.enablement_max and abs(unit.total_cleared_record + fcas.upper_slope_coeff * unit.target_record[bid_type] - fcas.enablement_max) > 0.1:
             logging.warning(f'{unit.dispatch_type} {unit.duid} {bid_type} above FCAS Enablement Min constraint')
-    return penalty
+    # return penalty
 
 
 def add_joint_ramping_constr(model, intervals, unit, fcas, bid_type, prob_id, debug_flag, penalty,  cvp):
@@ -862,9 +843,9 @@ def add_joint_ramping_constr(model, intervals, unit, fcas, bid_type, prob_id, de
     if (unit.dispatch_type == 'GENERATOR' and bid_type == 'RAISEREG') or (unit.dispatch_type == 'LOAD' and bid_type == 'LOWERREG'):
         up_rate = unit.energy.roc_up if unit.ramp_up_rate is None else unit.ramp_up_rate / 60
         if up_rate > 0:
-            unit.joint_ramp_deficit = model.addVar(name=f'Joint_Ramp_Deficit_{unit.duid}_{prob_id}')  # Item19
-            penalty += unit.joint_ramp_deficit * cvp['ASProfilePrice']
-            model.addLConstr(unit.total_cleared + fcas.value - unit.joint_ramp_deficit <= unit.initial_mw + intervals * up_rate, name=f'JOINT_RAMPING_{unit.duid}_{prob_id}')
+            joint_ramp_deficit = model.addVar(name=f'Joint_Ramp_Deficit_{unit.duid}_{prob_id}')  # Item19
+            penalty += joint_ramp_deficit * cvp['ASProfilePrice']
+            model.addLConstr(unit.total_cleared + fcas.value - joint_ramp_deficit <= unit.initial_mw + intervals * up_rate, name=f'JOINT_RAMPING_{unit.duid}_{prob_id}')
             if debug_flag:
                 if unit.total_cleared_record is not None and unit.target_record and unit.total_cleared_record + unit.target_record[bid_type] > unit.initial_mw + intervals * up_rate:
                     if abs(unit.total_cleared_record + unit.target_record[bid_type] - unit.initial_mw - intervals * up_rate) > 1:
@@ -874,15 +855,15 @@ def add_joint_ramping_constr(model, intervals, unit, fcas, bid_type, prob_id, de
     elif (unit.dispatch_type == 'GENERATOR' and bid_type == 'LOWERREG') or (unit.dispatch_type == 'LOAD' and bid_type == 'RAISEREG'):
         down_rate = unit.energy.roc_down if unit.ramp_down_rate is None else unit.ramp_down_rate / 60
         if down_rate > 0:
-            unit.joint_ramp_surplus = model.addVar(name=f'Joint_Ramp_Surplus_{unit.duid}_{prob_id}')  # Item19
-            penalty += unit.joint_ramp_surplus * cvp['ASProfilePrice']
-            model.addLConstr(unit.total_cleared - fcas.value + unit.joint_ramp_surplus >= unit.initial_mw - intervals * down_rate, name=f'JOINT_RAMPING_{unit.duid}_{prob_id}')
+            joint_ramp_surplus = model.addVar(name=f'Joint_Ramp_Surplus_{unit.duid}_{prob_id}')  # Item19
+            penalty += joint_ramp_surplus * cvp['ASProfilePrice']
+            model.addLConstr(unit.total_cleared - fcas.value + joint_ramp_surplus >= unit.initial_mw - intervals * down_rate, name=f'JOINT_RAMPING_{unit.duid}_{prob_id}')
             if debug_flag:
                 if unit.total_cleared_record is not None and unit.target_record and unit.total_cleared_record - unit.target_record[bid_type] < unit.initial_mw - intervals * down_rate:
                     if abs(unit.total_cleared_record - unit.target_record[bid_type] - unit.initial_mw + intervals * down_rate) > 1:
                         logging.warning(f'{unit.dispatch_type} {unit.duid} below joint ramping constraint')
                         logging.debug(f'energy {unit.total_cleared_record} {bid_type} {unit.target_record[bid_type]} initial {unit.initial_mw} down rate {down_rate}')
-    return penalty
+    # return penalty
 
 
 def add_energy_and_fcas_capacity_constr(model, unit, fcas, bid_type, prob_id, debug_flag, penalty,  cvp):
@@ -902,18 +883,18 @@ def add_energy_and_fcas_capacity_constr(model, unit, fcas, bid_type, prob_id, de
     Returns:
         The penalty linear expression
     """
-    fcas.upper_deficit = model.addVar(name=f'Upper_Deficit_{unit.duid}_{bid_type}_{prob_id}')  # Item22
-    penalty += fcas.upper_deficit * cvp['ASEnablementMaxPrice']
-    model.addLConstr(unit.total_cleared + fcas.upper_slope_coeff * fcas.value - fcas.upper_deficit <= fcas.enablement_max, name=f'ENERGY_AND_FCAS_CAPACITY_UPPER_{bid_type}_{unit.duid}_{prob_id}')
+    upper_deficit = model.addVar(name=f'Upper_Deficit_{unit.duid}_{bid_type}_{prob_id}')  # Item22
+    penalty += upper_deficit * cvp['ASEnablementMaxPrice']
+    model.addLConstr(unit.total_cleared + fcas.upper_slope_coeff * fcas.value - upper_deficit <= fcas.enablement_max, name=f'ENERGY_AND_FCAS_CAPACITY_UPPER_{bid_type}_{unit.duid}_{prob_id}')
     if debug_flag:
         if unit.total_cleared_record is not None and unit.target_record and unit.total_cleared_record + fcas.upper_slope_coeff * unit.target_record[bid_type] > fcas.enablement_max:
             if abs(unit.total_cleared_record + fcas.upper_slope_coeff * unit.target_record[bid_type] - fcas.enablement_max) > 1:
                 logging.warning(f'{unit.dispatch_type} {unit.duid} {bid_type} above energy and regulating FCAS capacity constraint')
                 logging.debug(f'energy {unit.total_cleared_record} upper slop {fcas.upper_slope_coeff} {bid_type} {unit.target_record[bid_type]} enablement max {fcas.enablement_max}')
 
-    fcas.lower_surplus = model.addVar(name=f'Lower_Surplus_{unit.duid}_{bid_type}_{prob_id}')  # Item22
-    penalty += fcas.lower_surplus * cvp['ASEnablementMinPrice']
-    model.addLConstr(unit.total_cleared - fcas.lower_slope_coeff * fcas.value + fcas.lower_surplus >= fcas.enablement_min, name=f'ENERGY_AND_FCAS_CAPACITY_LOWER_{bid_type}_{unit.duid}_{prob_id}')
+    lower_surplus = model.addVar(name=f'Lower_Surplus_{unit.duid}_{bid_type}_{prob_id}')  # Item22
+    penalty += lower_surplus * cvp['ASEnablementMinPrice']
+    model.addLConstr(unit.total_cleared - fcas.lower_slope_coeff * fcas.value + lower_surplus >= fcas.enablement_min, name=f'ENERGY_AND_FCAS_CAPACITY_LOWER_{bid_type}_{unit.duid}_{prob_id}')
     if debug_flag:
         if unit.total_cleared_record is not None and unit.target_record and unit.total_cleared_record - fcas.lower_slope_coeff * unit.target_record[bid_type] < fcas.enablement_min:
             if (unit.total_cleared_record - fcas.lower_slope_coeff * unit.target_record[bid_type] - fcas.enablement_min) > 1:
@@ -925,48 +906,48 @@ def add_joint_capacity_constr_test(model, unit, fcas, bid_type, prob_id, debug_f
     # TODO: Joint capacity constraint fault
     # Joint capacity constraint
     if (unit.dispatch_type == 'GENERATOR' and bid_type[:5] == 'RAISE') or (unit.dispatch_type == 'LOAD' and bid_type[:5] == 'LOWER'):
-        unit.joint_upper_deficit = model.addVar(name=f'Joint_Upper_Deficit_{bid_type}_{unit.duid}_{prob_id}')  # Item22
-        penalty += unit.joint_upper_deficit * cvp['ASEnablementMaxPrice']
+        joint_upper_deficit = model.addVar(name=f'Joint_Upper_Deficit_{bid_type}_{unit.duid}_{prob_id}')  # Item22
+        penalty += joint_upper_deficit * cvp['ASEnablementMaxPrice']
         reg = unit.fcas_bids.get('RAISEREG' if unit.dispatch_type == 'GENERATOR' else 'LOWERREG')
         if reg is None:
-            model.addLConstr(unit.total_cleared + fcas.upper_slope_coeff * fcas.value - unit.joint_upper_deficit <= fcas.enablement_max, name=f'UPPER_JOINT_CAPACITY_{bid_type}_{unit.duid}_{prob_id}')
+            model.addLConstr(unit.total_cleared + fcas.upper_slope_coeff * fcas.value - joint_upper_deficit <= fcas.enablement_max, name=f'UPPER_JOINT_CAPACITY_{bid_type}_{unit.duid}_{prob_id}')
             if debug_flag and unit.total_cleared_record is not None and unit.target_record and unit.total_cleared_record + fcas.upper_slope_coeff * unit.target_record[bid_type] > fcas.enablement_max:
                 logging.warning(f'{unit.dispatch_type} {unit.duid} {bid_type} above joint capacity constraint')
         else:
-            model.addLConstr(unit.total_cleared + fcas.upper_slope_coeff * fcas.value + reg.enablement_status * reg.upper_slope_coeff * reg.value - unit.joint_upper_deficit <= fcas.enablement_max, name=f'UPPER_JOINT_CAPACITY_{bid_type}_{unit.duid}')
+            model.addLConstr(unit.total_cleared + fcas.upper_slope_coeff * fcas.value + reg.enablement_status * reg.upper_slope_coeff * reg.value - joint_upper_deficit <= fcas.enablement_max, name=f'UPPER_JOINT_CAPACITY_{bid_type}_{unit.duid}')
             # model.addLConstr(unit.total_cleared + fcas.upper_slope_coeff * fcas.value + reg.enablement_status * reg.upper_slope_coeff * reg.value - unit.joint_upper_deficit <= max(fcas.enablement_max, reg.enablement_max), name=f'UPPER_JOINT_CAPACITY_{bid_type}_{unit.duid}_{prob_id}')
             if debug_flag and unit.total_cleared_record is not None and unit.target_record and unit.total_cleared_record + fcas.upper_slope_coeff * unit.target_record[bid_type] + reg.enablement_status * reg.upper_slope_coeff * unit.target_record[reg.bid_type] > max(fcas.enablement_max, reg.enablement_max):
                 if abs(unit.total_cleared_record + fcas.upper_slope_coeff * unit.target_record[bid_type] + reg.enablement_status * reg.upper_slope_coeff * unit.target_record[reg.bid_type] - max(fcas.enablement_max, reg.enablement_max)) > 1:
                     logging.warning(f'{unit.dispatch_type} {unit.duid} {bid_type} above joint capacity constraint')
                     logging.debug(f'cleared {unit.total_cleared_record} upper {fcas.upper_slope_coeff} target {unit.target_record[bid_type]} status {reg.enablement_status} upper {reg.upper_slope_coeff} value {unit.target_record[reg.bid_type]} max {fcas.enablement_max}')
     if (unit.dispatch_type == 'GENERATOR' and bid_type[:5] == 'LOWER') or (unit.dispatch_type == 'LOAD' and bid_type[:5] == 'RAISE'):
-        unit.joint_lower_surplus = model.addVar(name=f'Joint_Lower_Surplus_{bid_type}_{unit.duid}_{prob_id}')  # Item22
-        penalty += unit.joint_lower_surplus * cvp['ASEnablementMinPrice']
+        joint_lower_surplus = model.addVar(name=f'Joint_Lower_Surplus_{bid_type}_{unit.duid}_{prob_id}')  # Item22
+        penalty += joint_lower_surplus * cvp['ASEnablementMinPrice']
         reg = unit.fcas_bids.get('LOWERREG' if unit.dispatch_type == 'GENERATOR' else 'RAISEREG')
         if reg is None:
-            model.addLConstr(unit.total_cleared - fcas.lower_slope_coeff * fcas.value + unit.joint_lower_surplus >= fcas.enablement_min, name=f'LOWER_JOINT_CAPACITY_{bid_type}_{unit.duid}_{prob_id}')
+            model.addLConstr(unit.total_cleared - fcas.lower_slope_coeff * fcas.value + joint_lower_surplus >= fcas.enablement_min, name=f'LOWER_JOINT_CAPACITY_{bid_type}_{unit.duid}_{prob_id}')
             if debug_flag and unit.total_cleared_record is not None and unit.target_record and unit.total_cleared_record - fcas.lower_slope_coeff * unit.target_record[bid_type] < fcas.enablement_min:
                 logging.warning(f'{unit.dispatch_type} {unit.duid} {bid_type} below joint capacity constraint')
         else:
-            model.addLConstr(unit.total_cleared - fcas.lower_slope_coeff * fcas.value - reg.enablement_status * reg.lower_slope_coeff * reg.value + unit.joint_lower_surplus >= fcas.enablement_min, name=f'LOWER_JOINT_CAPACITY_{bid_type}_{unit.duid}')
+            model.addLConstr(unit.total_cleared - fcas.lower_slope_coeff * fcas.value - reg.enablement_status * reg.lower_slope_coeff * reg.value + joint_lower_surplus >= fcas.enablement_min, name=f'LOWER_JOINT_CAPACITY_{bid_type}_{unit.duid}')
             # model.addLConstr(unit.total_cleared - fcas.lower_slope_coeff * fcas.value - reg.enablement_status * reg.lower_slope_coeff * reg.value + unit.joint_lower_surplus >= min(fcas.enablement_min, reg.enablement_min), name=f'LOWER_JOINT_CAPACITY_{bid_type}_{unit.duid}_{prob_id}')
             if debug_flag and unit.total_cleared_record is not None and unit.target_record and unit.total_cleared_record - fcas.lower_slope_coeff * unit.target_record[bid_type] - reg.enablement_status * reg.lower_slope_coeff * unit.target_record[reg.bid_type] < min(fcas.enablement_min, reg.enablement_min):
                 if abs(unit.total_cleared_record - fcas.lower_slope_coeff * unit.target_record[bid_type] - reg.enablement_status * reg.lower_slope_coeff * unit.target_record[reg.bid_type] - min(fcas.enablement_min, reg.enablement_min)) > 1:
                     logging.warning(f'{unit.dispatch_type} {unit.duid} {bid_type} below joint capacity constraint')
-    return penalty
+    # return penalty
 
 
 def add_joint_capacity_constr(model, unit, fcas, bid_type, prob_id, debug_flag, penalty,  cvp):
-    unit.joint_upper_deficit = model.addVar(name=f'Joint_Upper_Deficit_{bid_type}_{unit.duid}_{prob_id}')  # Item22
-    penalty += unit.joint_upper_deficit * cvp['ASEnablementMaxPrice']
+    joint_upper_deficit = model.addVar(name=f'Joint_Upper_Deficit_{bid_type}_{unit.duid}_{prob_id}')  # Item22
+    penalty += joint_upper_deficit * cvp['ASEnablementMaxPrice']
     reg = unit.fcas_bids.get('RAISEREG')
     if reg is None:
-        model.addLConstr(unit.total_cleared + fcas.upper_slope_coeff * fcas.value - unit.joint_upper_deficit <= fcas.enablement_max, name=f'UPPER_JOINT_CAPACITY_{bid_type}_{unit.duid}_{prob_id}')
+        model.addLConstr(unit.total_cleared + fcas.upper_slope_coeff * fcas.value - joint_upper_deficit <= fcas.enablement_max, name=f'UPPER_JOINT_CAPACITY_{bid_type}_{unit.duid}_{prob_id}')
         if debug_flag and unit.total_cleared_record is not None and unit.target_record and unit.total_cleared_record + fcas.upper_slope_coeff * \
                 unit.target_record[bid_type] > fcas.enablement_max:
             logging.warning(f'{unit.dispatch_type} {unit.duid} {bid_type} above joint capacity constraint')
     else:
-        model.addLConstr(unit.total_cleared + fcas.upper_slope_coeff * fcas.value + reg.enablement_status * reg.upper_slope_coeff * reg.value - unit.joint_upper_deficit <= fcas.enablement_max, name=f'UPPER_JOINT_CAPACITY_{bid_type}_{unit.duid}')
+        model.addLConstr(unit.total_cleared + fcas.upper_slope_coeff * fcas.value + reg.enablement_status * reg.upper_slope_coeff * reg.value - joint_upper_deficit <= fcas.enablement_max, name=f'UPPER_JOINT_CAPACITY_{bid_type}_{unit.duid}')
         # model.addLConstr(unit.total_cleared + fcas.upper_slope_coeff * fcas.value + reg.enablement_status * reg.upper_slope_coeff * reg.value - unit.joint_upper_deficit <= max(fcas.enablement_max, reg.enablement_max), name=f'UPPER_JOINT_CAPACITY_{bid_type}_{unit.duid}_{prob_id}')
         if debug_flag and unit.total_cleared_record is not None and unit.target_record and unit.total_cleared_record + fcas.upper_slope_coeff * \
                 unit.target_record[bid_type] + reg.enablement_status * reg.upper_slope_coeff * unit.target_record[
@@ -977,16 +958,16 @@ def add_joint_capacity_constr(model, unit, fcas, bid_type, prob_id, debug_flag, 
                 logging.warning(f'{unit.dispatch_type} {unit.duid} {bid_type} above joint capacity constraint')
                 logging.debug(
                     f'cleared {unit.total_cleared_record} upper {fcas.upper_slope_coeff} target {unit.target_record[bid_type]} status {reg.enablement_status} upper {reg.upper_slope_coeff} value {unit.target_record[reg.bid_type]} max {fcas.enablement_max}')
-    unit.joint_lower_surplus = model.addVar(name=f'Joint_Lower_Surplus_{bid_type}_{unit.duid}_{prob_id}')  # Item22
-    penalty += unit.joint_lower_surplus * cvp['ASEnablementMinPrice']
+    joint_lower_surplus = model.addVar(name=f'Joint_Lower_Surplus_{bid_type}_{unit.duid}_{prob_id}')  # Item22
+    penalty += joint_lower_surplus * cvp['ASEnablementMinPrice']
     reg = unit.fcas_bids.get('LOWERREG')
     if reg is None:
-        model.addLConstr(unit.total_cleared - fcas.lower_slope_coeff * fcas.value + unit.joint_lower_surplus >= fcas.enablement_min, name=f'LOWER_JOINT_CAPACITY_{bid_type}_{unit.duid}_{prob_id}')
+        model.addLConstr(unit.total_cleared - fcas.lower_slope_coeff * fcas.value + joint_lower_surplus >= fcas.enablement_min, name=f'LOWER_JOINT_CAPACITY_{bid_type}_{unit.duid}_{prob_id}')
         if debug_flag and unit.total_cleared_record is not None and unit.target_record and unit.total_cleared_record - fcas.lower_slope_coeff * \
                 unit.target_record[bid_type] < fcas.enablement_min:
             logging.warning(f'{unit.dispatch_type} {unit.duid} {bid_type} below joint capacity constraint')
     else:
-        model.addLConstr(unit.total_cleared - fcas.lower_slope_coeff * fcas.value - reg.enablement_status * reg.lower_slope_coeff * reg.value + unit.joint_lower_surplus >= fcas.enablement_min, name=f'LOWER_JOINT_CAPACITY_{bid_type}_{unit.duid}')
+        model.addLConstr(unit.total_cleared - fcas.lower_slope_coeff * fcas.value - reg.enablement_status * reg.lower_slope_coeff * reg.value + joint_lower_surplus >= fcas.enablement_min, name=f'LOWER_JOINT_CAPACITY_{bid_type}_{unit.duid}')
         # model.addLConstr(unit.total_cleared - fcas.lower_slope_coeff * fcas.value - reg.enablement_status * reg.lower_slope_coeff * reg.value + unit.joint_lower_surplus >= min(fcas.enablement_min, reg.enablement_min), name=f'LOWER_JOINT_CAPACITY_{bid_type}_{unit.duid}_{prob_id}')
         if debug_flag and unit.total_cleared_record is not None and unit.target_record and unit.total_cleared_record - fcas.lower_slope_coeff * \
                 unit.target_record[bid_type] - reg.enablement_status * reg.lower_slope_coeff * unit.target_record[
@@ -995,36 +976,36 @@ def add_joint_capacity_constr(model, unit, fcas, bid_type, prob_id, debug_flag, 
                 bid_type] - reg.enablement_status * reg.lower_slope_coeff * unit.target_record[reg.bid_type] - min(
                 fcas.enablement_min, reg.enablement_min)) > 1:
                 logging.warning(f'{unit.dispatch_type} {unit.duid} {bid_type} below joint capacity constraint')
-    return penalty
+    # return penalty
 
 
 def add_interconnector_capacity_constr(model, ic, ic_id, prob_id, debug_flag, penalty,  cvp):
     # Interconnector Capacity Limit constraint (lower bound)
-    ic.flow_deficit = model.addVar(name=f'Flow_Deficit_{ic_id}_{prob_id}')  # Item5
-    penalty += ic.flow_deficit * cvp['InterconnectorPrice']
-    ic.import_limit_constr = model.addLConstr(ic.mw_flow + ic.flow_deficit >= -ic.import_limit, name=f'IMPORT_LIMIT_{ic_id}_{prob_id}')
+    flow_deficit = model.addVar(name=f'Flow_Deficit_{ic_id}_{prob_id}')  # Item5
+    penalty += flow_deficit * cvp['InterconnectorPrice']
+    model.addLConstr(ic.mw_flow + flow_deficit >= -ic.import_limit, name=f'IMPORT_LIMIT_{ic_id}_{prob_id}')
     if debug_flag:
         if ic.mw_flow_record is not None and ic.mw_flow_record < -ic.import_limit and abs(ic.mw_flow_record + ic.import_limit) > 1:
             logging.warning(f'IC {ic_id} mw flow record {ic.mw_flow_record} below import limit {-ic.import_limit}')
     # Interconnector Capacity Limit constraint (upper bound)
-    ic.flow_surplus = model.addVar(name=f'Flow_Surplus_{ic_id}_{prob_id}')  # Item5
-    penalty += ic.flow_surplus * cvp['InterconnectorPrice']
-    ic.export_limit_constr = model.addLConstr(ic.mw_flow - ic.flow_surplus <= ic.export_limit, name=f'EXPORT_LIMIT_{ic_id}_{prob_id}')
+    flow_surplus = model.addVar(name=f'Flow_Surplus_{ic_id}_{prob_id}')  # Item5
+    penalty += flow_surplus * cvp['InterconnectorPrice']
+    model.addLConstr(ic.mw_flow - flow_surplus <= ic.export_limit, name=f'EXPORT_LIMIT_{ic_id}_{prob_id}')
     if debug_flag:
         if ic.mw_flow_record is not None and ic.mw_flow_record > ic.export_limit and abs(ic.mw_flow_record - ic.export_limit) > 1:
             logging.warning(f'IC {ic_id} mw flow record {ic.mw_flow_record} above export limit {ic.export_limit}')
-    return penalty
+    # return penalty
 
 
 def add_interconnector_limit_constr(model, ic, ic_id):
     # Interconnector Import Limit Record
-    ic.import_record_constr = model.addLConstr(ic.mw_flow >= ic.import_limit_record, name=f'IMPORT_LIMIT_RECORD_{ic_id}')
+    model.addLConstr(ic.mw_flow >= ic.import_limit_record, name=f'IMPORT_LIMIT_RECORD_{ic_id}')
     if ic.mw_flow_record is not None and ic.import_limit_record is not None and ic.mw_flow_record < ic.import_limit_record and abs(
             ic.mw_flow_record - ic.import_limit_record) > 1:
         logging.warning(
             f'IC {ic_id} mw flow record {ic.mw_flow_record} below import limit record {ic.import_limit_record}')
     # Interconnector Export Limit Record
-    ic.export_record_constr = model.addLConstr(ic.mw_flow <= ic.export_limit_record, name=f'EXPORT_LIMIT_RECORD_{ic_id}')
+    model.addLConstr(ic.mw_flow <= ic.export_limit_record, name=f'EXPORT_LIMIT_RECORD_{ic_id}')
     if ic.mw_flow_record is not None and ic.export_limit_record is not None and ic.mw_flow_record > ic.export_limit_record and abs(
             ic.mw_flow_record - ic.export_limit_record) > 1:
         logging.warning(f'IC {ic_id} mw flow record {ic.mw_flow_record} above export limit {ic.export_limit_record}')
@@ -1049,26 +1030,24 @@ def add_mnsp_ramp_constr(model, intervals, link, link_id, prob_id, debug_flag, p
     """
     # MNSPInterconnector ramp rate constraint (Up)
     if link.ramp_up_rate is not None:
-        link.mnsp_up_deficit = model.addVar(name=f'MNSP_Up_Deficit_{link_id}_{prob_id}')  # Item4
-        penalty += link.mnsp_up_deficit * cvp['MNSPRampRatePrice']
-        link.mnsp_up_constr = model.addLConstr(
-            link.mw_flow - link.mnsp_up_deficit <= link.metered_mw_flow + intervals * link.ramp_up_rate / 60,
-            name=f'MNSPINTERCONNECTOR_UP_RAMP_RATE_{link_id}_{prob_id}')
+        mnsp_up_deficit = model.addVar(name=f'MNSP_Up_Deficit_{link_id}_{prob_id}')  # Item4
+        penalty += mnsp_up_deficit * cvp['MNSPRampRatePrice']
+        model.addLConstr(link.mw_flow - mnsp_up_deficit <= link.metered_mw_flow + intervals * link.ramp_up_rate / 60,
+                         name=f'MNSPINTERCONNECTOR_UP_RAMP_RATE_{link_id}_{prob_id}')
         if debug_flag:
             if link.mw_flow_record is not None and link.mw_flow_record > link.metered_mw_flow + intervals * link.ramp_up_rate / 60:
                 logging.warning(f'Link {link_id} above MNSPInterconnector up ramp rate constraint')
                 logging.debug(f'MW flow {link.mw_flow_record} metered {link.metered_mw_flow} up rate {link.ramp_up_rate / 60}')
     # MNSPInterconnector ramp rate constraint (Down)
     if link.ramp_down_rate is not None:
-        link.mnsp_dn_surplus = model.addVar(name=f'MNSP_Dn_Surplus_{link_id}_{prob_id}')  # Item4
-        penalty += link.mnsp_dn_surplus * cvp['MNSPRampRatePrice']
-        link.mnsp_dn_constr = model.addLConstr(
-            link.mw_flow + link.mnsp_dn_surplus >= link.metered_mw_flow - intervals * link.ramp_down_rate / 60,
-            name=f'MNSPINTERCONNECTOR_DN_RAMP_RATE_{link_id}_{prob_id}')
+        mnsp_dn_surplus = model.addVar(name=f'MNSP_Dn_Surplus_{link_id}_{prob_id}')  # Item4
+        penalty += mnsp_dn_surplus * cvp['MNSPRampRatePrice']
+        model.addLConstr(link.mw_flow + mnsp_dn_surplus >= link.metered_mw_flow - intervals * link.ramp_down_rate / 60,
+                         name=f'MNSPINTERCONNECTOR_DN_RAMP_RATE_{link_id}_{prob_id}')
         if debug_flag:
             if link.mw_flow_record is not None and link.mw_flow_record < link.metered_mw_flow - intervals * link.ramp_down_rate / 60:
                 logging.warning(f'Link {link_id} below MNSPInterconnector down ramp rate constraint')
-    return penalty
+    # return penalty
 
 
 def add_mnsp_total_band_constr(model, link, link_id, prob_id, debug_flag, penalty,  cvp):
@@ -1087,13 +1066,11 @@ def add_mnsp_total_band_constr(model, link, link_id, prob_id, debug_flag, penalt
     Returns:
         The penalty linear expression
     """
-    link.mnsp_offer_deficit = model.addVar(name=f'MNSP_Offer_Deficit_{link_id}_{prob_id}')  # Item9
-    penalty += link.mnsp_offer_deficit * cvp['MNSPOfferPrice']
-    link.total_band_mw_offer_constr = model.addLConstr(link.mw_flow + link.mnsp_offer_deficit,
-                                                      sense=gp.GRB.EQUAL,
-                                                      rhs=sum(link.offers),
-                                                      name=f'MNSP_TOTAL_BAND_MW_OFFER_{link_id}_{prob_id}')
-    return penalty
+    mnsp_offer_deficit = model.addVar(name=f'MNSP_Offer_Deficit_{link_id}_{prob_id}')  # Item9
+    penalty += mnsp_offer_deficit * cvp['MNSPOfferPrice']
+    model.addLConstr(link.mw_flow + mnsp_offer_deficit, sense=gp.GRB.EQUAL, rhs=sum(link.offers),
+                     name=f'MNSP_TOTAL_BAND_MW_OFFER_{link_id}_{prob_id}')
+    # return penalty
 
 
 def add_mnsp_avail_constr(model, link, link_id, prob_id, debug_flag, penalty,  cvp):
@@ -1113,11 +1090,10 @@ def add_mnsp_avail_constr(model, link, link_id, prob_id, debug_flag, penalty,  c
         The penalty linear expression
     """
     if link.max_avail is not None:
-        link.mnsp_capacity_deficit = model.addVar(name=f'MNSP_Capacity_Deficit_{link_id}_{prob_id}')  # Item15
-        penalty += link.mnsp_capacity_deficit * cvp['MNSPCapacityPrice']
-        link.mnsp_availability_constr = model.addLConstr(link.mw_flow - link.mnsp_capacity_deficit <= link.max_avail,
-                                                        name=f'MNSP_AVAILABILITY_{link_id}_{prob_id}')
+        mnsp_capacity_deficit = model.addVar(name=f'MNSP_Capacity_Deficit_{link_id}_{prob_id}')  # Item15
+        penalty += mnsp_capacity_deficit * cvp['MNSPCapacityPrice']
+        model.addLConstr(link.mw_flow - mnsp_capacity_deficit <= link.max_avail, name=f'MNSP_AVAILABILITY_{link_id}_{prob_id}')
         if debug_flag:
             if link.mw_flow_record is not None and link.mw_flow_record > link.max_avail:
                 logging.warning(f'Link {link_id} mw flow record {link.mw_flow_record} above max avail {link.max_avail}')
-    return penalty
+    # return penalty

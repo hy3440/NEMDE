@@ -14,6 +14,8 @@ def test(m, x, y):
     l = [x, y]
     m.addLConstr(sum(l) >= 1, "c1")
 
+def t(l):
+    l += 2
 
 try:
 
@@ -32,6 +34,13 @@ try:
     m.addLConstr(x + 2 * y + 3 * z <= 4, "c0")
 
     test(m, x, y)
+
+    e = LinExpr(0)
+    e += 1
+    # e += x
+    print('e', e)
+    t(e)
+    print(e)
 
     path_to_model = default.MODEL_DIR / f'mip1.lp'
     m.write(str(path_to_model))

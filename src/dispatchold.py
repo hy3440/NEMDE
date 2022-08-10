@@ -1,8 +1,6 @@
 # NEMDE simulation model
 import csv
-
 import gurobipy
-
 import constrain
 import datetime
 import debug
@@ -13,7 +11,6 @@ import interconnect
 import logging
 import offer
 import parse
-import random
 import result
 from preprocess import get_market_price
 from plot import plot_optimisation_with_bids
@@ -32,7 +29,7 @@ class Problem:
         self.constraints = {}
         self.solution = None
         self.cost = 0.0
-        self.penalty = 0.0
+        self.penalty = gurobipy.LinExpr(0.0)
         self.batteries = batteries
         # if e is not None:
         #     self.batteries, self.custom_units = helpers.init_batteries(current, e, p, 'DERNEMDE-0', 'Battery')
@@ -145,7 +142,7 @@ def dispatch(current, start, predispatch_current, interval, process, model, iter
             # Define interconnector MW flow
             ic.mw_flow = model.addVar(lb=-gp.GRB.INFINITY, name=f'Mw_Flow_{ic_id}_{prob.problem_id}')
             # Add interconnector capacity constraint
-            prob.penalty = constrain.add_interconnector_capacity_constr(model, ic, ic_id, prob.problem_id, debug_flag, prob.penalty, cvp)
+            constrain.add_interconnector_capacity_constr(model, ic, ic_id, prob.problem_id, debug_flag, prob.penalty, cvp)
             # Add interconnector export/import limit constraint
             if ic_record_flag:
                 constrain.add_interconnector_limit_constr(model, ic, ic_id)
@@ -171,15 +168,15 @@ def dispatch(current, start, predispatch_current, interval, process, model, iter
                 # Link flow
                 link.mw_flow = model.addVar(name=f'Link_Flow_{link_id}_{prob.problem_id}')
                 # Add MNSPInterconnector ramp rate constraint
-                prob.penalty = constrain.add_mnsp_ramp_constr(model, intervals, link, link_id, prob.problem_id, debug_flag, prob.penalty, cvp)
+                constrain.add_mnsp_ramp_constr(model, intervals, link, link_id, prob.problem_id, debug_flag, prob.penalty, cvp)
                 # Add total band MW offer constraint - MNSP only
-                prob.penalty = constrain.add_mnsp_total_band_constr(model, link, link_id, prob.problem_id, debug_flag, prob.penalty, cvp)
+                constrain.add_mnsp_total_band_constr(model, link, link_id, prob.problem_id, debug_flag, prob.penalty, cvp)
                 # MNSP Max Capacity
                 if link.max_capacity is not None and not der_flag and debug_flag:
                     if link.mw_flow_record is not None and link.mw_flow_record > link.max_capacity and debug_flag:
                         logging.warning(f'Link {link_id} mw flow record {link.mw_flow_record} above max capacity {link.max_capacity}')
                 # Add MNSP availability constraint
-                prob.penalty = constrain.add_mnsp_avail_constr(model, link, link_id, prob.problem_id, debug_flag, prob.penalty, cvp)
+                constrain.add_mnsp_avail_constr(model, link, link_id, prob.problem_id, debug_flag, prob.penalty, cvp)
 
                 link.from_cost = sum([o * (p / link.from_region_tlf) for o, p in zip(link.offers, link.price_band)])
                 link.to_cost = sum([o * (p / link.to_region_tlf) for o, p in zip(link.offers, link.price_band)])
@@ -240,34 +237,35 @@ def dispatch(current, start, predispatch_current, interval, process, model, iter
                         logging.warning(f'{unit.dispatch_type} {unit.duid} total cleared record {unit.total_cleared_record} above max capacity {unit.max_capacity}')
                 # Add Unit MaxAvail constraint
                 if unit.energy.max_avail is not None:
-                    prob.penalty = constrain.add_max_avail_constr(model, unit, prob.problem_id, debug_flag, prob.penalty, cvp)
+                    constrain.add_max_avail_constr(model, unit, prob.problem_id, debug_flag, prob.penalty, cvp)
                 # Daily Energy Constraint (only for 30min Pre-dispatch)
                 if process == 'predispatch' and daily_energy_flag and unit.energy.daily_energy_limit != 0 and unit.energy.daily_energy_limit is not None:
-                    prob.penalty = constrain.add_daily_energy_constr(model, unit, prob.problem_id, debug_flag, prob.penalty, cvp)
+                    constrain.add_daily_energy_constr(model, unit, prob.problem_id, debug_flag, prob.penalty, cvp)
                 # Add total band MW offer constraint
-                prob.penalty = constrain.add_total_band_constr(model, unit, prob.problem_id, debug_flag, prob.penalty, cvp)
+                constrain.add_total_band_constr(model, unit, prob.problem_id, debug_flag, prob.penalty, cvp)
                 # Add Unconstrained Intermittent Generation Forecasts (UIGF) constraint (See AEMO2019Dispatch)
-                if process != 'predispatch':
-                    prob.penalty = constrain.add_uigf_constr(model, unit, prob.problem_id, debug_flag, prob.penalty, cvp)
+                if process != 'predispatch' and unit.forecast_poe50 is not None and unit.total_cleared_record <= unit.forecast_poe50:
+                    constrain.add_uigf_constr(model, unit, prob.problem_id, debug_flag, prob.penalty, cvp)
                 elif process == 'predispatch' and unit.total_cleared_record is not None and unit.forecast_poe50 is not None:
                     model.addLConstr(unit.total_cleared <= unit.total_cleared_record)
                     # print(f'{unit.duid} record {unit.total_cleared_record} forecast {unit.forecast_poe50} capacity {unit.max_capacity} avail {unit.energy.max_avail} sum {sum(unit.energy.band_avail)}')
                 # Add on-line dispatch fast start inflexibility profile constraint (See AEMO2014Fast)
                 if process == 'dispatch':
-                    prob.penalty = constrain.add_fast_start_inflexibility_profile_constr(model, unit, prob.problem_id, debug_flag, prob.penalty, cvp)
+                    constrain.add_fast_start_inflexibility_profile_constr(model, unit, prob.problem_id, debug_flag, prob.penalty, cvp)
                 # Add unit ramp rate constraint
                 # If the total MW value of its bid/offer bands is zero or the unit is a fast start unit and it is
                 # targeted to be in mode 0, 1, or 2, its ramp rate constraints will be ignored.
                 if sum(unit.energy.band_avail) > 0 and (process != 'dispatch' or unit.start_type != 'FAST' or unit.dispatch_mode > 2):
-                    prob.penalty = constrain.add_unit_ramp_constr(process, model, intervals, unit, prob.problem_id, debug_flag, prob.penalty, cvp)
+                    constrain.add_unit_ramp_constr(process, model, intervals, unit, prob.problem_id, debug_flag, prob.penalty, cvp)
                 # Add fixed loading constraint
-                prob.penalty = constrain.add_fixed_loading_constr(model, unit, prob.problem_id, debug_flag, prob.penalty, cvp)
+                if unit.energy.fixed_load != 0:
+                    constrain.add_fixed_loading_constr(model, unit, prob.problem_id, debug_flag, prob.penalty, cvp)
                 # Marginal loss factor
                 if unit.transmission_loss_factor is None:
                     logging.error(f'{unit.dispatch_type} {unit.duid} has no MLF.')
                     unit.transmission_loss_factor = 1.0
                 # TODO: Add Tie-Break constraint
-                prob.penalty = constrain.add_tie_break_constr(model, unit, energy_bands[unit.dispatch_type][unit.region_id], prob.penalty, cvp)
+                constrain.add_tie_break_constr(model, unit, energy_bands[unit.dispatch_type][unit.region_id], prob.penalty, cvp)
                 # Calculate cost
                 prob.cost = constrain.add_cost(unit, prob.regions, prob.cost, debug_flag)
                 # Fix unit dispatch target (custom flag for debugging)
@@ -286,26 +284,26 @@ def dispatch(current, start, predispatch_current, interval, process, model, iter
                     for bid_type, fcas in unit.fcas_bids.items():
                         prob.regions[unit.region_id].fcas_local_dispatch_record_temp[bid_type] += 0 if not unit.target_record else unit.target_record[bid_type]  # Add FCAS record to region
                         if fcas.enablement_status == 1:
-                            prob.cost, prob.penalty = constrain.process_fcas_bid(model, unit, fcas, bid_type, prob.problem_id, debug_flag, prob.penalty, cvp, prob.cost, prob.regions)
+                            prob.cost = constrain.process_fcas_bid(model, unit, fcas, bid_type, prob.problem_id, debug_flag, prob.penalty, cvp, prob.cost, prob.regions)
                             if bid_type == 'RAISEREG' or bid_type == 'LOWERREG':
                                 # Add joint ramping constraint
                                 if helpers.condition2(process, interval):
-                                    prob.penalty = constrain.add_joint_ramping_constr(model, intervals, unit, fcas, bid_type, prob.problem_id, debug_flag, prob.penalty, cvp)
+                                    constrain.add_joint_ramping_constr(model, intervals, unit, fcas, bid_type, prob.problem_id, debug_flag, prob.penalty, cvp)
                                 # TODO: Add energy and regulating FCAS capacity constraint
                                 constrain.add_energy_and_fcas_capacity_constr(model, unit, fcas, bid_type, prob.problem_id, debug_flag, prob.penalty, cvp)
                             else:
-                                prob.penalty = constrain.add_joint_capacity_constr(model, unit, fcas, bid_type, prob.problem_id, debug_flag, prob.penalty, cvp)
+                                constrain.add_joint_capacity_constr(model, unit, fcas, bid_type, prob.problem_id, debug_flag, prob.penalty, cvp)
                                 # # Add FCAS EnablementMin constr
-                                # prob.penalty = constrain.add_enablement_min_constr(model, unit, fcas, bid_type, prob.problem_id, debug_flag, prob.penalty, cvp)
+                                # constrain.add_enablement_min_constr(model, unit, fcas, bid_type, prob.problem_id, debug_flag, prob.penalty, cvp)
                                 # # Add FCAS EnablementMax constr
-                                # prob.penalty = constrain.add_enablement_max_constr(model, unit, fcas, bid_type, prob.problem_id, debug_flag, prob.penalty, cvp)
+                                # constrain.add_enablement_max_constr(model, unit, fcas, bid_type, prob.problem_id, debug_flag, prob.penalty, cvp)
                         else:
                             if debug_flag and unit.target_record and unit.target_record[bid_type] != 0:
                                 logging.warning(f'{unit.dispatch_type} {unit.duid} {bid_type} is not enable but record {unit.target_record[bid_type]}')
                 # Only bid for FCAS
                 else:
                     for bid_type, fcas in unit.fcas_bids.items():
-                        prob.cost, prob.penalty = constrain.process_fcas_bid(model, unit, fcas, bid_type, prob.problem_id, debug_flag, prob.penalty, cvp, prob.cost, prob.regions)
+                        prob.cost = constrain.process_fcas_bid(model, unit, fcas, bid_type, prob.problem_id, debug_flag, prob.penalty, cvp, prob.cost, prob.regions)
                         prob.regions[unit.region_id].fcas_local_dispatch_record_temp[bid_type] += 0 if not unit.target_record else unit.target_record[bid_type]  # Add FCAS record to region
                 # Fix unit FCAS target (custom flag for debugging)
                 if fixed_fcas_value_flag and fcas_flag and unit.fcas_bids != {}:
@@ -368,30 +366,30 @@ def dispatch(current, start, predispatch_current, interval, process, model, iter
                     if constr.violation_price is None:
                         constr.violation_price = constr.generic_constraint_weight * voll
                     if constr.constraint_type == '<=':
-                        constr.surplus = model.addVar(name=f'Surplus_{constr.gen_con_id}_{prob.problem_id}')
+                        surplus = model.addVar(name=f'Surplus_{constr.gen_con_id}_{prob.problem_id}')
                         generic_slack_variables.add(f'Surplus_{constr.gen_con_id}_{prob.problem_id}')
-                        prob.penalty += constr.surplus * constr.violation_price
-                        constr.constr = model.addLConstr(constr.connection_point_lhs + constr.interconnector_lhs + constr.region_lhs - constr.surplus <= constr.rhs, name=f'{constr.gen_con_id}_{prob.problem_id}')
+                        prob.penalty += surplus * constr.violation_price
+                        constr.constr = model.addLConstr(constr.connection_point_lhs + constr.interconnector_lhs + constr.region_lhs - surplus <= constr.rhs, name=f'{constr.gen_con_id}_{prob.problem_id}')
                         if debug_flag:
                             if constr.connection_point_lhs_record + constr.interconnector_lhs_record + constr.region_lhs_record > constr.rhs and abs(constr.connection_point_lhs_record + constr.interconnector_lhs_record + constr.region_lhs_record - constr.rhs) > 1:
                                 logging.warning(f'{constr.constraint_type} Constraint {constr.gen_con_id} is violated')
                                 logging.debug(f'lhs = {constr.connection_point_lhs_record + constr.interconnector_lhs_record + constr.region_lhs_record} > rhs = {constr.rhs}')
                     elif constr.constraint_type == '=':
-                        constr.deficit = model.addVar(name=f'Deficit_{constr.gen_con_id}_{prob.problem_id}')
+                        deficit = model.addVar(name=f'Deficit_{constr.gen_con_id}_{prob.problem_id}')
                         generic_slack_variables.add(f'Deficit_{constr.gen_con_id}_{prob.problem_id}')
-                        constr.surplus = model.addVar(name=f'Surplus_{constr.gen_con_id}_{prob.problem_id}')
+                        surplus = model.addVar(name=f'Surplus_{constr.gen_con_id}_{prob.problem_id}')
                         generic_slack_variables.add(f'Surplus_{constr.gen_con_id}_{prob.problem_id}')
-                        prob.penalty += (constr.deficit + constr.surplus) * constr.violation_price
-                        constr.constr = model.addLConstr(constr.connection_point_lhs + constr.interconnector_lhs + constr.region_lhs - constr.surplus + constr.deficit, sense=gp.GRB.EQUAL, rhs=constr.rhs, name=f'{constr.gen_con_id}_{prob.problem_id}')
+                        prob.penalty += (deficit + surplus) * constr.violation_price
+                        constr.constr = model.addLConstr(constr.connection_point_lhs + constr.interconnector_lhs + constr.region_lhs - surplus + deficit, sense=gp.GRB.EQUAL, rhs=constr.rhs, name=f'{constr.gen_con_id}_{prob.problem_id}')
                         if debug_flag:
                             if constr.connection_point_lhs_record + constr.interconnector_lhs_record + constr.region_lhs_record != constr.rhs and abs(constr.connection_point_lhs_record + constr.interconnector_lhs_record + constr.region_lhs_record - constr.rhs) > 1:
                                 logging.warning(f'{constr.constraint_type} Constraint {constr.gen_con_id} is violated')
                                 logging.debug(f'lhs = {constr.connection_point_lhs_record + constr.interconnector_lhs_record + constr.region_lhs_record} != rhs = {constr.rhs}')
                     elif constr.constraint_type == '>=':
-                        constr.deficit = model.addVar(name=f'Deficit_{constr.gen_con_id}_{prob.problem_id}')
+                        deficit = model.addVar(name=f'Deficit_{constr.gen_con_id}_{prob.problem_id}')
                         generic_slack_variables.add(f'Deficit_{constr.gen_con_id}_{prob.problem_id}')
-                        prob.penalty += constr.deficit * constr.violation_price
-                        constr.constr = model.addLConstr(constr.connection_point_lhs + constr.interconnector_lhs + constr.region_lhs + constr.deficit >= constr.rhs, name=f'{constr.gen_con_id}_{prob.problem_id}')
+                        prob.penalty += deficit * constr.violation_price
+                        constr.constr = model.addLConstr(constr.connection_point_lhs + constr.interconnector_lhs + constr.region_lhs + deficit >= constr.rhs, name=f'{constr.gen_con_id}_{prob.problem_id}')
                         if debug_flag:
                             if constr.connection_point_lhs_record + constr.interconnector_lhs_record + constr.region_lhs_record < constr.rhs and abs(constr.connection_point_lhs_record + constr.interconnector_lhs_record + constr.region_lhs_record - constr.rhs) > 1:
                                 logging.warning(f'{constr.constraint_type} Constraint {constr.gen_con_id} is violated')
@@ -420,7 +418,7 @@ def dispatch(current, start, predispatch_current, interval, process, model, iter
         print(f'start datetime {start} no {interval} current datetime {current}')
 
 
-def formulate(start, interval, process, iteration=0, custom_unit=None, path_to_out=default.OUT_DIR, batteries=None,
+def formulate(start, interval, process, iteration=0, custom_unit=None, path_to_out=default.OUT_DIR, batteries=None, constr_flag=True,
               dispatchload_path=None, dispatchload_flag=True, hard_flag=False, fcas_flag=True, dual_flag=True, der_flag=False,
               fixed_total_cleared_flag=False, debug_flag=False, batt_no=None, dispatchload_record=False, link_flag=True):
     """Original NEMDE model.
@@ -457,7 +455,7 @@ def formulate(start, interval, process, iteration=0, custom_unit=None, path_to_o
                                    name=f'{process}{default.get_case_datetime(current)}{interval}{iteration}') as model:
         model.setParam("OutputFlag", 0)  # 0 if no log information; otherwise 1
         prob, model, cvp = dispatch(current, start, predispatch_current, interval, process, model, iteration,
-                                    custom_unit, path_to_out, dispatchload_path, dispatchload_flag, fcas_flag=fcas_flag,
+                                    custom_unit, path_to_out, dispatchload_path, dispatchload_flag, fcas_flag=fcas_flag, constr_flag=constr_flag,
                                     dual_flag=dual_flag, debug_flag=debug_flag, der_flag=der_flag, link_flag=link_flag, batteries=batteries,
                                     dispatchload_record=dispatchload_record, fixed_total_cleared_flag=fixed_total_cleared_flag)
         # Calculate marginal prices
@@ -603,7 +601,7 @@ def formulate(start, interval, process, iteration=0, custom_unit=None, path_to_o
                 elif region_name is None:
                     if debug_flag:
                         path_to_model = path_to_out / process / f'SOS_{default.get_case_datetime(current)}.lp'
-                        model.write(str(path_to_model))
+                        # model.write(str(path_to_model))
                     # debug.verify_binding_constr(model, constraints)
                     base = prob.cost.getValue()
                     # Generate result csv
@@ -840,25 +838,26 @@ if __name__ == '__main__':
     # extended_times = [None for _ in times]
     # formulate_sequence(start, e, usage, results, times, extended_times, first_horizon_flag=True, link_flag=False, dual_flag=False)
 
-    dual_flag = True
+    dual_flag = False
     path_to_out = default.DEBUG_DIR / ('dual' if dual_flag else 'sos')
     # path_to_out = default.DEBUG_DIR
-    usage = 'DER None Single'
-    battery = helpers.Battery(30, 20, usage=usage)
-    battery_bid(battery, None)
+    # usage = 'DER None Single'
+    # battery = helpers.Battery(30, 20, usage=usage)
+    # battery_bid(battery, None)
     Es, prices = [], []
-    for i in range(288):
-        # dispatchload_path, rrp, fcas_rrp = formulate(start, 0, 'dispatch',
-        #                                              path_to_out=path_to_out, fcas_flag=True, link_flag=True,
-        #                                              dual_flag=dual_flag, dispatchload_record=True, debug_flag=True,
-        #                                              dispatchload_flag=False, fixed_total_cleared_flag=False)
-        g, l, rrp = formulate(start, i, 'dispatch', batteries={battery.bat_id: battery}, der_flag=True,
-                              path_to_out=battery.bat_dir, fcas_flag=False, link_flag=False,
-                              dual_flag=False, dispatchload_record=False, debug_flag=False,
-                              dispatchload_flag=(i != 0))
-        battery.initial_E += (l * battery.eff - g / battery.eff) * 5 / 60
-        Es.append(battery.initial_E)
-        prices.append(rrp)
+    for i in range(1):
+        dispatchload_path, rrp, fcas_rrp = formulate(start, 0, 'dispatch',
+                                                     path_to_out=path_to_out, fcas_flag=True, link_flag=True, constr_flag=True,
+                                                     dual_flag=dual_flag, dispatchload_record=True, debug_flag=True,
+                                                     dispatchload_flag=False, fixed_total_cleared_flag=False)
+        print(rrp)
+        # g, l, rrp = formulate(start, i, 'dispatch', batteries={battery.bat_id: battery}, der_flag=True,
+        #                       path_to_out=battery.bat_dir, fcas_flag=False, link_flag=False,
+        #                       dual_flag=False, dispatchload_record=False, debug_flag=False,
+        #                       dispatchload_flag=(i != 0))
+        # battery.initial_E += (l * battery.eff - g / battery.eff) * 5 / 60
+        # Es.append(battery.initial_E)
+        # prices.append(rrp)
         # start += default.FIVE_MIN
     print(Es)
     print(prices)
