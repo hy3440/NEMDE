@@ -149,7 +149,6 @@ def schedule(current, battery, p5min_times=None, p5min_prices=None, aemo_p5min_p
                 pgens = [model.addVar(ub=battery.generator.max_capacity, name=f'pgen_{j}_segment_{m + 1}') for m in range(M)]
                 model.addLConstr(pgen[j] == sum(pgens))
                 obj -= tstep * sum([pgens[m] * marginal_costs(R, battery.eff, M, m + 1) for m in range(M)])
-                # print(sum([pgens[m] * marginal_costs(R, battery.eff, M, m + 1) for m in range(M)]))
             # FCAS co-optimisation
             if fcas_flag:
                 model.addLConstr(raise_fcas[j] <= raise_fcas_records[j], f'RAISE_RECORD_{j}')  # Max regional RAISE FCAS

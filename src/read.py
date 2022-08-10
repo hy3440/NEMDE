@@ -476,8 +476,6 @@ def read_battery_optimisation(path_to_csv):
                 times.append(default.extract_default_datetime(row[0]))
                 socs.append(float(row[-2]))
                 prices.append(float(row[-1]))
-                if float(row[-1]) < 30:
-                    print(row[0], row[-1])
     return times, socs, prices
 
 

@@ -83,6 +83,7 @@ def get_total_intervals(process, start_time=None):
 class Battery:
     def __init__(self, e, p, region_id='NSW1', method=2, usage=None, bat_id='Battery'):
         self.bat_id = bat_id
+        self.region_id = region_id
         self.data = self.read_data()
         self.generator = Unit(self.data['gen_id'])
         self.generator.dispatch_type = 'GENERATOR'

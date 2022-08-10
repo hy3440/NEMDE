@@ -15,17 +15,17 @@ def preprocess_prices(current, custom_flag, battery, k):
     """
     path_to_out = default.RECORD_DIR if k == 0 else battery.bat_dir
     p5min_times, p5min_prices, aemo_p5min_prices, p5min_fcas_prices, aemo_p5min_fcas_prices = read.read_prices(current, 'p5min', custom_flag,
-                                                               battery.generator.region_id, k, path_to_out, fcas_flag=True)
-    p5min_raise_fcas, p5min_lower_fcas = read.read_p5min_fcas(current, battery.load.region_id)
+                                                               battery.region_id, k, path_to_out, fcas_flag=True)
+    p5min_raise_fcas, p5min_lower_fcas = read.read_p5min_fcas(current, battery.region_id)
     predispatch_time = default.get_predispatch_time(current)
-    predispatch_times, predispatch_prices, aemo_predispatch_prices, predispatch_fcas_prices, aemo_predispatch_fcas_prices = read.read_prices(predispatch_time, 'predispatch', custom_flag, battery.generator.region_id, k, path_to_out, fcas_flag=True)
+    predispatch_times, predispatch_prices, aemo_predispatch_prices, predispatch_fcas_prices, aemo_predispatch_fcas_prices = read.read_prices(predispatch_time, 'predispatch', custom_flag, battery.region_id, k, path_to_out, fcas_flag=True)
     fcas_prices, aemo_fcas_prices = {}, {}
     for bid_type in p5min_fcas_prices.keys():
         # fcas_prices[bid_type] = p5min_fcas_prices[bid_type] + predispatch_fcas_prices[bid_type][2:]
         # aemo_fcas_prices[bid_type] = aemo_p5min_fcas_prices[bid_type] + aemo_predispatch_fcas_prices[bid_type][2:]
         fcas_prices[bid_type] = p5min_fcas_prices[bid_type][:6] + predispatch_fcas_prices[bid_type][1:]
         aemo_fcas_prices[bid_type] = aemo_p5min_fcas_prices[bid_type][:6] + aemo_predispatch_fcas_prices[bid_type][1:]
-    predispatch_raise_fcas, predispatch_lower_fcas = read.read_predispatch_fcas(predispatch_time, battery.load.region_id)
+    predispatch_raise_fcas, predispatch_lower_fcas = read.read_predispatch_fcas(predispatch_time, battery.region_id)
     # return p5min_times + predispatch_times[2:], predispatch_time, p5min_prices + predispatch_prices[2:], aemo_p5min_prices + aemo_predispatch_prices[2:], fcas_prices, aemo_fcas_prices, p5min_raise_fcas + predispatch_raise_fcas[2:], p5min_lower_fcas + predispatch_lower_fcas[2:]
     return p5min_times[:6] + predispatch_times[1:], predispatch_time, p5min_prices[:6] + predispatch_prices[1:], aemo_p5min_prices[:6] + aemo_predispatch_prices[1:], fcas_prices, aemo_fcas_prices, p5min_raise_fcas[:6] + predispatch_raise_fcas[1:], p5min_lower_fcas[:6] + predispatch_lower_fcas[1:]
 
@@ -69,7 +69,7 @@ def extend_forcast_horizon(current, times, prices, aemo_prices, fcas_prices, aem
         while extend_time <= end_time:
             extend_time += default.THIRTY_MIN
             # extend_time += default.FIVE_MIN
-            price, aemo_price, fcas_price, aemo_fcas_price = read.read_dispatch_prices(min(extend_time, end_time) - default.ONE_DAY, 'dispatch', custom_flag, battery.load.region_id, k, path_to_out, fcas_flag=fcas_flag)
+            price, aemo_price, fcas_price, aemo_fcas_price = read.read_dispatch_prices(min(extend_time, end_time) - default.ONE_DAY, 'dispatch', custom_flag, battery.region_id, k, path_to_out, fcas_flag=fcas_flag)
             extended_times.append(min(extend_time, end_time) - default.ONE_DAY)
             prices.append(price)
             if fcas_flag:
@@ -77,7 +77,7 @@ def extend_forcast_horizon(current, times, prices, aemo_prices, fcas_prices, aem
                 for bid_type in fcas_prices.keys():
                     fcas_prices[bid_type].append(fcas_price[bid_type])
                     aemo_fcas_prices[bid_type].append(aemo_fcas_price[bid_type])
-                dispatch_raise_record, dispatch_lower_record = read.read_dispatch_fcas(min(extend_time, end_time) - default.ONE_DAY, battery.load.region_id)
+                dispatch_raise_record, dispatch_lower_record = read.read_dispatch_fcas(min(extend_time, end_time) - default.ONE_DAY, battery.region_id)
                 raise_fcas_records.append(dispatch_raise_record)
                 lower_fcas_records.append(dispatch_lower_record)
             # times.append(extend_time)  # Make the last datetime is PREDISPATCH i.e. end with 00 or 30.

@@ -286,6 +286,22 @@ class Unit:
 #     pass
 
 
+class BiUnit:
+    def __init__(self, size, usage, method):
+        self.duid = 'B'
+        self.size = size
+        self.capacity = int(size * 2 / 3)
+        self.total_cleared = None
+        self.region_id = 'NSW1'
+        self.max_soc = 0.95
+        self.min_soc = 0.15
+        self.initial_E = 0.5 * size
+        self.E = None
+        self.name = f'Battery {self.size}MWh {self.capacity}MW {self.region_id} Method {method}'
+        self.bat_dir = default.OUT_DIR / usage / self.name
+        self.bat_dir.mkdir(parents=True, exist_ok=True)
+
+
 def add_unit_bids(units, t, process, fcas_flag=True):
     """ Add unit bids.
     Args:

@@ -3,10 +3,10 @@ from helpers import Battery
 import default
 import datetime
 
-start = datetime.datetime(2020, 9, 1, 10, 55)
-# start = datetime.datetime(2020, 9, 1, 4, 5)
-battery = Battery(30, 20, usage='DER Price-taker Dual')
-path_to_model = battery.bat_dir / f'DER_30MWh_{default.get_case_datetime(start)}-copy.lp'
+# start = datetime.datetime(2020, 9, 1, 10, 55)
+start = datetime.datetime(2020, 9, 1, 4, 5)
+battery = Battery(30, 20, usage='DER None temp')
+path_to_model = battery.bat_dir / f'DER_30MWh_{default.get_case_datetime(start)}-copy.mip'
 
 if not path_to_model.is_file():
     path_to_original = battery.bat_dir / f'DER_30MWh_{default.get_case_datetime(start)}.lp'
@@ -26,3 +26,5 @@ model.optimize()
 for constr in model.getConstrs():
     if 'REGION_BALANCE_NSW1' in constr.constrName:
         print(constr.constrName, constr.pi)
+
+print('test')
