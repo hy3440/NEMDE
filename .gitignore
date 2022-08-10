@@ -7,7 +7,8 @@
 # *.png
 data/
 # out/
-raw/*
+raw/
+*.pdf
 src/*.csv
 
 # Byte-compiled / optimized / DLL files
