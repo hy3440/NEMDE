@@ -652,12 +652,13 @@ def enable_fcas(fcas, unit, process, i):
         return False
     # The unit is initially operating between the FCAS trapezium enablement minimum and maximum of the service
     # "stranded outside the FCAS trapezium"
-    if unit.initial_mw < fcas.enablement_min or unit.initial_mw > fcas.enablement_max:
-        # Is stranded, not trapped, not enabled (i.e. stranded: The unit is bid available to provide this ancillary
-        # service type, however, the unit is operating in the energy market outside of the profile for this service type
-        # and is stranded from providing this service).
-        fcas.flag = 4
-        return False
+    if type(unit.initial_mw) == float or type(unit.initial_mw) == int:
+        if unit.initial_mw < fcas.enablement_min or unit.initial_mw > fcas.enablement_max:
+            # Is stranded, not trapped, not enabled (i.e. stranded: The unit is bid available to provide this ancillary
+            # service type, however, the unit is operating in the energy market outside of the profile for this service type
+            # and is stranded from providing this service).
+            fcas.flag = 4
+            return False
 
     fcas.enablement_status = 1
     fcas.flag = 1  # Not stranded, not trapped, is enabled (i.e. available).

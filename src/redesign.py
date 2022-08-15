@@ -1,4 +1,4 @@
-from price import process_prices_by_interval
+from price import process_prices_by_interval, process_prices_by_period
 from dispatchold import dispatch, update_formulation, formulate_sequence
 from offer import BiUnit
 import default
@@ -68,28 +68,56 @@ def optimise_horizon(start, battery, fcas_flag, first_horizon_flag=False):
         plot_optimisation_with_bids(battery, None, None, der_flag=True, e=battery.size, t=start, bat_dir=battery.bat_dir)
 
 
+def multiformulate(times, start, predispatch_start):
+    problems = []
+    currents, processes, pre_starts, pre_ts, constr_flags, js = [], [], [], [], [], []
+    with gp.Env() as env, gp.Model(env=env, name=f'Test') as model:
+        model.setParam("OutputFlag", 0)  # 0 if no log information; otherwise 1
+        # for j, t in enumerate(times):
+        #     if j < 6:
+        #         currents.append(t)
+        #         processes.append('dispatch' if j == 0 else 'p5min')
+        #         pre_starts.append(start)
+        #         pre_ts.append(None)
+        #         constr_flags.append(True)
+        #         js.append(j)
+        #     else:
+        #         currents.append(t - default.TWENTYFIVE_MIN)
+        #         processes.append('predispatch')
+        #         pre_starts.append(predispatch_start)
+        #         pre_ts.append(t)
+        #         js.append(j - 5)
+        currents = times[:2]
+        pre_starts = [start, start]
+        pre_ts = [None, None]
+        js = [0, 1]
+        processes = ['dispatch', 'dispatch']
+        results = pool.starmap(dispatch, zip(currents, pre_starts, pre_ts, js, processes, repeat(model)))
+        print(results)
+
+
 def rolling_horizons(e, initial_time, iterations, usage, method):
     # batt_unit = BiUnit(e, usage, method)
     battery = Battery(e, int(e * 2 / 3), usage=usage)
     for i in range(iterations):
         start = initial_time + i * default.FIVE_MIN
-        times, original_prices, predispatch_time, _, _, _, _, _, extended_times = process_prices_by_interval(start, True,
-                                                                                                    battery, 0,
-                                                                                                    False)
+        times, original_prices, predispatch_time, _, _, _, _, _, extended_times = process_prices_by_period(start, True, battery, 0, False)
         results = [None for _ in times]
-        formulate_sequence(start, e, usage, results, times, extended_times, first_horizon_flag=(i==0), link_flag=False, dual_flag=False)
-        _, socs, prices, _ = read_der(e, start, battery.bat_dir)
-        plot_soc(times, [prices, original_prices], socs, path_to_fig=None, price_flag=True, soc_flag=True)
+        # formulate_sequence(start, e, usage, results, times, extended_times, first_horizon_flag=(i==0), link_flag=False, dual_flag=False)
+        # _, socs, prices, _ = read_der(e, start, battery.bat_dir)
+        # plot_soc(times, [prices, original_prices], socs, path_to_fig=None, price_flag=True, soc_flag=True)
         # optimise_horizon(start, batt_unit, 'FCAS' in usage, (i == 0))
         # plot_optimisation_with_bids(batt_unit, None, None, der_flag=True, e=batt_unit.size, t=start, bat_dir=batt_unit.bat_dir)
-
+        # multiformulate(times, start, predispatch_time)
+        print(times)
+        print(len(times))
 
 if __name__ == '__main__':
-    initial_time = datetime.datetime(2020, 9, 1, 4, 5)
+    initial_time = datetime.datetime(2020, 9, 1, 4, 30)
     iterations = 1
     # usage = 'BiUnit'
-    usage = 'DER None'
+    usage = 'DER None Test'
     method = 0
-    energies = [3000]
+    energies = [30]
     with Pool(len(energies)) as pool:
         pool.starmap(rolling_horizons, zip(energies, repeat(initial_time), repeat(iterations), repeat(usage), repeat(method)))

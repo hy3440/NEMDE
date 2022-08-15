@@ -2,6 +2,7 @@ import csv
 import default
 import preprocess
 import write
+import pandas as pd
 
 
 def read_trading_prices(t, custom_flag, region_id, k=0, path_to_out=default.OUT_DIR):
@@ -446,7 +447,6 @@ def read_optimisation_with_bids(b, method, k):
 
 
 def read_der(e, start, bat_dir):
-    import datetime
     times, socs, prices, socs_record = [], [], [], []
     path_to_csv = bat_dir / f'DER_{e}MWh_{default.get_case_datetime(start)}.csv'
     with path_to_csv.open() as f:
@@ -468,15 +468,25 @@ def read_battery_optimisation(path_to_csv):
     Returns:
         (list, list, list): datetimes, SOCs, prices
     """
-    times, socs, prices = [], [], []
-    with path_to_csv.open() as f:
-        reader = csv.reader(f)
-        for row in reader:
-            if row[0] != 'Datetime':
-                times.append(default.extract_default_datetime(row[0]))
-                socs.append(float(row[-2]))
-                prices.append(float(row[-1]))
-    return times, socs, prices
+    # times, socs, prices = [], [], []
+    # with path_to_csv.open() as f:
+    #     reader = csv.reader(f)
+    #     for row in reader:
+    #         if row[0] != 'Datetime':
+    #             times.append(default.extract_default_datetime(row[0]))
+    #             socs.append(float(row[-2]))
+    #             prices.append(float(row[-1]))
+    try:
+        df = pd.read_csv(path_to_csv)
+        # print(df['Datetime'])
+        # print(df['SOC (%)'])
+        df = df[(df.Datetime != 'Datetime')]
+        socs = df['SOC (%)'].astype(float)
+        times = pd.to_datetime(df['Datetime'])
+        prices = df['Price ($/MWh)'].astype(float)
+        return list(times), list(socs), list(prices)
+    except pd.errors.EmptyDataError:
+        return [], [], []
 
 
 def read_battery_power(path_to_csv, usage):

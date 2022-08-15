@@ -68,7 +68,7 @@ def prepare(current):
 def dispatch(current, start, predispatch_current, interval, process, model, iteration=0, custom_unit=None,
              path_to_out=default.OUT_DIR, dispatchload_path=None, dispatchload_flag=True, agc_flag=True,
              hard_flag=False, fcas_flag=True, constr_flag=True, losses_flag=True, link_flag=True, dual_flag=True,
-             fixed_interflow_flag=False, fixed_total_cleared_flag=False, fixed_fcas_value_flag=False,
+             fixed_interflow_flag=False, fixed_total_cleared_flag=False, fixed_fcas_value_flag=False, utility_flag=False,
              fixed_local_fcas_flag=False, ic_record_flag=False, debug_flag=False, der_flag=False, last_prob_id=None,
              intervals=None, batteries=None, daily_energy_flag=False, dispatchload_record=False, prob=None, biunit=None):
     """ Dispatch part of NEMDE formulation.
@@ -137,7 +137,6 @@ def dispatch(current, start, predispatch_current, interval, process, model, iter
                                                  predispatch_t=predispatch_current, k=iteration, debug_flag=debug_flag,
                                                  path_to_out=path_to_out, daily_energy_flag=daily_energy_flag,
                                                  dispatchload_record=dispatchload_record)
-
         for ic_id, ic in prob.interconnectors.items():
             # Define interconnector MW flow
             ic.mw_flow = model.addVar(lb=-gp.GRB.INFINITY, name=f'Mw_Flow_{ic_id}_{prob.problem_id}')
@@ -248,7 +247,6 @@ def dispatch(current, start, predispatch_current, interval, process, model, iter
                     constrain.add_uigf_constr(model, unit, prob.problem_id, debug_flag, prob.penalty, cvp)
                 elif process == 'predispatch' and unit.total_cleared_record is not None and unit.forecast_poe50 is not None:
                     model.addLConstr(unit.total_cleared <= unit.total_cleared_record)
-                    # print(f'{unit.duid} record {unit.total_cleared_record} forecast {unit.forecast_poe50} capacity {unit.max_capacity} avail {unit.energy.max_avail} sum {sum(unit.energy.band_avail)}')
                 # Add on-line dispatch fast start inflexibility profile constraint (See AEMO2014Fast)
                 if process == 'dispatch':
                     constrain.add_fast_start_inflexibility_profile_constr(model, unit, prob.problem_id, debug_flag, prob.penalty, cvp)
@@ -329,10 +327,11 @@ def dispatch(current, start, predispatch_current, interval, process, model, iter
                 if not dual_flag:
                     # Charge or discharge
                     battery.sos_constr = model.addSOS(gp.GRB.SOS_TYPE1, [battery.generator.total_cleared, battery.load.total_cleared])
-                    # # Degradation model
-                    pgens = [model.addVar(ub=battery.generator.max_capacity, name=f'pgen_segment_{m + 1}_{prob.problem_id}') for m in range(M)]
-                    model.addLConstr(battery.generator.total_cleared == sum(pgens), f'PGEN_SEGMENT_{prob.problem_id}')
-                    prob.cost += (intervals / 60) * sum([pgens[m] * helpers.marginal_costs(R, battery.eff, M, m + 1) for m in range(M)])
+                    # Degradation model
+                    if utility_flag:
+                        pgens = [model.addVar(ub=battery.generator.max_capacity, name=f'pgen_segment_{m + 1}_{prob.problem_id}') for m in range(M)]
+                        model.addLConstr(battery.generator.total_cleared == sum(pgens), f'PGEN_SEGMENT_{prob.problem_id}')
+                        prob.cost += (intervals / 60) * sum([pgens[m] * helpers.marginal_costs(R, battery.eff, M, m + 1) for m in range(M)])
         # TODO: Custom Battery fo comparison
         # if custom_unit is not None and type(custom_unit) == list:
         #     model.addSOS(gp.GRB.SOS_TYPE1, [unit.total_cleared for unit in custom_unit])
@@ -420,7 +419,7 @@ def dispatch(current, start, predispatch_current, interval, process, model, iter
 
 def formulate(start, interval, process, iteration=0, custom_unit=None, path_to_out=default.OUT_DIR, batteries=None, constr_flag=True,
               dispatchload_path=None, dispatchload_flag=True, hard_flag=False, fcas_flag=True, dual_flag=True, der_flag=False,
-              fixed_total_cleared_flag=False, debug_flag=False, batt_no=None, dispatchload_record=False, link_flag=True):
+              fixed_total_cleared_flag=False, debug_flag=False, batt_no=None, dispatchload_record=False, link_flag=True, intervals=None):
     """Original NEMDE model.
 
     Args:
@@ -442,7 +441,8 @@ def formulate(start, interval, process, iteration=0, custom_unit=None, path_to_o
     Returns:
         (pathlib.Path, float, dict): path to DISPATCHLOAD file, RRP, FCAS RRP
     """
-    intervals = 30 if process == 'predispatch' or process == 'extension' else 5  # Length of the dispatch interval in minutes
+    if intervals is None:
+        intervals = 30 if process == 'predispatch' or process == 'extension' else 5  # Length of the dispatch interval in minutes
     current = start + interval * datetime.timedelta(minutes=intervals)  # Current interval datetime
     if process == 'predispatch':
         predispatch_current = current
@@ -456,7 +456,7 @@ def formulate(start, interval, process, iteration=0, custom_unit=None, path_to_o
         model.setParam("OutputFlag", 0)  # 0 if no log information; otherwise 1
         prob, model, cvp = dispatch(current, start, predispatch_current, interval, process, model, iteration,
                                     custom_unit, path_to_out, dispatchload_path, dispatchload_flag, fcas_flag=fcas_flag, constr_flag=constr_flag,
-                                    dual_flag=dual_flag, debug_flag=debug_flag, der_flag=der_flag, link_flag=link_flag, batteries=batteries,
+                                    dual_flag=dual_flag, debug_flag=debug_flag, der_flag=der_flag, link_flag=link_flag, batteries=batteries, intervals=intervals,
                                     dispatchload_record=dispatchload_record, fixed_total_cleared_flag=fixed_total_cleared_flag)
         # Calculate marginal prices
         prices = {'NSW1': None, 'VIC1': None, 'SA1': None, 'TAS1': None, 'QLD1': None}
@@ -473,7 +473,6 @@ def formulate(start, interval, process, iteration=0, custom_unit=None, path_to_o
             # random.seed(20)
             # obj = model.getObjective()
             # small_terms = [random.randint(1, 100) for _ in range(obj.size())]
-            # # print(small_terms)
             # added_term = 0
             # for i in range(obj.size()):
             #     added_term += obj.getVar(i) * small_terms[i] / 10000000
@@ -490,16 +489,6 @@ def formulate(start, interval, process, iteration=0, custom_unit=None, path_to_o
                         debug.debug_infeasible_model(model)
                         return None
                     elif model.status == gp.GRB.Status.OPTIMAL:
-                        # print(model.objVal)
-                        # print(custom_unit[0].total_cleared)
-                        # print(custom_unit[1].total_cleared)
-                        # print(prob.regions['NSW1'].rrp_constr.pi)
-                        # for unit in custom_unit:
-                        #     print(unit.dispatch_type)
-                        #     print('Price Band | Availability | Dispatch Target')
-                        #     print('---------- | ------------ | ---------------')
-                        #     for b, a, o in zip(unit.energy.price_band, unit.energy.band_avail, unit.offers):
-                        #         print(f'{b} | {a} | {o.x}')
                         if objVal is None:
                             objective = model.getObjective()
                             objVal = model.objVal
@@ -692,14 +681,18 @@ def update_formulation(prob, problems, model, total_costs, total_penalty, cvp):
     return total_costs, total_penalty, last_prob_id
 
 
-def battery_bid(battery, avails):
+def battery_bid(battery, avails, fcas_flag=False):
     if avails is None:
         battery.add_energy_bid([0], [battery.generator.max_capacity], [0], [battery.load.max_capacity])
+        if fcas_flag:
+            for load_flag in [True, False]:
+                for bid_type in default.FCAS_TYPES:
+                    battery.add_fcas_bid(bid_type, [0], [battery.generator.max_capacity], load_flag)
     else:
         battery.add_energy_bid([0], [avails[0]], [500], [avails[1]])
 
 
-def formulate_sequence(start, e, usage, results=None, times=None, extended_times=None, first_horizon_flag=False, predefined_battery=None, link_flag=False, dual_flag=True, E_initial=None):
+def formulate_sequence(start, e, usage, results=None, times=None, extended_times=None, first_horizon_flag=False, predefined_battery=None, link_flag=False, dual_flag=True, E_initial=None, dispatchload_path=None):
     """Time-stepped NEMDE which looks ahead for 24hrs (6 intervals of P5MIN and 47 periods of Predispatch).
 
     Args:
@@ -714,52 +707,79 @@ def formulate_sequence(start, e, usage, results=None, times=None, extended_times
     """
     problems = []
     last_prob_id = None
+    fcas_flag = 'FCAS' in usage
     with gp.Env() as env, gp.Model(env=env, name=f'Integration {default.get_case_datetime(start)}') as model:
         model.setParam("OutputFlag", 0)  # 0 if no log information; otherwise 1
         # Initiate cost and penalty of objective function
         total_costs, total_penalty = 0, 0
         predispatch_start = default.get_predispatch_time(start)
         for j, (t, r, et) in enumerate(zip(times, results, extended_times)):
-            constr_flag = False
+            constr_flag = True
             if predefined_battery is not None and j == 0:
                 battery = predefined_battery
             else:
                 battery = helpers.Battery(e, int(e / 3 * 2), usage=usage)
-                battery_bid(battery, None if 'None' in usage else r)
-            # if j < 12:
-            if j < 6:
-                if j == 0:
-                    battery.initial_E = E_initial
+                battery_bid(battery, None if 'None' in usage else r, fcas_flag)
+            # # if j < 12:
+            # if j < 6:
+            #     if j == 0:
+            #         battery.initial_E = E_initial
+            #     current = t
+            #     process = 'dispatch' if j == 0 else 'p5min'
+            #     pre_start = start
+            #     intervals = None
+            #     pre_t = None
+            #     constr_flag = True
+            # elif et is None:
+            #     current = t - default.TWENTYFIVE_MIN
+            #     process = 'predispatch'
+            #     pre_start = predispatch_start
+            #     # j = j - 10
+            #     # intervals = (t - start - default.ONE_HOUR + default.FIVE_MIN) / default.ONE_MIN if j == 2 else None
+            #     j = j - 5
+            #     intervals = (t - start - default.THIRTY_MIN + default.FIVE_MIN) / default.ONE_MIN if j == 1 else None
+            #     pre_t = t
+            # else:
+            #     current = et
+            #     process = 'dispatch'
+            #     pre_start = et
+            #     intervals = 30
+            #     pre_t = None
+            if j == 0:
+                battery.initial_E = E_initial
                 current = t
-                process = 'dispatch' if j == 0 else 'p5min'
+                process = 'dispatch'
                 pre_start = start
-                intervals = None
+                intervals = 30
                 pre_t = None
                 constr_flag = True
+                if not first_horizon_flag and dispatchload_path is None:
+                    dispatchload_path = battery.bat_dir / 'dispatch' / f'dispatchload_{default.get_case_datetime(start - default.TWENTYFIVE_MIN)}.csv'
             elif et is None:
-                current = t - default.TWENTYFIVE_MIN
-                process = 'predispatch'
+                # current = t - default.TWENTYFIVE_MIN
+                current = t
+                process = 'extension' if 'Perfect' in usage else 'predispatch'
                 pre_start = predispatch_start
                 # j = j - 10
                 # intervals = (t - start - default.ONE_HOUR + default.FIVE_MIN) / default.ONE_MIN if j == 2 else None
-                j = j - 5
-                intervals = (t - start - default.THIRTY_MIN + default.FIVE_MIN) / default.ONE_MIN if j == 1 else None
+                intervals = 30
                 pre_t = t
             else:
                 current = et
-                process = 'dispatch'
+                process = 'extension'
                 pre_start = et
                 intervals = 30
                 pre_t = None
             prob, model, cvp = dispatch(current, pre_start, pre_t, j, process, model, path_to_out=battery.bat_dir,
-                                        dispatchload_flag=(j==0 and not first_horizon_flag), dispatchload_record=True,
-                                        fcas_flag='FCAS' in usage, der_flag=True, last_prob_id=last_prob_id, dual_flag=dual_flag,
-                                        batteries={battery.bat_id: battery}, constr_flag=constr_flag,
-                                        intervals=intervals, link_flag=link_flag)
+                                        dispatchload_flag=(j == 0 and not first_horizon_flag), dispatchload_record=True,
+                                        fcas_flag=fcas_flag, der_flag=True, last_prob_id=last_prob_id, dual_flag=dual_flag,
+                                        batteries={battery.bat_id: battery}, constr_flag=constr_flag, dispatchload_path=dispatchload_path,
+                                        intervals=intervals, link_flag=link_flag, utility_flag=('Utility' in usage))
             first_horizon_flag = False
             total_costs, total_penalty, last_prob_id = update_formulation(prob, problems, model, total_costs, total_penalty, cvp)
             if 'Short' in usage and j == 11:
                 break
+            # print(f'Finished {process} {current}: {datetime.datetime.now()}')
         for bat_id, battery in prob.batteries.items():
             model.addLConstr(battery.E, gp.GRB.EQUAL, E_initial, f'FINAL_STATE_{bat_id}_{prob.problem_id}')
         model.setObjective(total_costs + total_penalty, gp.GRB.MINIMIZE)
@@ -781,7 +801,7 @@ def formulate_sequence(start, e, usage, results=None, times=None, extended_times
                     for b in prob.batteries.values():
                         result.write_dispatchis(None, start, prob.regions, {region_id: prices[0]}, k=0, path_to_out=b.bat_dir)
                         # print(f'Finished first interval: {datetime.datetime.now()}')
-                return b.generator.total_cleared.x, b.load.total_cleared.x, prices[0]
+                    return b.generator.total_cleared.x, b.load.total_cleared.x, prices[0], dispatchload_path, b.E.x
             else:
                 model.remove(region.rrp_constr)
                 region.rrp_constr = model.addLConstr(
@@ -797,7 +817,7 @@ def formulate_sequence(start, e, usage, results=None, times=None, extended_times
                     for b in prob.batteries.values():
                         result.write_dispatchis(None, start, prob.regions, {region_id: prices[0]}, k=0, path_to_out=b.bat_dir)
                         # print(f'Finished first interval: {datetime.datetime.now()}')
-                        return b.generator.total_cleared.x, b.load.total_cleared.x, prices[0]
+                        # return b.generator.total_cleared.x, b.load.total_cleared.x, prices[0], dispatchload_path, b.E.x
 
                 # Get prices for all intervals
                 model.remove(region.rrp_constr)
@@ -826,10 +846,10 @@ if __name__ == '__main__':
     # process_type = 'p5min'
     # process_type = 'predispatch'
     # start = datetime.datetime(2021, 9, 12, 12, 5)
-    start = datetime.datetime(2020, 9, 1, 4, 5)
+    start = datetime.datetime(2020, 9, 1, 4, 30)
 
-    path_to_log = default.LOG_DIR / f'{process_type}_{default.get_case_datetime(start)}.log'
-    logging.basicConfig(filename=path_to_log, filemode='w', format='%(levelname)s: %(asctime)s %(message)s', level=logging.DEBUG)
+    # path_to_log = default.LOG_DIR / f'{process_type}_{default.get_case_datetime(start)}.log'
+    # logging.basicConfig(filename=path_to_log, filemode='w', format='%(levelname)s: %(asctime)s %(message)s', level=logging.DEBUG)
 
     # usage = 'DER Lucky'
     # e = 0
@@ -840,17 +860,18 @@ if __name__ == '__main__':
 
     dual_flag = False
     path_to_out = default.DEBUG_DIR / ('dual' if dual_flag else 'sos')
-    # path_to_out = default.DEBUG_DIR
-    # usage = 'DER None Single'
-    # battery = helpers.Battery(30, 20, usage=usage)
-    # battery_bid(battery, None)
+    path_to_out = default.OUT_DIR / 'non-time-stepped 30min FCAS'
     Es, prices = [], []
-    for i in range(1):
-        dispatchload_path, rrp, fcas_rrp = formulate(start, 0, 'dispatch',
+    battery = helpers.Battery(30, 20, usage='None')
+    battery_bid(battery, None)
+    for i in range(48):
+        dispatchload_path, rrp, fcas_rrp = formulate(start, i, process_type, batteries=None, der_flag=False, intervals=30,
                                                      path_to_out=path_to_out, fcas_flag=True, link_flag=True, constr_flag=True,
-                                                     dual_flag=dual_flag, dispatchload_record=True, debug_flag=True,
-                                                     dispatchload_flag=False, fixed_total_cleared_flag=False)
-        print(rrp)
+                                                     dual_flag=dual_flag, dispatchload_record=(i == 0), debug_flag=False,
+                                                     dispatchload_flag=(i != 0), fixed_total_cleared_flag=False, dispatchload_path=None if i == 0 else dispatchload_path)
+        print(i, rrp)
+        # print(dispatchload_path)
+        # g, l, generator_fcas, load_fcas = read_dispatchload(dispatchload_path)
         # g, l, rrp = formulate(start, i, 'dispatch', batteries={battery.bat_id: battery}, der_flag=True,
         #                       path_to_out=battery.bat_dir, fcas_flag=False, link_flag=False,
         #                       dual_flag=False, dispatchload_record=False, debug_flag=False,
@@ -860,4 +881,3 @@ if __name__ == '__main__':
         # prices.append(rrp)
         # start += default.FIVE_MIN
     print(Es)
-    print(prices)

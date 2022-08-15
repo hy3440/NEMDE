@@ -13,7 +13,7 @@ import default
 from plot import plot_soc, plot_revenues, plot_power
 from multidispatch import multiformulate
 import numpy as np
-from price import process_prices_by_interval
+from price import process_prices_by_interval, process_prices_by_period
 
 
 fcas_pmax = {
@@ -443,7 +443,7 @@ def exist_errors(g, l, generator_fcas, load_fcas, battery, E, fcas_flag, multi_f
     return False
 
 
-def rolling_horizon(start, battery, usage, days=1, debug_current=None):
+def rolling_horizon(start, battery, usage, length=5, days=1, debug_current=None):
     """Rolling horizon for optimisation.
 
     Args:
@@ -461,7 +461,7 @@ def rolling_horizon(start, battery, usage, days=1, debug_current=None):
     else:
         fcas_types = []
     # HORIZONS = 1
-    HORIZONS = 288 * days
+    HORIZONS = int(1440 / length) * days
     result_path = battery.bat_dir / f'{default.get_case_datetime(start)}.csv'
     if debug_current:
         bands, fcas_bands = generate_bands(start, usage)
@@ -482,7 +482,8 @@ def rolling_horizon(start, battery, usage, days=1, debug_current=None):
         start_horizon = 0
         E_initial = 0.5 * battery.size
 
-    def optimise_horizon(usage, bands, E_initial, predefined_battery=None):
+    def optimise_horizon(usage, bands, E_initial, predefined_battery=None, dispatchload_path=None):
+        E = 0
         if 'Cost-reflective' in usage:
             if battery.size == 0:
                 energy_availabilities = [[0, 0, 0]]
@@ -553,24 +554,21 @@ def rolling_horizon(start, battery, usage, days=1, debug_current=None):
                                                              dispatchload_flag=False if horizon == 0 else True)
                 g, l, generator_fcas, load_fcas = read_dispatchload(dispatchload_path)
         elif 'None' in usage:
-            times, original_prices, predispatch_time, _, _, _, _, _, extended_times = process_prices_by_interval(current,
-                                                                                                                 True,
-                                                                                                                 battery,
-                                                                                                                 0,
-                                                                                                                 fcas_flag)
+            process_func = process_prices_by_interval if length == 5 else process_prices_by_period
+            times, original_prices, predispatch_time, _, _, _, _, _, extended_times = process_func(current, True, battery, 0, fcas_flag)
             results = [None for _ in times]
-            g, l, rrp = formulate_sequence(current, battery.size, usage, results, times, extended_times, E_initial=E_initial,
-                                           first_horizon_flag=(horizon == 0), link_flag=False, dual_flag=False)
+            g, l, rrp, dispatchload_path, E = formulate_sequence(current, battery.size, usage, results, times, extended_times, E_initial=E_initial,
+                                                                 first_horizon_flag=(horizon == 0), link_flag=False, dual_flag=False, dispatchload_path=dispatchload_path)
         # if exist_errors(g, l, generator_fcas, load_fcas, battery, E_initial, fcas_flag, multi_flag):
         #     return None
-        E_initial += (l * battery.eff - g / battery.eff) * 5 / 60
+        E_initial += (l * battery.eff - g / battery.eff) * length / 60
         row = []
         if fcas_flag:
             for bid_type in fcas_types:
                 row += [generator_fcas[bid_type], load_fcas[bid_type], fcas_rrp[bid_type]]
         writer.writerow(
-            [current] + row + [g, l, E_initial, 0 if battery.size == 0 else E_initial / battery.size * 100, rrp])
-        return E_initial
+            [current] + row + [g, l, E_initial, E, 0 if battery.size == 0 else E_initial / battery.size * 100, rrp])
+        return E_initial, dispatchload_path
 
     if 'Combo' in usage:
         reflective_bands, fcas_bands = generate_bands(start, 'DER Cost-reflective Combo')
@@ -581,14 +579,15 @@ def rolling_horizon(start, battery, usage, days=1, debug_current=None):
         if fcas_flag:
             for bid_type in fcas_types:
                 row += [f'Generator {bid_type}', f'Load {bid_type}', f'Price {bid_type}']
-        writer.writerow(['Datetime'] + row + ['Generator (MW)', 'Load (MW)', 'E (MWh)', 'SOC (%)', 'Price ($/MWh)'])
+        writer.writerow(['Datetime'] + row + ['Generator (MW)', 'Load (MW)', 'E (MWh)', 'NEMDE E (MWh)', 'SOC (%)', 'Price ($/MWh)'])
+        dispatchload_path = None
         for horizon in range(start_horizon, HORIZONS):
-            current = start + horizon * default.FIVE_MIN
+            current = start + horizon * default.ONE_MIN * length
             if 'Combo' in usage:
                 optimise_horizon('DER Cost-reflective Combo', reflective_bands, E_initial)
                 E_initial = optimise_horizon('DER Price-taker Combo', taker_bands, E_initial, predefined_battery=battery)
             elif 'None' in usage:
-                E_initial = optimise_horizon(usage, None, E_initial)
+                E_initial, dispatchload_path = optimise_horizon(usage, None, E_initial, dispatchload_path)
             else:
                 if horizon % 288 == 0:
                     bands, fcas_bands = generate_bands(current, usage)
@@ -900,11 +899,14 @@ if __name__ == '__main__':
     # usage = 'Cost-reflective + multiple FCAS'
     # usage = 'Price-taker500 + multiple FCAS'
 
-    usage = 'DER None'
-    start = datetime.datetime(2020, 9, 1, 4, 5)
-    energies = [30, 3000]
+    usage = 'DER None Integration FCAS'
+    # start = datetime.datetime(2021, 7, 18, 4, 30)
+    start = datetime.datetime(2020, 9, 1, 4, 30)
+    energies = [0, 30, 3000]
     batteries = generate_batteries(energies, usage)
-    rolling_horizon(start, batteries[0], usage)
+    length = 30
+    with Pool(len(batteries)) as pool:
+        pool.starmap(rolling_horizon, zip(repeat(start), batteries, repeat(usage), repeat(length)))
 
     # DER Cost-reflective
     # usage = 'DER Price-taker Combo'

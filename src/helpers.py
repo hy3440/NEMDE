@@ -1,6 +1,6 @@
 import json
 import default
-from offer import Unit, EnergyBid
+from offer import Unit, EnergyBid, FcasBid
 
 
 def condition1(process, i):
@@ -168,6 +168,26 @@ class Battery:
             unit.energy.daily_energy_limit = 0
             unit.energy.roc_up = None
             unit.energy.roc_down = None
+
+    def add_fcas_bid(self, bid_type, price_bands, band_avails, load_flag):
+        fcas_bid = FcasBid([])
+        fcas_bid.bid_type = bid_type
+        fcas_bid.price_band = price_bands
+        fcas_bid.band_avail = band_avails
+        tstep = 5 / 60
+        # C1 = battery.eff * (E - battery.Emin) / tstep
+        # C2 = (battery.Emax - E) / (tstep * self.eff)
+        Pmax = self.load.max_capacity
+        if (bid_type[:5] == 'RAISE' and not load_flag) or (bid_type[:5] == 'LOWER' and load_flag):
+            fcas_bid.max_avail = fcas_bid.enablement_max = Pmax
+            # fcas_bid.max_avail = fcas_bid.enablement_max = min(Pmax, C2 if load_flag else C1)
+            fcas_bid.enablement_min = fcas_bid.low_breakpoint = fcas_bid.high_breakpoint = 0
+        else:
+            fcas_bid.max_avail = Pmax
+            fcas_bid.enablement_min = 0
+            fcas_bid.low_breakpoint = fcas_bid.high_breakpoint = fcas_bid.enablement_max = Pmax
+        unit = self.load if load_flag else self.generator
+        unit.fcas_bids[bid_type] = fcas_bid
 
     def update_usage(self, usage):
         self.bat_dir = default.OUT_DIR / usage / self.name

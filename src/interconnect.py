@@ -752,12 +752,13 @@ def add_p5min_record(regions, interconnectors, t, start, debug_flag):
 
 
 def add_dispatch_record(t, start, i, process, problem, fcas_flag, debug_flag):
-    if process == 'dispatch':
-        problem.solution = add_dispatchis_record(problem.regions, problem.interconnectors, t, fcas_flag, debug_flag)
+    if process == 'p5min':
+        problem.solution = add_p5min_record(problem.regions, problem.interconnectors, t, start, debug_flag)
     elif process == 'predispatch':
         problem.solution = add_predispatch_record(problem.regions, problem.interconnectors, i, start, debug_flag)
     else:
-        problem.solution = add_p5min_record(problem.regions, problem.interconnectors, t, start, debug_flag)
+        problem.solution = add_dispatchis_record(problem.regions, problem.interconnectors, t, fcas_flag, debug_flag)
+
 
 
 def add_link_record(ic, blnktas, blnkvic, debug_flag):

@@ -70,14 +70,14 @@ def write_predispatchis(start, t, i, regions, prices, k=0, path_to_out=default.O
                              '' if region.fcas_rrp == {} else region.fcas_rrp['LOWER60SEC'],  # 34
                              '' if region.fcas_rrp == {} else region.fcas_rrp['LOWER5MIN'],  # 35
                              '' if region.fcas_rrp == {} else region.fcas_rrp['LOWERREG'],  # 36
-                             region.fcas_rrp_record['RAISE6SEC'],  # 37
-                             region.fcas_rrp_record['RAISE60SEC'],  # 38
-                             region.fcas_rrp_record['RAISE5MIN'],  # 39
-                             region.fcas_rrp_record['RAISEREG'],  # 40
-                             region.fcas_rrp_record['LOWER6SEC'],  # 41
-                             region.fcas_rrp_record['LOWER60SEC'],  # 42
-                             region.fcas_rrp_record['LOWER5MIN'],  # 43
-                             region.fcas_rrp_record['LOWERREG']  # 44
+                             # region.fcas_rrp_record['RAISE6SEC'],  # 37
+                             # region.fcas_rrp_record['RAISE60SEC'],  # 38
+                             # region.fcas_rrp_record['RAISE5MIN'],  # 39
+                             # region.fcas_rrp_record['RAISEREG'],  # 40
+                             # region.fcas_rrp_record['LOWER6SEC'],  # 41
+                             # region.fcas_rrp_record['LOWER60SEC'],  # 42
+                             # region.fcas_rrp_record['LOWER5MIN'],  # 43
+                             # region.fcas_rrp_record['LOWERREG']  # 44
                              ])
 
 

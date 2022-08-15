@@ -2,7 +2,8 @@ import datetime
 import pathlib
 
 BASE_DIR = pathlib.Path(__file__).resolve().parent.parent  # Base directory
-DATA_DIR = BASE_DIR / 'data'  # Data directory
+# DATA_DIR = BASE_DIR / 'data'  # Data directory
+DATA_DIR = pathlib.PosixPath('/data/u6039034/')
 OUT_DIR = BASE_DIR / 'out'  # Result directory
 LOG_DIR = BASE_DIR / 'log'  # Log directory
 MODEL_DIR = BASE_DIR / 'model'  # Model directory
@@ -35,7 +36,7 @@ GREY = '#BBBBBB'
 BROWN ='#BB733E'
 
 MAX_RAMP_RATE = 1000000
-
+FCAS_TYPES = {'RAISE5MIN', 'LOWER5MIN', 'RAISE6SEC', 'LOWER6SEC', 'RAISE60SEC', 'LOWER60SEC'}
 
 def early_morning(t):
     """ Check if t is early morning (before 4am).

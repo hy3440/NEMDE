@@ -839,7 +839,7 @@ def get_units(t, start, i, process, units={}, links={}, fcas_flag=True, dispatch
     predefine.add_simplified_dudetailsummary(units, t)
 
     # if process == 'dispatch':
-    if (dispatchload_record and fcas_flag) or debug_flag:
+    if fcas_flag or debug_flag:
         add_dispatchload_record(units, t, fcas_flag, debug_flag)
     # elif process == 'p5min':
     #     add_unit_solution(units, t, start, fcas_flag)

@@ -436,12 +436,12 @@ def add_xml_constr(t, start, predispatch_t, process, units, regions, interconnec
     xml = read_xml(t)
     add_generic_constraint(xml, units, regions, interconnectors, constraints, fcas_flag, debug_flag)
     add_constraint_solution(xml, constraints)
-    if process == 'dispatch':
-        constrain.add_dispatch_constraint(t, constraints, debug_flag)
+    if process == 'predispatch':
+        constrain.add_predispatch_constraint(predispatch_t, start, constraints, debug_flag)
     elif process == 'p5min':
         constrain.add_p5min_constraint(t, start, constraints, debug_flag)
     else:
-        constrain.add_predispatch_constraint(predispatch_t, start, constraints, debug_flag)
+        constrain.add_dispatch_constraint(t, constraints, debug_flag)
 
 
 def add_nemspdoutputs_fcas(t, units, func):
