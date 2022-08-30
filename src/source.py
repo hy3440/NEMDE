@@ -12,8 +12,8 @@ from multiprocessing.pool import ThreadPool as Pool
 from pandas.plotting import register_matplotlib_converters
 register_matplotlib_converters()
 import matplotlib.pyplot as plt
-plt.style.use(['science', 'ieee', 'no-latex'])
-# import matplotlib.dates as mdate
+# plt.style.use(['science', 'ieee', 'no-latex'])
+plt.style.use(['science', 'no-latex'])
 import math
 
 
@@ -27,8 +27,8 @@ class SourceUnit:
         self.classification = None
         self.region_id = None
 
-    def __repr__(self):
-        return f'{self.duid} {self.source}'
+    # def __repr__(self):
+    #     return f'{self.duid} {self.source}'
 
 
 def add_dispatchload(units, t, start, process, i, k=0, path_to_out=default.OUT_DIR, dispatchload_path=None):
@@ -57,7 +57,7 @@ def add_dispatchload(units, t, start, process, i, k=0, path_to_out=default.OUT_D
         reader = csv.reader(f)
         # logging.info('Read next day dispatch.')
         for row in reader:
-            if row[0] == 'D':
+            if row[0] == 'D' and len(row) > 3:
                 duid = row[1]
                 # if duid in units:
                 unit = SourceUnit(duid)
@@ -71,7 +71,7 @@ def add_dispatchload(units, t, start, process, i, k=0, path_to_out=default.OUT_D
                 if duid == 'G' or duid == 'L':
                     unit.dispatch_type = 'GENERATOR' if duid == 'G' else 'LOAD'
                     unit.region_id = 'NSW1'
-                    unit.source = 'Our Battery'
+                    unit.source = 'Our battery'
     return units
 
 
@@ -84,6 +84,8 @@ def add_registeration(units):
             if unit:
                 if row['Fuel Source - Primary'] not in ['', ' ', '-', None, np.nan]:
                     unit.source = row['Fuel Source - Primary']
+                else:
+                    unit.source = 'Other'
                 unit.dispatch_type = row['Dispatch Type']
                 unit.classification = row['Classification']
                 unit.region_id = row['Region']
@@ -175,21 +177,80 @@ def plot_source(energies, source_revenues):
     plt.savefig(path_to_fig)
 
 
-if __name__ == '__main__':
-    # energies = [3, 30, 3000]
-    energies = [3, 30, 120, 240, 360, 480, 720, 960, 1200, 2100, 3000]  # Cost-reflective + multiple FCAS
-    # with Pool(len(energies)) as pool:
-    #     pool.map(write_to_csv, energies)
-    source_revenues = {
+def read_information(battery, start, total_intervals):
+    generation_by_source = {
         'Solar': [],
         'Fossil': [],
         'Wind': [],
-        'Hydro': []
+        'Hydro': [],
+        'Renewable/ Biomass / Waste': [],
+        'Battery storage': [],
+        'Other': [],
+        'Our battery': []
     }
-    t = datetime.datetime(2021, 9, 19, 4, 0)
-    usage = 'Cost-reflective + multiple FCAS'
-    for e in energies:
-        p = int(e / 3 * 2)
-        path_to_csv = default.OUT_DIR / 'source' / f'{usage} {e}MWh {p}MW {default.get_case_datetime(t)}.csv'
-        read_from_csv(path_to_csv, source_revenues)
-    plot_source(energies, source_revenues)
+    for i in range(total_intervals):
+        each_generation_by_source = {
+            'Solar': 0,
+            'Fossil': 0,
+            'Wind': 0,
+            'Hydro': 0,
+            'Renewable/ Biomass / Waste': 0,
+            'Battery storage': 0,
+            'Other': 0,
+            'Our battery': 0
+        }
+        t = start + (1440 / total_intervals) * default.ONE_MIN * i
+        units = add_dispatchload({}, t, t, 'dispatch', i, path_to_out=battery.bat_dir)
+        add_registeration(units)
+        add_du_detail(units, t)
+        add_du_detail_summary(units, t)
+        for unit in units.values():
+            # if unit.region_id == 'NSW1' and unit.dispatch_type == 'GENERATOR':
+            if unit.dispatch_type == 'LOAD':
+                each_generation_by_source[unit.source] += unit.total_cleared
+        for source_type, generation in each_generation_by_source.items():
+            generation_by_source[source_type].append(generation)
+    print(generation_by_source)
+    path_to_fig = default.OUT_DIR / 'source' / 'All Load + Battery.jpg'
+    plot_stackplots(generation_by_source, path_to_fig)
+
+
+def plot_stackplots(generation_by_source, path_to_fig):
+    hour = range(24)
+    fig, ax = plt.subplots()
+    ax.stackplot(hour, generation_by_source.values(),
+                 labels=generation_by_source.keys(), alpha=0.8)
+    ax.legend(loc='upper left')
+    # ax.set_title('World population')
+    ax.set_xlabel('Time (hour)')
+    ax.set_ylabel('Schedule (MW)')
+    # plt.show()
+    plt.savefig(path_to_fig)
+
+
+if __name__ == '__main__':
+    # source_revenues = {
+    #     'Solar': [],
+    #     'Fossil': [],
+    #     'Wind': [],
+    #     'Hydro': [],
+    #     'Renewable/ Biomass / Waste': [],
+    #     'Battery storage': [],
+    #     'Other': []
+    # }
+    # energies = [3, 30, 3000]
+    # energies = [3, 30, 120, 240, 360, 480, 720, 960, 1200, 2100, 3000]  # Cost-reflective + multiple FCAS
+    # with Pool(len(energies)) as pool:
+    #     pool.map(write_to_csv, energies)
+    # t = datetime.datetime(2021, 9, 19, 4, 0)
+    # usage = 'Cost-reflective + multiple FCAS'
+    # for e in energies:
+    #     p = int(e / 3 * 2)
+    #     path_to_csv = default.OUT_DIR / 'source' / f'{usage} {e}MWh {p}MW {default.get_case_datetime(t)}.csv'
+    #     read_from_csv(path_to_csv, source_revenues)
+    # plot_source(energies, source_revenues)
+
+    e = 3000
+    battery = Battery(e, int(e * 2 / 3), usage='DER None Integration Hour')
+    start = datetime.datetime(2021, 7, 18, 4, 35)
+    read_information(battery, start, 24)
