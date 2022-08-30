@@ -262,6 +262,37 @@ def add_dispatch_constraint(t, constraints, debug_flag):
                     logging.error(f'Constraint {row[6]} was not included')
 
 
+def add_dvd_dispatch_constraint(t, constraints, debug_flag):
+    """Add Generic Constraint RHS value for 'dispatch' process from pre-split DVD_DISPATCHCONSTRAINT file.
+
+    Args:
+        t (datetime.datetime): Current dateime
+        constraints (dict): The dictionary of generic constraints
+        debug_flag (bool): Used for debugging or not
+
+    Returns:
+        None
+    """
+    case_datetime = default.get_case_datetime(t)
+    constr_dir = preprocess.new_dir(t) / f'PUBLIC_DVD_DISPATCHCONSTRAINT_{case_datetime}.csv'
+    with constr_dir.open() as f:
+        reader = csv.reader(f)
+        for row in reader:
+            if row[1] == 'D':
+                constr = constraints.get(row[7])
+                if constr:
+                    if constr.rhs is not None:
+                        csv_rhs = float(row[10])
+                        if abs(constr.rhs - csv_rhs) > 1:
+                            print(f'Constraint {row[6]} rhs {constr.rhs} but csv record {csv_rhs}')
+                        constr.rhs = float(row[9])
+                    constr.marginal_value = float(row[11])
+                    constr.violation_degree = float(row[12])
+                    constr.lhs = float(row[17])
+                    constr.bind_flag = True
+                elif debug_flag:
+                    logging.error(f'Constraint {row[6]} was not included')
+
 def add_predispatch_constraint(t, start, constraints, debug_flag):
     """ Add Generic Constraint RHS value for 'predispatch' process.
 
@@ -335,12 +366,15 @@ def get_constraints(process, t, units, connection_points, interconnectors, regio
         A dictionary of generic constraints.
     """
     constraints = init_constraints(t)
-    if process == 'dispatch':
-        add_dispatch_constraint(t, constraints)
-    elif process == 'predispatch':
+
+    if process == 'predispatch':
         add_predispatch_constraint(t, start, constraints)
     elif process == 'p5min':
         add_p5min_constraint(t, start, constraints)
+    elif process == 'dispatch':
+        add_dispatch_constraint(t, constraints)
+    else:
+        add_dvd_dispatch_constraint(t, constraints)
     add_spd_connection_point_constraint(t, constraints, units, connection_points, fcas_flag)
     add_spd_interconnector_constraint(t, constraints, interconnectors)
     if fcas_flag:

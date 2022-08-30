@@ -121,11 +121,13 @@ def generate_bands(start, usage):
     fcas_flag = 'FCAS' in usage
     if 'reflective' in usage:
         B = 7
-        times, prices, _, fcas_prices, _ = read_predispatch_prices(start + default.TWENTYFIVE_MIN, process='predispatch', custom_flag=False, region_id='NSW1', fcas_flag=fcas_flag)
+        predispatch_time = default.get_predispatch_time(start)
+        times, prices, _, fcas_prices, _ = read_predispatch_prices(predispatch_time, process='predispatch', custom_flag=False, region_id='NSW1', fcas_flag=fcas_flag)
         if 'new' in usage:
             pmax, pmin = max(prices) * 1.1, min(prices) * (0.9 if min(prices) >= 0 else 1.1)
         else:
             pmax, pmin = max(prices), min(prices)
+        pmax, pmin = 300, 0
         bands = [market_price_floor] + [pmin + b * (pmax - pmin) / B for b in range(B + 1)] + [voll]
         if fcas_flag:
             for bid_type, fcas_price in fcas_prices.items():
@@ -149,7 +151,7 @@ def generate_bands(start, usage):
     return bands, fcas_bands
 
 
-def multischedule(band, battery, current, horizon, E_initial, fcas_flag, fcas_type, multi_flag):
+def multischedule(band, battery, current, horizon, E_initial, fcas_flag, fcas_type, multi_flag, fixprices):
     """Apply battery schedule using multiple processing.
 
     Args:
@@ -165,10 +167,10 @@ def multischedule(band, battery, current, horizon, E_initial, fcas_flag, fcas_ty
     Returns:
         (float, float, float): discharging (positive) / charging (negative) power value, raise FCAS value, lower FCAS value
     """
-    return schedule(current, battery, horizon=horizon, E_initial=E_initial, band=band, method=2, fcas_flag=fcas_flag, fcas_type=fcas_type, multi_flag=multi_flag)
+    return schedule(current, battery, horizon=horizon, E_initial=E_initial, band=band, method=2, fcas_flag=fcas_flag, fcas_type=fcas_type, multi_flag=multi_flag, prices=fixprices)
 
 
-def generate_availabilities(bands, battery, current, horizon, E_initial, fcas_flag, fcas_type, multi_flag):
+def generate_availabilities(bands, battery, current, horizon, E_initial, fcas_flag, fcas_type, multi_flag, fixprices):
     """Generate availabilities from battery schedule optimisation results.
 
     Args:
@@ -185,7 +187,7 @@ def generate_availabilities(bands, battery, current, horizon, E_initial, fcas_fl
         (float, float, float): discharging (positive) / charging (negative) power value, raise FCAS value, lower FCAS value
     """
     with Pool(len(bands)) as pool:
-        availabilities = pool.starmap(multischedule, zip(bands, repeat(battery), repeat(current), repeat(horizon), repeat(E_initial), repeat(fcas_flag), repeat(fcas_type), repeat(multi_flag)))
+        availabilities = pool.starmap(multischedule, zip(bands, repeat(battery), repeat(current), repeat(horizon), repeat(E_initial), repeat(fcas_flag), repeat(fcas_type), repeat(multi_flag), repeat(fixprices)))
         # values = pool.map(multischedule, bands)
         # print('| No. | Price | Availability (MW) |')
         # print('| --- | ----- | ---- |')
@@ -368,6 +370,7 @@ def extract_row(row: list, fcas: dict) -> (float, dict):
     def transform(value):
         return 0 if value == '-' else float(value)
 
+
     fcas['RAISEREG'] = transform(row[8])
     fcas['RAISE6SEC'] = transform(row[10])
     fcas['RAISE60SEC'] = transform(row[12])
@@ -466,7 +469,7 @@ def rolling_horizon(start, battery, usage, length=5, days=1, debug_current=None)
     if debug_current:
         bands, fcas_bands = generate_bands(start, usage)
     if result_path.is_file():
-        times, socs, prices = read_battery_optimisation(battery.bat_dir / f'{default.get_case_datetime(start)}.csv')
+        times, socs, prices, _, _ = read_battery_optimisation(battery.bat_dir / f'{default.get_case_datetime(start)}.csv')
         mode = 'a'
         if debug_current is None:
             start_horizon = len(times)
@@ -482,8 +485,8 @@ def rolling_horizon(start, battery, usage, length=5, days=1, debug_current=None)
         start_horizon = 0
         E_initial = 0.5 * battery.size
 
-    def optimise_horizon(usage, bands, E_initial, predefined_battery=None, dispatchload_path=None):
-        E = 0
+    def optimise_horizon(usage, bands, E_initial, predefined_battery=None, dispatchload_path=None, fixprices=None):
+        E, fixedprices = 0, None
         if 'Cost-reflective' in usage:
             if battery.size == 0:
                 energy_availabilities = [[0, 0, 0]]
@@ -491,7 +494,7 @@ def rolling_horizon(start, battery, usage, length=5, days=1, debug_current=None)
                                        'LOWER5MIN': [[0, 0, 0]], 'LOWER6SEC': [[0, 0, 0]], 'LOWER60SEC': [[0, 0, 0]]}
             else:
                 energy_availabilities = generate_availabilities(bands, battery, current, horizon, E_initial, fcas_flag,
-                                                                None, multi_flag)
+                                                                None, multi_flag, fixprices)
                 if fcas_flag:
                     fcas_availabilities = {}
                     for bid_type in fcas_types:
@@ -501,9 +504,11 @@ def rolling_horizon(start, battery, usage, length=5, days=1, debug_current=None)
                 else:
                     fcas_availabilities = None
             custom_units = generate_reflective_units(battery, bands, energy_availabilities, E_initial, fcas_flag,
-                                                     fcas_bands, fcas_availabilities, usage)
+                                                    fcas_bands, fcas_availabilities, usage)
             if 'Combo' in usage:
                 return None
+            elif 'None' in usage:
+                return battery
             dispatchload_path, rrp, fcas_rrp = formulate(start, horizon, 'dispatch', custom_unit=custom_units,
                                                          path_to_out=default.DEBUG_DIR if debug_current else battery.bat_dir,
                                                          dispatchload_flag=(horizon != 0),
@@ -555,31 +560,36 @@ def rolling_horizon(start, battery, usage, length=5, days=1, debug_current=None)
                 g, l, generator_fcas, load_fcas = read_dispatchload(dispatchload_path)
         elif 'None' in usage:
             process_func = process_prices_by_interval if length == 5 else process_prices_by_period
-            times, original_prices, predispatch_time, _, _, _, _, _, extended_times = process_func(current, True, battery, 0, fcas_flag)
+            times, original_prices, predispatch_time, _, _, _, _, _, extended_times = process_func(current, False, battery, 0, False)
             results = [None for _ in times]
-            g, l, rrp, dispatchload_path, E = formulate_sequence(current, battery.size, usage, results, times, extended_times, E_initial=E_initial,
-                                                                 first_horizon_flag=(horizon == 0), link_flag=False, dual_flag=False, dispatchload_path=dispatchload_path)
+            rrp, dispatchload_path, E, subrrp, fixrrp, fcas_rrp, cost, fixedprices = formulate_sequence(current, battery.size, usage, results, times, extended_times, E_initial=E_initial, predefined_battery=predefined_battery,
+                                                                                                      first_horizon_flag=(horizon == 0), link_flag=True, dual_flag=False, dispatchload_path=dispatchload_path)
+            g, l, generator_fcas, load_fcas = read_dispatchload(dispatchload_path)
         # if exist_errors(g, l, generator_fcas, load_fcas, battery, E_initial, fcas_flag, multi_flag):
         #     return None
         E_initial += (l * battery.eff - g / battery.eff) * length / 60
         row = []
         if fcas_flag:
             for bid_type in fcas_types:
+                # row += [generator_fcas[bid_type], load_fcas[bid_type], None]
                 row += [generator_fcas[bid_type], load_fcas[bid_type], fcas_rrp[bid_type]]
         writer.writerow(
-            [current] + row + [g, l, E_initial, E, 0 if battery.size == 0 else E_initial / battery.size * 100, rrp])
-        return E_initial, dispatchload_path
+            [current] + row + [g, l, E_initial, E, 0 if battery.size == 0 else E_initial / battery.size * 100, rrp, subrrp, fixrrp, cost])
+        return E_initial, dispatchload_path, fixedprices
 
     if 'Combo' in usage:
         reflective_bands, fcas_bands = generate_bands(start, 'DER Cost-reflective Combo')
         taker_bands, fcas_bands = generate_bands(start, 'DER Price-taker Combo')
+    elif 'reflective' in usage:
+        reflective_bands, fcas_bands = generate_bands(start, usage)
+
     with result_path.open(mode) as result_file:
         writer = csv.writer(result_file)
         row = []
         if fcas_flag:
             for bid_type in fcas_types:
                 row += [f'Generator {bid_type}', f'Load {bid_type}', f'Price {bid_type}']
-        writer.writerow(['Datetime'] + row + ['Generator (MW)', 'Load (MW)', 'E (MWh)', 'NEMDE E (MWh)', 'SOC (%)', 'Price ($/MWh)'])
+        writer.writerow(['Datetime'] + row + ['Generator (MW)', 'Load (MW)', 'E (MWh)', 'NEMDE E (MWh)', 'SOC (%)', 'Price ($/MWh)', 'Sub Price ($/MWh)', 'Fix Price ($/MWh)', 'Cost'])
         dispatchload_path = None
         for horizon in range(start_horizon, HORIZONS):
             current = start + horizon * default.ONE_MIN * length
@@ -587,7 +597,10 @@ def rolling_horizon(start, battery, usage, length=5, days=1, debug_current=None)
                 optimise_horizon('DER Cost-reflective Combo', reflective_bands, E_initial)
                 E_initial = optimise_horizon('DER Price-taker Combo', taker_bands, E_initial, predefined_battery=battery)
             elif 'None' in usage:
-                E_initial, dispatchload_path = optimise_horizon(usage, None, E_initial, dispatchload_path)
+                E_initial, dispatchload_path, fixprices = optimise_horizon(usage, None, E_initial, None if horizon == 0 else battery, dispatchload_path)
+                if 'reflective' in usage:
+                    fixprices = fixprices[1:] + [fixprices[0]]
+                    battery = optimise_horizon('DER Cost-reflective None', reflective_bands, E_initial, fixprices=fixprices)
             else:
                 if horizon % 288 == 0:
                     bands, fcas_bands = generate_bands(current, usage)
@@ -597,7 +610,7 @@ def rolling_horizon(start, battery, usage, length=5, days=1, debug_current=None)
                 E_initial = optimise_horizon(usage, bands, E_initial)
 
 
-def calculate_revenue(start, battery, usage, print_flag=0, sign=''):
+def calculate_revenue(start, battery, usage, print_flag=0, sign='', total_intervals=288):
     """Calculate total revenue of battery.
 
     Args:
@@ -612,7 +625,7 @@ def calculate_revenue(start, battery, usage, print_flag=0, sign=''):
     """
     times, generations, loads, prices, generator_fcas, load_fcas, fcas_prices = read_battery_power(battery.bat_dir / f'{default.get_case_datetime(start)}{sign}.csv', usage)
     energy_revenue, fcas_revenue = [], {}
-    if len(times) % 288 != 0:
+    if len(times) % total_intervals != 0:
         print('Interval Number Error!')
     revenue = 0
     if print_flag == 3:
@@ -624,24 +637,24 @@ def calculate_revenue(start, battery, usage, print_flag=0, sign=''):
     for n, (t, g, l, p) in enumerate(zip(times, generations, loads, prices)):
         # if n >= 288:
         #     break
-        if n % 287 == 0 and n > 0:
+        if n % (total_intervals - 1) == 0 and n > 0:
             energy_revenue.append(revenue)
             revenue = 0
         if g > 0 and l > 0:
             print('Energy Error!')
         if (g > 0 or l > 0) and print_flag == 3:
             print(f'`{t}` | {g:.2f} | {l:.2f} | {p:.2f}')
-        revenue += (g - l) * p * 5 / 60
+        revenue += (g - l) * p * (1440 / total_intervals) / 60
     if 'FCAS' in usage:
         for bid_type in fcas_prices.keys():
             fcas_revenue[bid_type] = []
             for n, (t, gen_value, load_value, price) in enumerate(zip(times, generator_fcas[bid_type], load_fcas[bid_type], fcas_prices[bid_type])):
                 # if n >= 288:
                 #     break
-                if n % 287 == 0 and n > 0:
+                if n % (total_intervals - 1) == 0 and n > 0:
                     fcas_revenue[bid_type].append(revenue)
                     revenue = 0
-                revenue += (gen_value + load_value) * price * 5 / 60
+                revenue += (gen_value + load_value) * price * (1440 / total_intervals) / 60
     total_revenue = 0
     for n in range(len(energy_revenue)):
         total_fcas_revenue = 0
@@ -899,14 +912,18 @@ if __name__ == '__main__':
     # usage = 'Cost-reflective + multiple FCAS'
     # usage = 'Price-taker500 + multiple FCAS'
 
-    usage = 'DER None Integration FCAS'
-    # start = datetime.datetime(2021, 7, 18, 4, 30)
-    start = datetime.datetime(2020, 9, 1, 4, 30)
-    energies = [0, 30, 3000]
+    usage = 'DER None reflective Hour'
+    # usage = 'DER None Utility Hour'
+    start = datetime.datetime(2021, 9, 12, 4, 30)
+    # start = datetime.datetime(2020, 9, 1, 4, 30)
+    energies = [0, 30, 300, 3000]
     batteries = generate_batteries(energies, usage)
-    length = 30
+    length = 60
     with Pool(len(batteries)) as pool:
         pool.starmap(rolling_horizon, zip(repeat(start), batteries, repeat(usage), repeat(length)))
+
+    # for battery in batteries:
+    #     calculate_revenue(start, battery, usage, print_flag=2, total_intervals=24)
 
     # DER Cost-reflective
     # usage = 'DER Price-taker Combo'

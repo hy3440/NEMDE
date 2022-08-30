@@ -440,7 +440,10 @@ def add_xml_constr(t, start, predispatch_t, process, units, regions, interconnec
         constrain.add_predispatch_constraint(predispatch_t, start, constraints, debug_flag)
     elif process == 'p5min':
         constrain.add_p5min_constraint(t, start, constraints, debug_flag)
+    # elif process == 'dispatch':
+    #     constrain.add_dispatch_constraint(t, constraints, debug_flag)
     else:
+        # constrain.add_dvd_dispatch_constraint(t, constraints, debug_flag)
         constrain.add_dispatch_constraint(t, constraints, debug_flag)
 
 

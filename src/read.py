@@ -483,10 +483,12 @@ def read_battery_optimisation(path_to_csv):
         df = df[(df.Datetime != 'Datetime')]
         socs = df['SOC (%)'].astype(float)
         times = pd.to_datetime(df['Datetime'])
-        prices = df['Price ($/MWh)'].astype(float)
-        return list(times), list(socs), list(prices)
+        prices1 = df['Price ($/MWh)'].astype(float)
+        prices2 = df['Sub Price ($/MWh)'].astype(float)
+        prices3 = df['Fix Price ($/MWh)'].astype(float)
+        return list(times), list(socs), list(prices1), list(prices2), list(prices3)
     except pd.errors.EmptyDataError:
-        return [], [], []
+        return [], [], [], [], []
 
 
 def read_battery_power(path_to_csv, usage):
@@ -508,40 +510,18 @@ def read_battery_power(path_to_csv, usage):
         generator_fcas = {'RAISE5MIN': [], 'LOWER5MIN': []}
         load_fcas = {'RAISE5MIN': [], 'LOWER5MIN': []}
         fcas_prices = {'RAISE5MIN': [], 'LOWER5MIN': []}
-    with path_to_csv.open() as f:
-        reader = csv.reader(f)
-        for row in reader:
-            if row[0] != 'Datetime':
-                times.append(default.extract_default_datetime(row[0]))
-                generations.append(float(row[-5]))
-                loads.append(float(row[-4]))
-                prices.append(float(row[-1]))
-                # if 'price-taker' in usage and 'FCAS' in usage:
-                #     r5_values.append(float(row[-9]))
-                #     r5_prices.append(float(row[-8]))
-                #     l5_values.append(float(row[-7]))
-                #     l5_prices.append(float(row[-6]))
-                # elif 'reflective' in usage and 'FCAS' in usage:
-                if 'FCAS' in usage:
-                    generator_fcas['RAISE5MIN'].append(float(row[1]))
-                    load_fcas['RAISE5MIN'].append(float(row[2]))
-                    fcas_prices['RAISE5MIN'].append(float(row[3]))
-                    generator_fcas['LOWER5MIN'].append(float(row[4]))
-                    load_fcas['LOWER5MIN'].append(float(row[5]))
-                    fcas_prices['LOWER5MIN'].append(float(row[6]))
-                    if 'multi' in usage:
-                        generator_fcas['RAISE6SEC'].append(float(row[7]))
-                        load_fcas['RAISE6SEC'].append(float(row[8]))
-                        fcas_prices['RAISE6SEC'].append(float(row[9]))
-                        generator_fcas['LOWER6SEC'].append(float(row[10]))
-                        load_fcas['LOWER6SEC'].append(float(row[11]))
-                        fcas_prices['LOWER6SEC'].append(float(row[12]))
-                        generator_fcas['RAISE60SEC'].append(float(row[13]))
-                        load_fcas['RAISE60SEC'].append(float(row[14]))
-                        fcas_prices['RAISE60SEC'].append(float(row[15]))
-                        generator_fcas['LOWER60SEC'].append(float(row[16]))
-                        load_fcas['LOWER60SEC'].append(float(row[17]))
-                        fcas_prices['LOWER60SEC'].append(float(row[18]))
+    df = pd.read_csv(path_to_csv)
+    df = df[(df.Datetime != 'Datetime')]
+    times = pd.to_datetime(df['Datetime'])
+    generations = df['Generator (MW)'].astype(float)
+    loads = df['Load (MW)'].astype(float)
+    prices = df['Fix Price ($/MWh)'].astype(float)
+    # prices = df['Price ($/MWh)'].astype(float)
+    if 'FCAS' in usage:
+        for fcas_type in generator_fcas:
+            generator_fcas[fcas_type] = df[f'Generator {fcas_type}'].astype(float)
+            load_fcas[fcas_type] = df[f'Load {fcas_type}'].astype(float)
+            fcas_prices[fcas_type] = df[f'Price {fcas_type}'].astype(float)
     return times, generations, loads, prices, generator_fcas, load_fcas, fcas_prices
 
 
@@ -564,16 +544,3 @@ def read_bidding_strategy(start, current, bat_dir, usage):
                 return bands, availability, max_avail, soc, price
             elif usage == 'reflective':
                 bands = [float(band) for band in row[1:11]]
-
-
-def read_der_nemde_battery(battery, start):
-    times, prices = [], []
-    path_to_csv = battery.bat_dir / f'DER_{battery.size}MWh_{default.get_case_datetime(start)}.csv'
-    with path_to_csv.open() as f:
-        reader = csv.reader(f)
-        for row in reader:
-            times.append(default.extract_default_datetime(row[0]))
-            prices.append(float(row[-1]))
-    return times, prices
-
-

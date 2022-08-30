@@ -54,10 +54,10 @@ def plot_soc(times, prices, socs, path_to_fig, price_flag=True, soc_flag=True, l
         if len(prices) == 2:
             # label1 = 'Historical Record'
             if labels is not None:
-                label1, label2 = labels[1], labels[0]
+                label1, label0 = labels[1], labels[0]
             lns3 = ax2.plot(times, prices[1], label=label1, color=default.PURPLE, alpha=0.4, linewidth=2)
             # label2 = 'Cost-reflective' if 'reflective' in str(path_to_fig) else 'Price-taker'
-            lns2 = ax2.plot(times, prices[0], '-', label=label2, color=default.BLUE, linewidth=0.3)
+            lns2 = ax2.plot(times, prices[0], '-', label=label0, color=default.BLUE, linewidth=0.3)
             # lns2 = ax2.plot([t for t, p in zip(times, prices[0]) if p < 1000], [p for p in prices[0] if p < 1000], '-', label=usage_type, color=default.BLUE, linewidth=0.5)
             lns += lns2 + lns3
         else:
@@ -65,8 +65,10 @@ def plot_soc(times, prices, socs, path_to_fig, price_flag=True, soc_flag=True, l
             lns += lns2
     labs = [l.get_label() for l in lns]
     ax1.legend(lns, labs, loc=0)
-    plt.show()
-    # plt.savefig(path_to_fig)
+    if path_to_fig is None:
+        plt.show()
+    else:
+        plt.savefig(path_to_fig)
     plt.close(fig)
 
 
@@ -350,31 +352,33 @@ def plot_der_prices(e, t, region_id, bat_dir):
 if __name__ == '__main__':
     from helpers import Battery
     from read import read_battery_optimisation, read_der, read_dispatch_prices, read_predispatch_prices
-    e = 0
+    e = 3000
     # u1 = 'DER Price-taker Dual'
     # u1 = 'DER Price-taker Combo'
-    u1 = 'DER None Integration 1st new'
+    u1 = 'DER None reflective Hour'
     battery = Battery(e, int(e / 3 * 2), usage=u1)
-    start = datetime.datetime(2020, 9, 1, 4, 30)
-    # times, socs, prices = read_battery_optimisation(battery.bat_dir / f'{default.get_case_datetime(start)}.csv')  # Rolling horizon
-    times, socs, prices, socs_record = read_der(e, start, battery.bat_dir)  # First horizon
-    # u2 = 'DER None Integration'
-    # battery = Battery(0, int(0 / 3 * 2), usage=u2)
+    start = datetime.datetime(2021, 7, 18, 4, 30)
+    times, socs, _, _, prices = read_battery_optimisation(battery.bat_dir / f'{default.get_case_datetime(start)}.csv')  # Rolling horizon
+    # times, socs, prices, socs_record = read_der(e, start, battery.bat_dir)  # First horizon
+    u2 = 'DER None Integration Hour'
+    battery = Battery(0, int(0 / 3 * 2), usage=u2)
     # _, _, prices2, _ = read_der(0, start, battery.bat_dir)  # First horizon
-    # _, _, prices2 = read_battery_optimisation(battery.bat_dir / f'{default.get_case_datetime(start)}.csv')
+    _, _, _, _, prices2 = read_battery_optimisation(battery.bat_dir / f'{default.get_case_datetime(start)}.csv')
     from price import process_prices_by_period
     # _, original_prices, predispatch_time, _, _, _, _, _, extended_times = process_prices_by_period(start, True, battery, 0, False)
     path_to_fig = None
     # prices, prices2 = [], []
     # prices2 = []
     # for t in times:
-    #     rrp, _, _, _ = read_dispatch_prices(t, 'dispatch', True, battery.region_id, path_to_out=(default.OUT_DIR / 'non-time-stepped 30min FCAS'))
-    #     prices.append(rrp)
+    #     rrp, _, _, _ = read_dispatch_prices(t, 'dispatch', True, battery.region_id, path_to_out=(default.OUT_DIR / 'non-time-stepped 30min Perfect'))
+    #     prices2.append(rrp)
     #     record, _, _, _ = read_dispatch_prices(t, 'dispatch', True, battery.region_id, path_to_out=(default.OUT_DIR / 'non-time-stepped 5min link'))
     #     prices2.append(record)
     #     print(t, rrp, record)
-    _, prices2, _, _, _ = read_predispatch_prices(start, 'predispatch', True, battery.region_id, path_to_out=(default.DEBUG_DIR))
+    # _, prices2, _, _, _ = read_predispatch_prices(start, 'predispatch', True, battery.region_id, path_to_out=(default.DEBUG_DIR))
 
     # times = [start + i * default.FIVE_MIN for i in range(288)]
     # plot_soc(times, [prices, prices2[:len(prices)]], socs, path_to_fig, price_flag=True, soc_flag=True)
-    plot_soc(times, [prices, prices2], socs, path_to_fig, price_flag=True, soc_flag=False, labels=['Time-stepped + batt', 'Time-stepped no batt'])
+    for t, p1, p2 in zip(times, prices, prices2):
+        print(t, f'{p1:.2f}', f'{p2:.2f}')
+    plot_soc(times, [prices, prices2], socs, path_to_fig, price_flag=True, soc_flag=True, labels=['Time-stepped + batt', 'Time-stepped no batt'])

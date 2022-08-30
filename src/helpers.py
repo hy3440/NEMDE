@@ -123,6 +123,7 @@ class Battery:
             self.plot_name = f'{self.bat_id} {emax_temp}MWh {cap_temp}MW {self.load.region_id} Method {method}'
         self.bat_dir = default.OUT_DIR / usage / self.name
         self.bat_dir.mkdir(parents=True, exist_ok=True)
+        self.degradation_cost = 0
         # self.gen_fcas_types = self.data['gen_fcas_types']
         # self.load_fcas_types = self.data['load_fcas_types']
         # self.gen_fcas_record = {

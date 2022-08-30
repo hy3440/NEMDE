@@ -29,7 +29,7 @@ degradations = [1 / 34957, 1 / 19985, 1 / 10019, 1 / 3221, 1 / 2600]
 
 def schedule(current, battery, p5min_times=None, p5min_prices=None, aemo_p5min_prices=None, predispatch_times=None,
              predispatch_prices=None, aemo_predispatch_prices=None, custom_flag=True, horizon=None, k=0, E_initial=None,
-             method=None, band=None, fcas_flag=False, fcas_type=None, multi_flag=False, der_flag=False):
+             method=None, band=None, fcas_flag=False, fcas_type=None, multi_flag=False, der_flag=False, prices=None):
     """ Battery operation optimisation.
 
     Args:
@@ -68,10 +68,14 @@ def schedule(current, battery, p5min_times=None, p5min_prices=None, aemo_p5min_p
     # Battery degradation model coefficients
     M = 16  # Number of segments
     R = 300000  # Replacement cost ($/MWh)
-    if p5min_times is None:
-        times, prices, predispatch_time, aemo_prices, fcas_prices, aemo_fcas_prices, raise_fcas_records, lower_fcas_records, extended_times = process_prices_by_interval(current, custom_flag, battery, k, fcas_flag)
+    if prices is None:
+        intervals = None
+        if p5min_times is None:
+            times, prices, predispatch_time, aemo_prices, fcas_prices, aemo_fcas_prices, raise_fcas_records, lower_fcas_records, extended_times = process_prices_by_interval(current, custom_flag, battery, k, fcas_flag)
+        else:
+            times, prices, p5min_prices, predispatch_prices, predispatch_time, aemo_prices = process_given_prices_by_interval(current, custom_flag, battery, k, p5min_times, p5min_prices, aemo_p5min_prices, predispatch_times, predispatch_prices, aemo_predispatch_prices)
     else:
-        times, prices, p5min_prices, predispatch_prices, predispatch_time, aemo_prices = process_given_prices_by_interval(current, custom_flag, battery, k, p5min_times, p5min_prices, aemo_p5min_prices, predispatch_times, predispatch_prices, aemo_predispatch_prices)
+        intervals = 60 / 60
     # Cost-reflective bidding strategy: Replace the price of the first interval by corresponding band price
     if band is not None:
         if fcas_type is None:
@@ -106,19 +110,22 @@ def schedule(current, battery, p5min_times=None, p5min_prices=None, aemo_p5min_p
         model.addLConstr(E[T - 1], gp.GRB.EQUAL, E_initial, 'FINAL_STATE')  # Final state
         for j in range(T):
             model.addSOS(type=gp.GRB.SOS_TYPE1, vars=[pgen[j], pload[j]])  # Charge or discharge
-            # Different length of forecast horizon
-            if j == T1:
-                tstep = (6 - remainder) * 5 / 60  # First interval of PREDISPATCH
-            # 30min-based
-            # elif remainder != 0 and j == T - 1:
-            #     tstep = remainder * 5 / 60
-            # elif T1 < j:
-            elif j == T - 1:
-                tstep = remainder * 5 / 60
-            elif T1 < j < T:
-                tstep = 30 / 60
+            if intervals is None:
+                # Different length of forecast horizon
+                if j == T1:
+                    tstep = (6 - remainder) * 5 / 60  # First interval of PREDISPATCH
+                # 30min-based
+                # elif remainder != 0 and j == T - 1:
+                #     tstep = remainder * 5 / 60
+                # elif T1 < j:
+                elif j == T - 1:
+                    tstep = remainder * 5 / 60
+                elif T1 < j < T:
+                    tstep = 30 / 60
+                else:
+                    tstep = 5 / 6
             else:
-                tstep = 5 / 60
+                tstep = intervals
             # Transition between horizons
             if j >= 1:
                 model.addLConstr(E[j], gp.GRB.EQUAL,

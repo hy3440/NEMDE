@@ -21,25 +21,25 @@ def write_dispatchis(start, t, regions, prices, k=0, path_to_out=default.OUT_DIR
                              '', default.get_interval_datetime(t),  # 4
                              '', region_id,  # 6
                              '', 0, prices[region_id] if region_id in prices else None,  # 9
-                             region.rrp_record  # 10
-                             # '',  # region.rop_record,  # 11
-                             # '', '', '',
-                             # '' if region.fcas_rrp == {} else region.fcas_rrp['RAISE6SEC'],  # 15
-                             # region.fcas_rrp_record['RAISE6SEC'],  # 16
-                             # '', '' if region.fcas_rrp == {} else region.fcas_rrp['RAISE60SEC'],  # 18
-                             # region.fcas_rrp_record['RAISE60SEC'],  # 19
-                             # '', '' if region.fcas_rrp == {} else region.fcas_rrp['RAISE5MIN'],  # 21
-                             # region.fcas_rrp_record['RAISE5MIN'],  # 22
-                             # '', '' if region.fcas_rrp == {} else region.fcas_rrp['RAISEREG'],  # 24
-                             # region.fcas_rrp_record['RAISEREG'],  # 25
-                             # '', '' if region.fcas_rrp == {} else region.fcas_rrp['LOWER6SEC'],  # 27
-                             # region.fcas_rrp_record['LOWER6SEC'],  # 28
-                             # '', '' if region.fcas_rrp == {} else region.fcas_rrp['LOWER60SEC'],  # 30
-                             # region.fcas_rrp_record['LOWER60SEC'],  # 31
-                             # '', '' if region.fcas_rrp == {} else region.fcas_rrp['LOWER5MIN'],  # 33
-                             # region.fcas_rrp_record['LOWER5MIN'],  # 34
-                             # '', '' if region.fcas_rrp == {} else region.fcas_rrp['LOWERREG'],  # 36
-                             # region.fcas_rrp_record['LOWERREG'],  # 37
+                             region.rrp_record,  # 10
+                             '',  # region.rop_record,  # 11
+                             '', '', '',
+                             '' if region.fcas_rrp == {} else region.fcas_rrp['RAISE6SEC'],  # 15
+                             '' if region.fcas_rrp_record == {} else region.fcas_rrp_record['RAISE6SEC'],  # 16
+                             '', '' if region.fcas_rrp == {} else region.fcas_rrp['RAISE60SEC'],  # 18
+                             '' if region.fcas_rrp_record == {} else region.fcas_rrp_record['RAISE60SEC'],  # 19
+                             '', '' if region.fcas_rrp == {} else region.fcas_rrp['RAISE5MIN'],  # 21
+                             '' if region.fcas_rrp_record == {} else region.fcas_rrp_record['RAISE5MIN'],  # 22
+                             '', '' if region.fcas_rrp == {} else region.fcas_rrp['RAISEREG'],  # 24
+                             '' if region.fcas_rrp_record == {} else region.fcas_rrp_record['RAISEREG'],  # 25
+                             '', '' if region.fcas_rrp == {} else region.fcas_rrp['LOWER6SEC'],  # 27
+                             '' if region.fcas_rrp_record == {} else region.fcas_rrp_record['LOWER6SEC'],  # 28
+                             '', '' if region.fcas_rrp == {} else region.fcas_rrp['LOWER60SEC'],  # 30
+                             '' if region.fcas_rrp_record == {} else region.fcas_rrp_record['LOWER60SEC'],  # 31
+                             '', '' if region.fcas_rrp == {} else region.fcas_rrp['LOWER5MIN'],  # 33
+                             '' if region.fcas_rrp_record == {} else region.fcas_rrp_record['LOWER5MIN'],  # 34
+                             '', '' if region.fcas_rrp == {} else region.fcas_rrp['LOWERREG'],  # 36
+                             '' if region.fcas_rrp_record == {} else region.fcas_rrp_record['LOWERREG']  # 37
                              ])
 
 
@@ -174,8 +174,8 @@ def write_dispatchload(units, links, t, start, process, k=0, path_to_out=default
                     row.append('-')
             writer.writerow(row)
         if type(links) == list:
-            writer.writerow(['BLNKVIC', links [0].x])
-            writer.writerow(['BLNKTAS', links [1].x])
+            writer.writerow(['BLNKVIC', links[0].x])
+            writer.writerow(['BLNKTAS', links[1].x])
         else:
             for link_id, link in links.items():
                 writer.writerow(['D', link_id, '0' if type(link.mw_flow) == float else link.mw_flow.x])

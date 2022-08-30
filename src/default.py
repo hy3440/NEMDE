@@ -36,7 +36,9 @@ GREY = '#BBBBBB'
 BROWN ='#BB733E'
 
 MAX_RAMP_RATE = 1000000
-FCAS_TYPES = {'RAISE5MIN', 'LOWER5MIN', 'RAISE6SEC', 'LOWER6SEC', 'RAISE60SEC', 'LOWER60SEC'}
+CONTINGENCY_FCAS_TYPES = {'RAISE5MIN', 'LOWER5MIN', 'RAISE6SEC', 'LOWER6SEC', 'RAISE60SEC', 'LOWER60SEC'}
+FCAS_TYPES = {'RAISEREG', 'LOWERREG', 'RAISE5MIN', 'LOWER5MIN', 'RAISE6SEC', 'LOWER6SEC', 'RAISE60SEC', 'LOWER60SEC'}
+
 
 def early_morning(t):
     """ Check if t is early morning (before 4am).
@@ -156,7 +158,7 @@ def get_result_datetime(t):
     return t.strftime('%Y-%m-%d %H-%M-%S')  # YY-mm-dd HH:MM:SS
 
 
-def datetime_to_interval(t, process_type='dispatch'):
+def datetime_to_interval(t, process_type='dispatch', intervals=None):
     """ Calculate interval number by datetime.
 
     Args:
@@ -170,7 +172,7 @@ def datetime_to_interval(t, process_type='dispatch'):
     """
     last = t - ONE_DAY if early_morning(t) else t
     start = datetime.datetime(last.year, last.month, last.day, 4, 0)
-    no = int((t - start) / (THIRTY_MIN if process_type == 'predispatch' else FIVE_MIN))
+    no = int((t - start) / (THIRTY_MIN if process_type == 'predispatch' or intervals == 30 else FIVE_MIN))
     return start + (THIRTY_MIN if process_type == 'predispatch' else FIVE_MIN), no
 
 

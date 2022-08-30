@@ -201,7 +201,7 @@ def dispatch(current, start, predispatch_current, interval, process, model, iter
                 region.local_fcas_constr = {}  # required
                 region.fcas_rrp = {}  # required
                 region.losses = 0.0  # required
-            interconnect.add_dispatch_record(current, start, interval, process, prob, fcas_flag, debug_flag)
+            interconnect.add_dispatch_record(current, start, interval, process, prob, fcas_flag, debug_flag, intervals)
         # Add cutom unit
         if custom_unit is not None:
             if type(custom_unit) == list:
@@ -690,13 +690,13 @@ def formulate(start, interval, process, iteration=0, custom_unit=None, path_to_o
                     prices[region_name] = prob.cost.getValue() - base
                     prob.regions[region_name].rrp = prices[region_name]
             result.add_prices(process, start, current, prices)
-        if process == 'dispatch':
-            result.write_dispatchis(start, current, prob.regions, prices, k=iteration, path_to_out=path_to_out)
+        if process == 'p5min':
+            result.write_p5min(start, current, interval, prob.regions, prices, k=iteration, path_to_out=path_to_out)
         elif process == 'predispatch':
             result.write_predispatchis(start, predispatch_current, interval, prob.regions, prices, k=iteration,
                                        path_to_out=path_to_out)
         else:
-            result.write_p5min(start, current, interval, prob.regions, prices, k=iteration, path_to_out=path_to_out)
+            result.write_dispatchis(start, current, prob.regions, prices, k=iteration, path_to_out=path_to_out)
         return dispatchload_path, prob.regions['NSW1'].rrp, prob.regions['NSW1'].fcas_rrp
 
 
