@@ -3,7 +3,7 @@
 import gurobipy as gp
 import default, write
 from helpers import marginal_costs
-from price import process_prices_by_interval, process_given_prices_by_interval
+from price import process_prices_by_interval, process_given_prices_by_interval, process_prices_by_hour
 
 
 # relationship between number of cycles and DoD (see paper Omar2014Lithium)
@@ -72,10 +72,14 @@ def schedule(current, battery, p5min_times=None, p5min_prices=None, aemo_p5min_p
         intervals = None
         if p5min_times is None:
             times, prices, predispatch_time, aemo_prices, fcas_prices, aemo_fcas_prices, raise_fcas_records, lower_fcas_records, extended_times = process_prices_by_interval(current, custom_flag, battery, k, fcas_flag)
+            # times, prices, predispatch_time, aemo_prices, fcas_prices, aemo_fcas_prices, raise_fcas_records, lower_fcas_records, extended_times = process_prices_by_hour(current, custom_flag, battery, k, fcas_flag)
+            # intervals = 60 / 60
+            # tstep = 60 / 60
         else:
             times, prices, p5min_prices, predispatch_prices, predispatch_time, aemo_prices = process_given_prices_by_interval(current, custom_flag, battery, k, p5min_times, p5min_prices, aemo_p5min_prices, predispatch_times, predispatch_prices, aemo_predispatch_prices)
     else:
         intervals = 60 / 60
+        tstep = 60 / 60
     # Cost-reflective bidding strategy: Replace the price of the first interval by corresponding band price
     if band is not None:
         if fcas_type is None:
@@ -107,6 +111,7 @@ def schedule(current, battery, p5min_times=None, p5min_prices=None, aemo_p5min_p
         model.addLConstr(E[0], gp.GRB.EQUAL,
                          E_initial + tstep * (pload[0] * battery.eff - pgen[0] / battery.eff),
                          'TRANSITION_0')  # First transition
+        # model.addLConstr(E[T - 1] >= battery.size * 0.5, 'FINAL_STATE')  # Final state
         model.addLConstr(E[T - 1], gp.GRB.EQUAL, E_initial, 'FINAL_STATE')  # Final state
         for j in range(T):
             model.addSOS(type=gp.GRB.SOS_TYPE1, vars=[pgen[j], pload[j]])  # Charge or discharge

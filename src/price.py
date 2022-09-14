@@ -67,7 +67,7 @@ def extend_forcast_horizon(current, times, prices, aemo_prices, fcas_prices, aem
         #     times.append(extend_time)
         # 5min-based
         while extend_time <= end_time:
-            extend_time += default.THIRTY_MIN
+            extend_time += default.ONE_HOUR if intervals == 60 else default.THIRTY_MIN
             # extend_time += default.FIVE_MIN
             price, aemo_price, fcas_price, aemo_fcas_price = read.read_dispatch_prices(min(extend_time, end_time) - default.ONE_DAY, 'dispatch', custom_flag, battery.region_id, k, path_to_out, fcas_flag=fcas_flag)
             extended_times.append(min(extend_time, end_time) - default.ONE_DAY)
@@ -83,7 +83,7 @@ def extend_forcast_horizon(current, times, prices, aemo_prices, fcas_prices, aem
             # times.append(extend_time)  # Make the last datetime is PREDISPATCH i.e. end with 00 or 30.
             times.append(min(extend_time, end_time))  # The exact end datetime
     if extend_time > end_time:
-        while extend_time >= end_time + default.THIRTY_MIN:
+        while extend_time >= end_time + (default.ONE_HOUR if intervals == 60 else default.THIRTY_MIN):
             extended_times.pop()
             times.pop()
             prices.pop()
@@ -125,6 +125,29 @@ def process_prices_by_period(current, custom_flag, battery, k, fcas_flag):
     predispatch_raise_fcas, predispatch_lower_fcas = read.read_predispatch_fcas(predispatch_time, battery.region_id)
     # return p5min_times + predispatch_times[2:], predispatch_time, p5min_prices + predispatch_prices[2:], aemo_p5min_prices + aemo_predispatch_prices[2:], fcas_prices, aemo_fcas_prices, p5min_raise_fcas + predispatch_raise_fcas[2:], p5min_lower_fcas + predispatch_lower_fcas[2:]
     times, prices, aemo_prices, fcas_prices, aemo_fcas_prices, raise_fcas_records, lower_fcas_records, extended_times = extend_forcast_horizon(current, predispatch_times, predispatch_prices, aemo_predispatch_prices, predispatch_fcas_prices, aemo_predispatch_fcas_prices, custom_flag, battery, k, predispatch_raise_fcas, predispatch_lower_fcas, fcas_flag, 30)
+    return times, prices, predispatch_time, aemo_prices, fcas_prices, aemo_fcas_prices, raise_fcas_records, lower_fcas_records, extended_times
+
+
+def convert_to_hourly(process_list):
+    return [item for i, item in enumerate(process_list) if i % 2 == 0]
+
+
+def process_prices_by_hour(current, custom_flag, battery, k, fcas_flag):
+    path_to_out = default.RECORD_DIR if k == 0 else battery.bat_dir
+    predispatch_time = default.get_predispatch_time(current)
+    predispatch_times, predispatch_prices, aemo_predispatch_prices, predispatch_fcas_prices, aemo_predispatch_fcas_prices = read.read_prices(predispatch_time, 'predispatch', custom_flag, battery.region_id, k, path_to_out, fcas_flag=True)
+    fcas_prices, aemo_fcas_prices = {}, {}
+    predispatch_raise_fcas, predispatch_lower_fcas = read.read_predispatch_fcas(predispatch_time, battery.region_id)
+
+    predispatch_times = convert_to_hourly(predispatch_times)
+    predispatch_prices = convert_to_hourly(predispatch_prices)
+    aemo_predispatch_prices = convert_to_hourly(aemo_predispatch_prices)
+    for key, value in predispatch_fcas_prices.items():
+        predispatch_fcas_prices[key] = convert_to_hourly(value)
+    for key, value in aemo_predispatch_fcas_prices.items():
+        aemo_predispatch_fcas_prices[key] = convert_to_hourly(value)
+
+    times, prices, aemo_prices, fcas_prices, aemo_fcas_prices, raise_fcas_records, lower_fcas_records, extended_times = extend_forcast_horizon(current, predispatch_times, predispatch_prices, aemo_predispatch_prices, predispatch_fcas_prices, aemo_predispatch_fcas_prices, custom_flag, battery, k, predispatch_raise_fcas, predispatch_lower_fcas, fcas_flag, 60)
     return times, prices, predispatch_time, aemo_prices, fcas_prices, aemo_fcas_prices, raise_fcas_records, lower_fcas_records, extended_times
 
 
@@ -175,12 +198,16 @@ def process_prices_by_average_period(current, horizon, custom_flag, battery, k):
 if __name__ == '__main__':
     import datetime
     from helpers import Battery
-    current = datetime.datetime(2021, 9, 12, 6, 10)
+    current = datetime.datetime(2021, 7, 18, 11, 30)
     custom_flag = False
-    battery = Battery(30, 20, usage='Basic price-taker')
+    battery = Battery(0, 0, usage='DER None Integration Hour')
 
-    times, prices, predispatch_time, aemo_prices, fcas_prices, aemo_fcas_prices, raise_fcas_records, lower_fcas_records, extended_times = process_prices_by_interval(
-        current, custom_flag, battery, k=0, fcas_flag=False)
-    for t1, t2 in zip(times, extended_times):
-        print(t1, t2)
+    # times, prices, predispatch_time, aemo_prices, fcas_prices, aemo_fcas_prices, raise_fcas_records, lower_fcas_records, extended_times = process_prices_by_interval(
+    #     current, custom_flag, battery, k=0, fcas_flag=False)
+    # for t1, t2 in zip(times, extended_times):
+    #     print(t1, t2)
 
+    times, prices, predispatch_time, aemo_prices, fcas_prices, aemo_fcas_prices, raise_fcas_records, lower_fcas_records, extended_times = process_prices_by_hour(current, custom_flag, battery, 0, False)
+    for t in times:
+        print(t)
+    print(len(times))

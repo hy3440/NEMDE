@@ -459,6 +459,19 @@ def read_der(e, start, bat_dir):
     return times, socs, prices, socs_record
 
 
+def read_bilevel_der(e, start, bat_dir):
+    path_to_csv = bat_dir / f'DER_{e}MWh_{default.get_case_datetime(start)}.csv'
+    try:
+        df = pd.read_csv(path_to_csv)
+        df = df[(df.Datetime != 'Datetime')]
+        times = pd.to_datetime(df['Datetime'])
+        socs = df['SOC (%)'].astype(float)
+        prices = df['Regional Price'].astype(float)
+        return times, socs, prices, []
+    except pd.errors.EmptyDataError:
+        return [], [], [], []
+
+
 def read_battery_optimisation(path_to_csv):
     """Read battery optimisation result.
 
