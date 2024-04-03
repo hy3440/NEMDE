@@ -1,3 +1,4 @@
+# Time-stepped market
 from price import process_prices_by_period
 import default
 import gurobipy as gp
@@ -12,10 +13,10 @@ import helpers
 import result
 
 
-def update_formulation(prob, problems, model, total_costs, total_penalty, cvp):
+def update_formulation(prob, problems, model, total_costs, total_penalty, cvp, renewable_flag):
     for region_id, region in prob.regions.items():
         prob.penalty = add_regional_energy_demand_supply_balance_constr(model, region, region_id, prob.problem_id,
-                                                                        False, prob.penalty, cvp)
+                                                                        False, prob.penalty, cvp, renewable_flag)
     problems.append(prob)
     last_prob_id = prob.problem_id
     total_costs += prob.cost
@@ -26,7 +27,8 @@ def update_formulation(prob, problems, model, total_costs, total_penalty, cvp):
 
 def battery_bid(battery, avails, fcas_flag=False, bands=None):
     if avails is None:
-        battery.add_energy_bid([0], [battery.generator.max_capacity], [0], [battery.load.max_capacity])
+        battery.add_energy_bid([0.5], [battery.generator.max_capacity], [0.5], [battery.load.max_capacity])
+        # battery.add_energy_bid([53], [battery.generator.max_capacity], [53], [battery.load.max_capacity])
         if fcas_flag:
             for load_flag in [True, False]:
                 for bid_type in default.CONTINGENCY_FCAS_TYPES:
@@ -124,40 +126,69 @@ def formulate_sequence(start, e, usage, results=None, times=None, extended_times
                                             last_prob_id=last_prob_id, dual_flag=True, bilevel_flag=False,
                                             losses_flag=False, constr_flag=False, link_flag=False,
                                             batteries={battery.bat_id: battery}, dispatchload_path=dispatchload_path,
-                                            intervals=intervals, utility_flag=('Utility' in usage))
+                                            intervals=intervals, utility_flag=('Utility' in usage),
+                                            renewable_flag=('Renewable' in usage))
             else:
-                prob, model, cvp = dispatch(current, pre_start, pre_t, j, process, model, path_to_out=battery.bat_dir,
+                prob, model, cvp = dispatch(current, pre_start, pre_t, j, process, model, path_to_out=battery.bat_dir, losses_flag=False,
                                             dispatchload_flag=(j == 0 and not first_horizon_flag), dispatchload_record=True,
                                             fcas_flag=fcas_flag, der_flag=True, last_prob_id=last_prob_id, dual_flag=dual_flag, bilevel_flag=False,
-                                            batteries={battery.bat_id: battery}, constr_flag=constr_flag, dispatchload_path=dispatchload_path,
-                                            intervals=intervals, link_flag=link_flag, utility_flag=('Utility' in usage))
+                                            batteries={battery.bat_id: battery}, constr_flag=False, dispatchload_path=dispatchload_path,
+                                            intervals=intervals, link_flag=link_flag, utility_flag=('Utility' in usage),
+                                            renewable_flag=('Renewable' in usage))
             first_horizon_flag = False
-            total_costs, total_penalty, last_prob_id = update_formulation(prob, problems, model, total_costs, total_penalty, cvp)
+            total_costs, total_penalty, last_prob_id = update_formulation(prob, problems, model, total_costs, total_penalty, cvp, ('Renewable' in usage))
             # print(f'Finished {process} {current}: {datetime.datetime.now()}')
         for bat_id, battery in problems[-1].batteries.items():
             model.addLConstr(battery.E >= battery.size * 0.5, f'FINAL_STATE_{bat_id}_{prob.problem_id}')
         model.setObjective(total_costs + total_penalty, gp.GRB.MINIMIZE)
         # print(f'Finished formulation: {datetime.datetime.now()}')
-
         model.optimize()
         if 'Test' in usage:
             path_to_model = battery.bat_dir / f'DER_{e}MWh_{default.get_case_datetime(start)}.lp'
             model.write(str(path_to_model))
         # print(f'Finished {start} optimisation: {datetime.datetime.now()}')
+        # if model.status == gp.GRB.Status.INFEASIBLE:
+        #     print('Infeasible')
+        # elif model.status == gp.GRB.Status.INF_OR_UNBD:
+        #     print('Unbounded')
         base = model.getObjective().getValue()
         fixed = model.fixed()
         fixed.optimize()
         prices, subprices, fixedprices = [], [], []
         region_id = 'NSW1'
         fcas_prices = {fcas_type: [] for fcas_type in default.FCAS_TYPES} if fcas_flag else None
-        for prob in problems:
+        for prob_num, prob in enumerate(problems):
             prob.base = prob.cost.getValue() + prob.penalty.getValue()
+            prob.surplus = prob.cost.getValue()
             for b in prob.batteries.values():
                 cost = 0 if type(b.degradation_cost) == int else b.degradation_cost.getValue()
             c = fixed.getConstrByName(f'REGION_BALANCE_{region_id}_{prob.problem_id}')
+            for region in prob.regions.values():
+                region.rrp = fixed.getConstrByName(f'REGION_BALANCE_{region.region_id}_{prob.problem_id}').pi
+                # print(f'{region.region_id} {region.rrp}')
             fixedprices.append(c.pi)
-            # if '1st' not in usage:
-            #     break
+            if prob_num <= 1:
+                for duid, unit in prob.units.items():
+                    up_constr = fixed.getConstrByName(f'ROC_UP_{duid}_{prob.problem_id}')
+                    unit.up_dual = up_constr.pi if up_constr else 0
+                    down_constr = fixed.getConstrByName(f'ROC_DOWN_{duid}_{prob.problem_id}')
+                    unit.down_dual = down_constr.pi if down_constr else 0
+                    if duid == 'G' or duid == 'L':
+                        unit.transition_dual = fixed.getConstrByName(f'TRANSITION_{bat_id}_{prob.problem_id}').pi
+                        # rc = fixed.getVarByName(f'Total_Cleared_{duid}_{prob.problem_id}').rc
+                        # print(f'{duid} {rc}')
+                    if prob_num == 0:
+                        unit.last_to_current = unit.up_dual - unit.down_dual
+                        if duid == 'G' or duid == 'L':
+                            unit.last_to_current = unit.transition_dual
+                    else:
+                        problems[0].units[duid].current_to_next = unit.up_dual - unit.down_dual
+                        problems[0].units[duid].next_up_dual = unit.up_dual
+                        problems[0].units[duid].next_down_dual = unit.down_dual
+                        if duid == 'G' or duid == 'L':
+                            problems[0].units[duid].current_to_next = unit.transition_dual
+                        # if '1st' not in usage:
+                        #     break
         dispatchload_path = result.write_dispatchload(problems[0].units, problems[0].links, times[0], times[0], 'dispatch',
                                                       path_to_out=battery.bat_dir)
         for prob_num, prob in enumerate(problems):
@@ -168,13 +199,18 @@ def formulate_sequence(start, e, usage, results=None, times=None, extended_times
                     fcas_price.append(p)
                     region.fcas_rrp[fcas_type] = p
             if dual_flag:
-                prices.append(region.rrp_constr.pi)
+                # prices.append(region.rrp_constr.pi)
                 if prob_num == 0:
+                    for i in range(prob.penalty.size()):
+                        var = prob.penalty.getVar(i)
+                        coeff = prob.penalty.getCoeff(i)
+                        if var.x != 0:
+                            print(coeff, var)
                     for b in prob.batteries.values():
-                        result.write_dispatchis(None, start, prob.regions, {region_id: prices[0]}, k=0, path_to_out=b.bat_dir)
+                        result.write_dispatchis(None, start, prob.regions, {region.region_id: region.rrp for region in prob.regions.values()}, k=0, path_to_out=b.bat_dir)
                         # print(f'Finished first interval: {datetime.datetime.now()}')
                         if '1st' not in usage:
-                            return prices[0], dispatchload_path, b.E.x, 0
+                            return prob.surplus, dispatchload_path, b.E.x, prob.base, fixedprices[0], region.fcas_rrp, (b.generator.cost - b.load.cost).getValue(), fixedprices
             else:
                 # Increase regional demand by 1
                 model.remove(region.rrp_constr)
@@ -187,14 +223,13 @@ def formulate_sequence(start, e, usage, results=None, times=None, extended_times
                 model.optimize()
                 prices.append(model.getObjective().getValue() - base)
                 subprices.append(prob.cost.getValue() + prob.penalty.getValue() - prob.base)
-
                 if prob_num == 0:
                     for b in prob.batteries.values():
-                        result.write_dispatchis(None, start, prob.regions, {region_id: subprices[0]}, k=0, path_to_out=b.bat_dir)
+                        result.write_dispatchis(None, start, prob.regions, {region.region_id: region.rrp for region in prob.regions.values()}, k=0, path_to_out=b.bat_dir)
                         # print(f'Finished first interval: {datetime.datetime.now()}')
                         # return b.generator.total_cleared.x, b.load.total_cleared.x, prices[0], dispatchload_path, b.E.x
                         if '1st' not in usage:
-                            return prices[0], dispatchload_path, b.E.x, subprices[0], fixedprices[0], region.fcas_rrp, cost, fixedprices
+                            return prob.surplus, dispatchload_path, b.E.x, prob.base, fixedprices[0], region.fcas_rrp, (b.generator.cost - b.load.cost).getValue(), fixedprices
 
                 # Reset constr state
                 model.remove(region.rrp_constr)
@@ -229,7 +264,8 @@ def formulate_bilevel(start, e, usage, results=None, times=None, extended_times=
     Returns:
         (pathlib.Path, flaot, dict): path to DISPATCHLOAD file, RRP, FCAS RRP
     """
-    L = 1e10
+    L = 1e70
+    # L = gurobipy.GRB.INFINITY
     problems = []
     last_prob_id = None
     fcas_flag = 'FCAS' in usage
@@ -273,9 +309,10 @@ def formulate_bilevel(start, e, usage, results=None, times=None, extended_times=
                                         fcas_flag=fcas_flag, der_flag=False, last_prob_id=last_prob_id, dual_flag=True,
                                         losses_flag=False, constr_flag=False, link_flag=False, bilevel_flag=True,
                                         batteries={battery.bat_id: battery}, dispatchload_path=dispatchload_path,
-                                        intervals=intervals, utility_flag=('Utility' in usage))
+                                        intervals=intervals, utility_flag=('Utility' in usage),
+                                        renewable_flag=('Renewable' in usage))
             first_horizon_flag = False
-            total_costs, total_penalty, last_prob_id = update_formulation(prob, problems, model, total_costs, total_penalty, cvp)
+            total_costs, total_penalty, last_prob_id = update_formulation(prob, problems, model, total_costs, total_penalty, cvp, ('Renewable' in usage))
             # if j == 4:
             #     break
             # print(f'Finished {process} {current}: {datetime.datetime.now()}')
@@ -294,13 +331,17 @@ def formulate_bilevel(start, e, usage, results=None, times=None, extended_times=
                 model.remove(constr)
         model.update()
 
-        obj, last_prob_id = 0, None
+        battery_revenue, battery_cost, last_prob_id = gp.LinExpr(0), gp.LinExpr(0), None
         for prob in problems:
             dual_price = model.getVarByName(f'Dual_REGION_BALANCE_{battery.region_id}_{prob.problem_id}')
             for bat_id, battery in prob.batteries.items():
-                obj += dual_price * (battery.generator.total_cleared - battery.load.total_cleared)
-
-                battery.bidding_price = model.addVar(name=f'Bidding_Price_{battery.bat_id}_{prob.problem_id}')
+                prob.battery_revenue = dual_price * (battery.generator.total_cleared / battery.generator.transmission_loss_factor - battery.load.total_cleared / battery.load.transmission_loss_factor)
+                battery_revenue += prob.battery_revenue
+                battery.bidding_price = model.addVar(name=f'Bidding_Price_{bat_id}_{prob.problem_id}')
+                prob.battery_cost = battery.bidding_price * (battery.generator.total_cleared / battery.generator.transmission_loss_factor - battery.load.total_cleared / battery.load.transmission_loss_factor)
+                battery_cost += prob.battery_cost
+                if 'Inelastic' in usage:
+                    model.addLConstr(battery.bidding_price == 0.5, name=f'INELASTIC_{bat_id}_{prob.problem_id}')
                 for unit in [battery.generator, battery.load]:
                     unit.ub = model.addVar(ub=unit.max_capacity, name=f'Ub_{unit.duid}_{prob.problem_id}')
                     model.addLConstr(unit.total_cleared <= unit.ub, name=f'UPPER_BOUND_{unit.duid}_{prob.problem_id}')
@@ -316,9 +357,9 @@ def formulate_bilevel(start, e, usage, results=None, times=None, extended_times=
                     model.addConstr(unit.total_cleared <= binary * L, name=f'COMPLEMENTARY2_Lb_{unit.duid}_{prob.problem_id}')
 
                     if unit.dispatch_type == 'LOAD':
-                        model.addLConstr(- battery.bidding_price + dual_price - dual_lb + dual_ub == 0, name=f'GRADIENT_{unit.duid}_{prob.problem_id}')
+                        model.addLConstr(- battery.bidding_price / battery.load.transmission_loss_factor + dual_price - dual_lb + dual_ub == 0, name=f'GRADIENT_{unit.duid}_{prob.problem_id}')
                     else:
-                        model.addLConstr(battery.bidding_price - dual_price - dual_lb + dual_ub == 0, name=f'GRADIENT_{unit.duid}_{prob.problem_id}')
+                        model.addLConstr(battery.bidding_price / battery.generator.transmission_loss_factor - dual_price - dual_lb + dual_ub == 0, name=f'GRADIENT_{unit.duid}_{prob.problem_id}')
 
                 if last_prob_id is not None:
                     battery.initial_E = model.getVarByName(f'E_{bat_id}_{last_prob_id}')
@@ -336,32 +377,39 @@ def formulate_bilevel(start, e, usage, results=None, times=None, extended_times=
             model.addLConstr(battery.E >= battery.size * 0.5, f'FINAL_STATE_{bat_id}_{prob.problem_id}')
         # model.setObjective(obj, gp.GRB.MAXIMIZE)
         # model.params.NonConvex = 2
-        model.setObjective(dual_obj - (total_costs + total_penalty), gp.GRB.MAXIMIZE)
+        model.setObjective(dual_obj - (total_costs + total_penalty) - (battery_cost if 'Inelastic' in usage else 0), gp.GRB.MAXIMIZE)
         # print(f'Finished bilevel formulation: {datetime.datetime.now()}')
+        model.setParam('DualReductions', 0)
         model.optimize()
+        if model.status == gp.GRB.Status.INFEASIBLE:
+            print('Infeasible')
+        elif model.status == gp.GRB.Status.UNBOUNDED:
+            print('Unbounded')
+        elif model.status == gp.GRB.Status.INF_OR_UNBD:
+            print('Either')
+        # import debug
+        # debug.debug_infeasible_model(model)
         # print(f'Finished {start} bilevel optimisation: {datetime.datetime.now()}')
         if 'Test' in usage:
             path_to_model = battery.bat_dir / f'DER_{e}MWh_{default.get_case_datetime(start)}.lp'
             model.write(str(path_to_model))
-        # print(f'model obj is {model.getObjective().getValue()} and formulated obj is {obj.getValue()}')
-        path_to_csv = battery.bat_dir / f'DER_{battery.size}MWh_{default.get_case_datetime(start)}.csv'
-        with path_to_csv.open('w') as f:
-            writer = csv.writer(f)
-            writer.writerow(['Datetime', 'Regional Price', 'SOC (%)', 'E (MWh)', 'Bidding Price', 'Generator', 'Generator UB', 'Load', 'Load UB'])
-            for prob in problems:
-                for battery in prob.batteries.values():
-                    dual_price = model.getVarByName(f'Dual_REGION_BALANCE_{battery.region_id}_{prob.problem_id}')
-                    writer.writerow([prob.current, dual_price.x, (0 if battery.size == 0 else battery.E.x * 100 / battery.size), battery.E.x, battery.bidding_price.x, battery.generator.total_cleared.x, battery.generator.ub.x, battery.load.total_cleared.x, battery.load.ub.x])
-
-        if '1st' not in usage:
-            prob = problems[0]
-            for b in prob.batteries.values():
-                price = model.getVarByName(f'Dual_REGION_BALANCE_{battery.region_id}_{prob.problem_id}').x
-                result.write_dispatchis(None, start, prob.regions, {battery.region_id: price}, k=0, path_to_out=b.bat_dir)
-                # print(f'Finished first interval: {datetime.datetime.now()}')
-                dispatchload_path = result.write_dispatchload(prob.units, prob.links, start, start,
-                                                              'dispatch', path_to_out=battery.bat_dir)
-                return price, dispatchload_path, b.E.x, price, price, None, obj.getValue(), None
+        # path_to_csv = battery.bat_dir / f'DER_{battery.size}MWh_{default.get_case_datetime(start)}.csv'
+        # with path_to_csv.open('w') as f:
+        #     writer = csv.writer(f)
+        #     writer.writerow(['Datetime', 'Regional Price', 'SOC (%)', 'E (MWh)', 'Bidding Price', 'Generator', 'Generator UB', 'Load', 'Load UB'])
+        #     for prob in problems:
+        #         for battery in prob.batteries.values():
+        #             dual_price = model.getVarByName(f'Dual_REGION_BALANCE_{battery.region_id}_{prob.problem_id}')
+        #             writer.writerow([prob.current, dual_price.x, (0 if battery.size == 0 else battery.E.x * 100 / battery.size), battery.E.x, battery.bidding_price.x, battery.generator.total_cleared.x, battery.generator.ub.x, battery.load.total_cleared.x, battery.load.ub.x])
+        prob = problems[0]
+        for b in prob.batteries.values():
+            price = model.getVarByName(f'Dual_REGION_BALANCE_{battery.region_id}_{prob.problem_id}').x
+            regions_prices = {r_id: model.getVarByName(f'Dual_REGION_BALANCE_{r_id}_{prob.problem_id}').x for r_id in prob.regions}
+            result.write_dispatchis(None, start, prob.regions, regions_prices, k=0, path_to_out=b.bat_dir)
+            # print(f'Finished first interval: {datetime.datetime.now()}')
+            dispatchload_path = result.write_dispatchload(prob.units, prob.links, start, start,
+                                                          'dispatch', path_to_out=battery.bat_dir)
+            return (prob.cost.getValue() + prob.battery_cost.getValue()), dispatchload_path, b.E.x, (prob.cost.getValue() + prob.battery_cost.getValue() + prob.penalty.getValue()), price, None, prob.battery_cost.getValue(), None
 
 
 def rolling_horizon(e, start, usage):
@@ -378,7 +426,7 @@ def rolling_horizon(e, start, usage):
     # multiformulate(times, start, predispatch_time)
     formulate_func = formulate_bilevel if 'Bilevel' in usage else formulate_sequence
     # formulate_func(start, e, usage, results, times, extended_times, E_initial=e * 0.5, first_horizon_flag=True, link_flag=True, dual_flag=False, dispatchload_path=None)
-    formulate_func(start, e, usage, results, times, extended_times, E_initial=e * 0.5, first_horizon_flag=True)
+    formulate_func(start, e, usage, results, times, extended_times, E_initial=e * 0.5, first_horizon_flag=True, dual_flag=True, link_flag=False)
 
 
 if __name__ == '__main__':
@@ -386,7 +434,8 @@ if __name__ == '__main__':
     initial_time = datetime.datetime(2021, 7, 18, 4, 30)
     iterations = 1
     # usage = 'BiUnit'
-    usage = 'DER None Bilevel Test Hour every 1st'
+    usage = 'DER None Inelastic Bilevel Test Hour every 1st'
+    # usage = 'DER None Integration Test Hour every 1st'
     # method = 0
     energies = 30
     # initial_times = [initial_time + i * default.THIRTY_MIN * 2 for i in range(18, 24)]

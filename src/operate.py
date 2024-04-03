@@ -29,7 +29,8 @@ degradations = [1 / 34957, 1 / 19985, 1 / 10019, 1 / 3221, 1 / 2600]
 
 def schedule(current, battery, p5min_times=None, p5min_prices=None, aemo_p5min_prices=None, predispatch_times=None,
              predispatch_prices=None, aemo_predispatch_prices=None, custom_flag=True, horizon=None, k=0, E_initial=None,
-             method=None, band=None, fcas_flag=False, fcas_type=None, multi_flag=False, der_flag=False, prices=None):
+             method=None, band=None, fcas_flag=False, fcas_type=None, multi_flag=False, der_flag=False, prices=None,
+             intervals=None):
     """ Battery operation optimisation.
 
     Args:
@@ -69,16 +70,16 @@ def schedule(current, battery, p5min_times=None, p5min_prices=None, aemo_p5min_p
     M = 16  # Number of segments
     R = 300000  # Replacement cost ($/MWh)
     if prices is None:
-        intervals = None
         if p5min_times is None:
-            times, prices, predispatch_time, aemo_prices, fcas_prices, aemo_fcas_prices, raise_fcas_records, lower_fcas_records, extended_times = process_prices_by_interval(current, custom_flag, battery, k, fcas_flag)
-            # times, prices, predispatch_time, aemo_prices, fcas_prices, aemo_fcas_prices, raise_fcas_records, lower_fcas_records, extended_times = process_prices_by_hour(current, custom_flag, battery, k, fcas_flag)
-            # intervals = 60 / 60
-            # tstep = 60 / 60
+            if intervals is None or intervals == 5:
+                times, prices, predispatch_time, aemo_prices, fcas_prices, aemo_fcas_prices, raise_fcas_records, lower_fcas_records, extended_times = process_prices_by_interval(current, custom_flag, battery, k, fcas_flag)
+            elif intervals == 60:
+                times, prices, predispatch_time, aemo_prices, fcas_prices, aemo_fcas_prices, raise_fcas_records, lower_fcas_records, extended_times = process_prices_by_hour(current, custom_flag, battery, k, fcas_flag)
+                tstep = intervals / 60
         else:
             times, prices, p5min_prices, predispatch_prices, predispatch_time, aemo_prices = process_given_prices_by_interval(current, custom_flag, battery, k, p5min_times, p5min_prices, aemo_p5min_prices, predispatch_times, predispatch_prices, aemo_predispatch_prices)
     else:
-        intervals = 60 / 60
+        intervals = 60
         tstep = 60 / 60
     # Cost-reflective bidding strategy: Replace the price of the first interval by corresponding band price
     if band is not None:
@@ -115,7 +116,7 @@ def schedule(current, battery, p5min_times=None, p5min_prices=None, aemo_p5min_p
         model.addLConstr(E[T - 1], gp.GRB.EQUAL, E_initial, 'FINAL_STATE')  # Final state
         for j in range(T):
             model.addSOS(type=gp.GRB.SOS_TYPE1, vars=[pgen[j], pload[j]])  # Charge or discharge
-            if intervals is None:
+            if intervals is None or intervals == 5:
                 # Different length of forecast horizon
                 if j == T1:
                     tstep = (6 - remainder) * 5 / 60  # First interval of PREDISPATCH
@@ -128,9 +129,9 @@ def schedule(current, battery, p5min_times=None, p5min_prices=None, aemo_p5min_p
                 elif T1 < j < T:
                     tstep = 30 / 60
                 else:
-                    tstep = 5 / 6
+                    tstep = 5 / 60
             else:
-                tstep = intervals
+                tstep = intervals / 60
             # Transition between horizons
             if j >= 1:
                 model.addLConstr(E[j], gp.GRB.EQUAL,
@@ -208,13 +209,15 @@ def schedule(current, battery, p5min_times=None, p5min_prices=None, aemo_p5min_p
         #     write.write_forecasts(current, soc, times, prices, pgen, pload, predispatch_time, T1, T, battery.bat_dir, k, band)
         # # return write.write_forecasts(current, soc, times, prices, pgen, pload, predispatch_time, T1, T2, battery.bat_dir, k, band), E[0].getValue()
         # Plot results
-        # import plot
-        # if band is None:
-        #     path_to_fig = battery.bat_dir / ('forecast' if k == 0 else f'forecast_{k}') / f'{default.get_case_datetime(current)}.jpg'
-        # else:
-        #   path_to_fig = battery.bat_dir / ('forecast' if k == 0 else f'forecast_{k}') / f'{default.get_case_datetime(current)}_{fcas_type}_{band}.jpg'
+        import plot
+        if band is None:
+            path_to_fig = battery.bat_dir / ('forecast' if k == 0 else f'forecast_{k}') / f'{default.get_case_datetime(current)}.jpg'
+        else:
+            path_to_fig = battery.bat_dir / ('forecast' if k == 0 else f'forecast_{k}') / f'{default.get_case_datetime(current)}_{fcas_type}_{band}.jpg'
         # plot.plot_soc(times, prices, [soc[j].x * 100 for j in range(T)], path_to_fig)
-        # path_to_fig = battery.bat_dir / 'forecast' / f'ENERGY_{default.get_case_datetime(current)}.jpg'
+        path_to_fig = battery.bat_dir / 'forecast' / f'ENERGY_{default.get_case_datetime(current)}.jpg'
+        # print(prices)
+        # print([p.x - l.x for p, l in zip(pgen, pload)])
         # plot.plot_power(times, prices, [p.x - l.x for p, l in zip(pgen, pload)], 'ENERGY', path_to_fig)
         # path_to_fig = battery.bat_dir / 'forecast' / f'RAISE5MIN_{default.get_case_datetime(current)}.jpg'
         # plot.plot_power(times, fcas_prices['RAISE5MIN'], [f.x for f in raise_fcas], 'RAISE5MIN', path_to_fig)

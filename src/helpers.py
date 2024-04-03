@@ -82,6 +82,7 @@ def get_total_intervals(process, start_time=None):
 
 class Battery:
     def __init__(self, e, p, region_id='NSW1', method=2, usage=None, bat_id='Battery'):
+        self.usage = usage
         self.bat_id = bat_id
         self.region_id = region_id
         self.data = self.read_data()
@@ -191,7 +192,34 @@ class Battery:
         unit.fcas_bids[bid_type] = fcas_bid
 
     def update_usage(self, usage):
+        self.usage = usage
         self.bat_dir = default.OUT_DIR / usage / self.name
+
+
+def generate_batteries_by_energies(energies, usage):
+    """Generate a list of Battery instances.
+
+    Args:
+        energies (list): a list of battery sizes (in MWh)
+        usage (str): what those batteries used for
+
+    Returns:
+        list: a list of Battery instances
+    """
+    return [Battery(e, int(e * 2 / 3) if type(e) == int else (e * 2 / 3), usage=usage) for e in energies]
+
+
+def generate_batteries_by_usages(energy, usages):
+    """Generate a list of Battery instances.
+
+    Args:
+        energies (list): a list of battery sizes (in MWh)
+        usage (str): what those batteries used for
+
+    Returns:
+        list: a list of Battery instances
+    """
+    return [Battery(energy, int(energy * 2 / 3) if type(energy) == int else (energy * 2 / 3), usage=u) for u in usages]
 
 
 def init_batteries(e, p, u, bat_id):

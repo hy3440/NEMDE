@@ -570,7 +570,7 @@ def formulate(start, interval, process, iteration=0, custom_unit=None, path_to_o
             #     added_term += obj.getVar(i) * small_terms[i] / 10000000
             # model.setObjective(prob.cost + prob.penalty + added_term, gp.GRB.MINIMIZE)
             # for unit in custom_unit:
-            if True:
+            if link_flag:
                 # obj_battery_constr = model.addLConstr(unit.total_cleared, sense=gp.GRB.EQUAL, rhs=0, name=f'Battery_{unit.duid}_{prob.problem_id}')
                 for link_id in ['BLNKVIC', 'BLNKTAS']:
                     link = prob.links[link_id]
@@ -615,8 +615,7 @@ def formulate(start, interval, process, iteration=0, custom_unit=None, path_to_o
                                                                       start, process, k=iteration, path_to_out=path_to_out, batt_no=batt_no)
                         # Model Debugging
                         if debug_flag:
-                            # # TODO: Debug objective value based on AEMO record
-
+                            # Debug objective value based on AEMO record
                             # Write binding constraints into file
                             # debug.write_binding_constrs(model.getConstrs(), path_to_out,
                             #                             predispatch_current if process == 'predispatch' else current,
@@ -940,40 +939,18 @@ if __name__ == '__main__':
 
     # path_to_log = default.LOG_DIR / f'{process_type}_{default.get_case_datetime(start_time)}.log'
     # logging.basicConfig(filename=path_to_log, filemode='w', format='%(levelname)s: %(asctime)s %(message)s', level=logging.DEBUG)
-    # total_intervals = helpers.get_total_intervals(process_type, start_time)
-    # # for interval in range(int((end_time-start_time) / default.FIVE_MIN + 1)):
-    # last, interval = default.datetime_to_interval(datetime.datetime(2020, 9, 1, 4, 5, 0))
-    # b = helpers.Battery(30, 20, 'NSW1', 2)
-    # from price_taker import customise_unit
-    # u = customise_unit(last, 20, 0, b, market_price_floor)
-    # # _, p1, p2 = formulate(start_time, interval, process=process_type, dispatchload_flag=False, path_to_out=b.bat_dir, debug_flag=True)
-    # # print(p1, p2)
-    # formulate_sequence(30, 'DER-None')
-    # formulate_sequence(datetime.datetime(2021, 9, 12, 4, 5), 30, 'DER-Price-taker', temp_results)
-    # formulate_participation(30)
-    # horizon = 0
+    # for interval in range(int((end_time-start_time) / default.FIVE_MIN + 1)):
+    horizon = 0
     # path_to_out = default.OUT_DIR / 'tiebreak'
-    # for i in range(128, 288):
-    # import preprocess
-    # preprocess.download_dispatch_summary(start_time, True)
-    # preprocess.download_xml(start_time, True)
-    # preprocess.download_predispatch(start_time, True)
-    # while current <= end_time:
     # for horizon in range(288):
     #     dispatchload_path, rrp, fcas_rrp = formulate(start_time, horizon, 'dispatch', path_to_out=path_to_out, dispatchload_flag=(horizon != 0), debug_flag=False)
     #     current += default.FIVE_MIN
-    # get_all_dispatch(start_time, process_type, path_to_out)
 
-    # dispatchload_path, rrp, fcas_rrp = formulate(start, 0, 'dispatch',
-    #                                              path_to_out=default.DEBUG_DIR,
-    #                                              dispatchload_flag=False,
-    #                                              dispatchload_record=True,
-    #                                              fcas_flag=False,
-    #                                              dual_flag=True)
-    # print(rrp)
-    usage = 'DER Test'
-    e = 0
-    times = [start + default.FIVE_MIN * i for i in range(2)]
-    results = [[0, 0] for _ in times]
-    extended_times = [None for _ in times]
-    formulate_sequence(start, e, usage, results, times, extended_times, first_horizon_flag=True, link_flag=False, dual_flag=False)
+    dispatchload_path, rrp, fcas_rrp = formulate(start, 0, 'dispatch',
+                                                 path_to_out=default.DEBUG_DIR,
+                                                 dispatchload_flag=False,
+                                                 dispatchload_record=True,
+                                                 fcas_flag=False,
+                                                 link_flag=False,
+                                                 dual_flag=True)
+    print(rrp)

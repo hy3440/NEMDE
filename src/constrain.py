@@ -534,6 +534,7 @@ def add_unit_ramp_constr(process, model, intervals, unit, prob_id, debug_flag, p
     Returns:
         The penalty linear expression
     """
+    # intervals = 30
     # Note: In Dispatch, the more restrictive of the telemetered ramp rates and the ramp rates submitted in energy
     # offers are used to determine the effective energy ramp rates applied to the calculation of unit energy dispatch.
     # In Pre-dispatch, only the offered ramp rates are used. (See Paper AEMO2021Factors Section 7.2.4.1)
@@ -546,6 +547,7 @@ def add_unit_ramp_constr(process, model, intervals, unit, prob_id, debug_flag, p
     surplus_ramp_rate = model.addVar(name=f'Surplus_Ramp_Rate_{unit.duid}_{prob_id}')  # Item3
     penalty += surplus_ramp_rate * cvp['RampRatePrice']
     model.addLConstr(unit.total_cleared - surplus_ramp_rate <= unit.initial_mw + intervals * up_rate, name=f'ROC_UP_{unit.duid}_{prob_id}')
+    # model.addLConstr(unit.total_cleared <= unit.initial_mw + intervals * up_rate, name=f'ROC_UP_{unit.duid}_{prob_id}')
     # if debug_flag:
     #     if unit.total_cleared_record is not None and unit.total_cleared_record > unit.initial_mw + intervals * up_rate and abs(unit.total_cleared_record - unit.initial_mw - intervals * up_rate) > 1:
     #         logging.warning(f'{unit.dispatch_type} {unit.duid} above raise ramp rate constraint')
@@ -555,8 +557,8 @@ def add_unit_ramp_constr(process, model, intervals, unit, prob_id, debug_flag, p
     down_rate = unit.energy.roc_down if unit.ramp_down_rate is None else unit.ramp_down_rate / 60
     deficit_ramp_rate = model.addVar(name=f'Deficit_Ramp_Rate_{unit.duid}_{prob_id}')  # Item3
     penalty += deficit_ramp_rate * cvp['RampRatePrice']
-    model.addLConstr(unit.total_cleared + deficit_ramp_rate >= unit.initial_mw - intervals * down_rate * 10,
-                     name=f'ROC_DOWN_{unit.duid}_{prob_id}')
+    model.addLConstr(unit.total_cleared + deficit_ramp_rate >= unit.initial_mw - intervals * down_rate, name=f'ROC_DOWN_{unit.duid}_{prob_id}')
+    # model.addLConstr(unit.total_cleared >= unit.initial_mw - intervals * down_rate, name=f'ROC_DOWN_{unit.duid}_{prob_id}')
     # if debug_flag:
     #     if unit.total_cleared_record is not None and unit.total_cleared_record < unit.initial_mw - intervals * down_rate and abs(unit.total_cleared_record - unit.initial_mw + intervals * down_rate) > 1:
     #         logging.warning(f'{unit.dispatch_type} {unit.duid} below down ramp rate constraint')
@@ -590,7 +592,7 @@ def add_fixed_loading_constr(model, unit, prob_id, debug_flag, penalty,  cvp):
     # return penalty
 
 
-def add_cost(unit, regions, cost, debug_flag):
+def add_cost(unit, regions, cost, debug_flag, renewable_flag):
     """ Calculate unit costs.
 
     Args:
@@ -602,7 +604,7 @@ def add_cost(unit, regions, cost, debug_flag):
         The cost linear expression.
     """
     # Cost of an unit
-    unit.cost = sum([o * (p / unit.transmission_loss_factor) for o, p in zip(unit.offers, unit.energy.price_band)])
+    unit.cost = sum([o * ((max(p, 0) if renewable_flag and unit.renewable_flag else p) / unit.transmission_loss_factor) for o, p in zip(unit.offers, unit.energy.price_band)])
     if unit.dispatch_type == 'GENERATOR':
         # Add cost to objective
         cost += unit.cost

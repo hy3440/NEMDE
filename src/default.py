@@ -9,6 +9,7 @@ LOG_DIR = BASE_DIR / 'log'  # Log directory
 MODEL_DIR = BASE_DIR / 'model'  # Model directory
 DEBUG_DIR = BASE_DIR / 'debug'  # Debug directory
 RECORD_DIR = OUT_DIR / 'record'
+EXPERIMENT_DIR = BASE_DIR / 'experiment'
 
 ZERO = datetime.timedelta(seconds=0)
 ONE_MIN = datetime.timedelta(minutes=1)
@@ -34,6 +35,10 @@ CYAN = '#66CCEE'
 PURPLE = '#BF00BF'
 GREY = '#BBBBBB'
 BROWN ='#BB733E'
+TEAL = '#44AA99'
+BLACK = '#000000'
+INDIGO = '#332288'
+COLOR_LIST = [BLUE, PURPLE, GREEN, BROWN, RED, CYAN, YELLOW, TEAL, BLACK, INDIGO, GREY]
 
 MAX_RAMP_RATE = 1000000
 CONTINGENCY_FCAS_TYPES = {'RAISE5MIN', 'LOWER5MIN', 'RAISE6SEC', 'LOWER6SEC', 'RAISE60SEC', 'LOWER60SEC'}

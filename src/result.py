@@ -153,6 +153,7 @@ def write_dispatchload(units, links, t, start, process, k=0, path_to_out=default
         for bid_type in FCAS_TYPES:
             row.append(bid_type)
             row.append(f'AEMO {bid_type}')
+        row += ['LAST TO CURRENT', 'CURRENT TO NEXT', 'UP', 'DOWN', 'REGION', 'TYPE', 'COST']
         writer.writerow(row)
         for duid, unit in units.items():
             # print(unit.total_cleared.x if unit.total_cleared != 0 else 0)
@@ -172,6 +173,13 @@ def write_dispatchload(units, links, t, start, process, k=0, path_to_out=default
                 else:
                     row.append('-')
                     row.append('-')
+            row.append(unit.last_to_current)
+            row.append(unit.current_to_next)
+            row.append(unit.next_up_dual)
+            row.append(unit.next_down_dual)
+            row.append(unit.region_id)
+            row.append(unit.dispatch_type)
+            row.append(0 if type(unit.cost) == float else unit.cost.getValue())
             writer.writerow(row)
         if type(links) == list:
             writer.writerow(['BLNKVIC', links[0].x])

@@ -5,7 +5,7 @@ import default
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from reflect import generate_batteries
+from helpers import generate_batteries_by_energies
 
 # Current interval
 # current = datetime.datetime(2021, 9, 12, 18, 10, 0)
@@ -22,14 +22,14 @@ mw_nobatt = 0
 # usage = 'Cost-reflective + multiple FCAS'
 energies = [30]
 usage = 'DER Price-taker Dual'
-batteries = generate_batteries(energies, usage)
+batteries = generate_batteries_by_energies(energies, usage)
 # fn_batt1 = default.DEBUG_DIR / 'dispatch' / f'dispatchload_{default.get_case_datetime(current + default.FIVE_MIN)}-batt1.csv'
 # fn_batt2 = default.DEBUG_DIR / 'dispatch' / f'dispatchload_{default.get_case_datetime(current + default.FIVE_MIN)}-batt2.csv'
 fn_nobatt = default.DEBUG_DIR / 'dual' / 'dispatch' / f'dispatchload_{default.get_case_datetime(current + default.FIVE_MIN)}.csv'
 fn_units = default.DATA_DIR / 'dvd' / 'DVD_DUDETAILSUMMARY_202009010000.csv'
 fn_batt1 = batteries[0].bat_dir / 'dispatch' / f'dispatchload_{default.get_case_datetime(current + default.FIVE_MIN)}.csv'
 usage = 'Price-taker Dual'
-batteries = generate_batteries(energies, usage)
+batteries = generate_batteries_by_energies(energies, usage)
 fn_batt2 = batteries[0].bat_dir / 'dispatch' / f'dispatchload_{default.get_case_datetime(current + default.FIVE_MIN)}.csv'
 
 # Parse input files into Pandas dataframes.

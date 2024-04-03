@@ -179,6 +179,36 @@ def compare_obj():
             print(f'{k}, {coe11[k]}, {var11[k]}, {var22[k]}, {(var11[k] - var22[k]) * coe22[k]}')
 
 
+def compare_given_unit():
+    duid = 'YARWUN_1'
+    from helpers import Battery
+    import datetime
+    u1 = 'Price-taker Hour Temp'
+    u2 = 'DER None Integrated Hour No-losses Check'
+    start = datetime.datetime(2021, 7, 18, 4, 35)
+    e = 0
+    p1, p2 = [], []
+    batteries = [Battery(e, int(e * 2 / 3) if type(e) == int else (e * 2 / 3), usage=u) for u in [u1, u2]]
+    for i in range(24):
+        current = start + i * default.ONE_HOUR
+        print(current)
+        powers = [read_unit_total_cleared(b.bat_dir / 'dispatch' / f'dispatchload_{default.get_case_datetime(current)}.csv', duid) for b in batteries]
+        p1.append(powers[0])
+        p2.append(powers[1])
+    fig = plt.figure()
+    plt.xlabel("Period")
+    plt.plot(range(24), p1, color=default.PURPLE, label=u1)
+    plt.plot(range(24), p2, color=default.BROWN, label=u2)
+    plt.legend()
+    plt.ylabel("MW")
+    if '/' in duid:
+        duid = duid.replace('/', '-')
+    # plt.savefig(default.OUT_DIR / 'units' / f'{duid}.jpg')
+    plt.show()
+    plt.close()
+
+
 if __name__ == '__main__':
-    compare_all_units('-tiebreak')
+    # compare_all_units('-tiebreak')
     # compare_obj()
+    compare_given_unit()

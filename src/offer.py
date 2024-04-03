@@ -4,6 +4,7 @@ import default
 import logging
 import preprocess
 import predefine
+import pandas as pd
 
 
 class Bid:
@@ -267,6 +268,13 @@ class Unit:
         self.scada_value = None
         # Custom DER flag
         self.der_flag = False
+        # Custom intertemporal constraint price
+        self.last_to_current = 0
+        self.current_to_next = 0
+        self.next_up_dual = 0
+        self.next_down_dual = 0
+        self.cost = 0.0
+        self.renewable_flag = False
 
     def set_duid(self, duid):
         self.duid = duid
@@ -805,6 +813,17 @@ def calculate_daily_energy(units, t, k, path_to_out):
         start += default.FIVE_MIN
 
 
+def add_registeration(units):
+    path_to_registeration = preprocess.download_registration(True)
+    with pd.ExcelFile(path_to_registeration) as xls:
+        df = pd.read_excel(xls, 'Generators and Scheduled Loads')
+        for index, row in df.iterrows():
+            unit = units.get(row['DUID'])
+            if unit:
+                if row['Fuel Source - Primary'] in ['Solar', 'Wind']:
+                    unit.renewable_flag = True
+
+
 def get_units(t, start, i, process, units={}, links={}, fcas_flag=True, dispatchload_path=None, dispatchload_flag=True, daily_energy_flag=True, agc_flag=True, predispatch_t=None, k=0, path_to_out=default.OUT_DIR, debug_flag=False, dispatchload_record=False):
     """Get units.
 
@@ -855,5 +874,6 @@ def get_units(t, start, i, process, units={}, links={}, fcas_flag=True, dispatch
     if dispatchload_flag:
         add_dispatchload(units, links, predispatch_t if process == 'predispatch' else t, start, process, k=k,
                          path_to_out=path_to_out, dispatchload_path=dispatchload_path, daily_energy_flag=daily_energy_flag)
+    add_registeration(units)
     # return connection_points
     return None

@@ -32,13 +32,13 @@ def read_trading_prices(t, custom_flag, region_id, k=0, path_to_out=default.OUT_
 
 
 def read_dispatch_prices(t, process, custom_flag, region_id, k=0, path_to_out=default.RECORD_DIR, intervention='0', fcas_flag=False):
-    """Read prices from DISPATCHIS file.
+    """Read prices of a given region or all regions from DISPATCHIS file.
 
     Args:
         t (datetime.datetime): current datetime
         process (str): process type, 'dispatch', 'p5min' or 'predispatch'
         custom_flag (bool): our custom results or AEMO's records
-        region_id (str): region ID
+        region_id (str): region ID for the given region or None
         k (int): iteration number
         path_to_out (pathlib.Path): path to output directory
         intervention (str): intervention or not
@@ -491,17 +491,18 @@ def read_battery_optimisation(path_to_csv):
     #             prices.append(float(row[-1]))
     try:
         df = pd.read_csv(path_to_csv)
-        # print(df['Datetime'])
-        # print(df['SOC (%)'])
         df = df[(df.Datetime != 'Datetime')]
         socs = df['SOC (%)'].astype(float)
         times = pd.to_datetime(df['Datetime'])
-        prices1 = df['Price ($/MWh)'].astype(float)
-        prices2 = df['Sub Price ($/MWh)'].astype(float)
-        prices3 = df['Fix Price ($/MWh)'].astype(float)
-        return list(times), list(socs), list(prices1), list(prices2), list(prices3)
+        # prices1 = df['Price ($/MWh)'].astype(float)
+        # prices2 = df['Sub Price ($/MWh)'].astype(float)
+        surplus = df.filter(['Price ($/MWh)', 'Surplus']).iloc[:, 0].astype(float)
+        total_cost = df.filter(['Sub Price ($/MWh)', 'Total Cost']).iloc[:, 0].astype(float)
+        price = df['Fix Price ($/MWh)'].astype(float)
+        battery_cost = df['Cost'].astype(float)
+        return list(times), list(socs), list(surplus), list(total_cost), list(price), battery_cost
     except pd.errors.EmptyDataError:
-        return [], [], [], [], []
+        return [], [0], [0], [0], [0], [0]
 
 
 def read_battery_power(path_to_csv, usage):
